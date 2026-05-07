@@ -7442,22 +7442,6 @@ snippet = 'panic!("                        ");'
 count = 1
 
 [[entry]]
-path = "crates/uselesskey-core-x509-negative/tests/negative_tests.rs"
-family = "unwrap"
-selector_kind = "method_call"
-selector_callee = "unwrap"
-snippet = "let offset = expect_days_ago(modified.intermediate_not_before.unwrap());"
-count = 1
-
-[[entry]]
-path = "crates/uselesskey-core-x509-negative/tests/negative_tests.rs"
-family = "unwrap"
-selector_kind = "method_call"
-selector_callee = "unwrap"
-snippet = "let offset = expect_days_ago(modified.leaf_not_before.unwrap());"
-count = 1
-
-[[entry]]
 path = "crates/uselesskey-core-x509-spec/src/chain_spec.rs"
 family = "unreachable"
 selector_kind = "macro"
