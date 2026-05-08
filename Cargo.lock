@@ -4746,12 +4746,10 @@ dependencies = [
 name = "uselesskey-core-cache"
 version = "0.6.0"
 dependencies = [
- "dashmap",
  "insta",
  "proptest",
  "rstest",
  "serde",
- "spin 0.10.0",
  "uselesskey-core",
  "uselesskey-core-id",
 ]
@@ -4762,10 +4760,8 @@ version = "0.6.0"
 dependencies = [
  "insta",
  "proptest",
- "rand 0.10.1",
  "serde",
  "uselesskey-core",
- "uselesskey-core-cache",
  "uselesskey-core-id",
 ]
 
@@ -4798,7 +4794,6 @@ dependencies = [
  "rstest",
  "serde",
  "uselesskey-core",
- "uselesskey-core-hash",
  "uselesskey-core-seed",
  "uselesskey-test-support",
 ]
@@ -4892,8 +4887,6 @@ dependencies = [
  "rstest",
  "serde",
  "uselesskey-core",
- "uselesskey-core-negative-der",
- "uselesskey-core-negative-pem",
 ]
 
 [[package]]
@@ -4905,7 +4898,6 @@ dependencies = [
  "rstest",
  "serde",
  "uselesskey-core",
- "uselesskey-core-hash",
 ]
 
 [[package]]
@@ -4940,8 +4932,6 @@ dependencies = [
  "blake3",
  "insta",
  "proptest",
- "rand_chacha 0.10.0",
- "rand_core 0.10.1",
  "rstest",
  "serde",
  "uselesskey-core",
