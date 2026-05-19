@@ -40,13 +40,10 @@ RUN install_archive() { \
       "86edc9b8f20c29ff07c3e5fcd67bc3f0784b3b960a5428635060f20d50555461" \
       "cargo-fuzz"; \
     install_archive \
-      "https://github.com/sourcefrog/cargo-mutants/releases/download/v${CARGO_MUTANTS_VERSION}/cargo-mutants-x86_64-unknown-linux-gnu.tar.gz" \
-      "5083ce59bf9195ce9bb218278b609bbd183be897ca53671bad4df588fc7a9d7d" \
-      "cargo-mutants"; \
-    install_archive \
       "https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
       "d68c1a9c5abd8de11f7749edfa414087c8bc828e89064714487d23c89f36b06e" \
       "typos"; \
+    cargo install cargo-mutants --version "${CARGO_MUTANTS_VERSION}" --locked; \
     rustc --version; \
     cargo --version; \
     cargo +nightly --version; \
