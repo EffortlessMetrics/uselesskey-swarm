@@ -1,0 +1,292 @@
+# Effortless Metrics — non-Rust file policy allowlist
+#
+# Rust and `xtask` are the default implementation surface. Any tracked file
+# that is not Rust source, a `Cargo.toml`/`Cargo.lock`, or a `.md` doc requires
+# an approved entry in this file with owner, surface, classification, reason,
+# and `covered_by` evidence.
+#
+# Owner: repo-policy
+# See: docs/FILE_POLICY.md, docs/POLICY_ALLOWLISTS.md
+schema_version = "1.0"
+
+[policy]
+# Files are matched in order; the first match wins.
+# Globs use forward-slash repo-relative paths.
+# Default-allowed extensions (no entry required) are listed here for
+# transparency only — they are still classified by the checker.
+default_allowed_extensions = ["rs", "toml", "md"]
+# Default-allowed top-level filenames that have no extension.
+default_allowed_filenames = [
+  "LICENSE-APACHE",
+  "LICENSE-MIT",
+  "CODEOWNERS",
+  ".gitignore",
+  ".gitattributes",
+  ".editorconfig",
+]
+
+# === CI / declarative configuration ==========================================
+
+[[allow]]
+glob = ".github/workflows/*.yml"
+kind = "ci_declarative"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "GitHub Actions workflow definitions are platform-required YAML."
+covered_by = ["cargo xtask ci"]
+
+[[allow]]
+glob = ".github/*.yml"
+kind = "github_meta"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "GitHub repo metadata: settings, dependabot, funding, release notes."
+covered_by = ["GitHub schema validation"]
+
+[[allow]]
+glob = "codecov.yml"
+kind = "ci_coverage_policy"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "Codecov status and reporting configuration for cargo-llvm-cov coverage uploads."
+covered_by = ["cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "lefthook.yml"
+kind = "git_hooks_config"
+owner = "repo-policy"
+surface = "tooling"
+classification = "config"
+reason = "Lefthook git-hook configuration."
+covered_by = ["lefthook run pre-commit"]
+
+# === Repo automation / scripts ==============================================
+
+[[allow]]
+glob = "scripts/*.py"
+kind = "ci_helper_script"
+owner = "release/ci"
+surface = "ci"
+classification = "tooling"
+reason = "Small CI helper scripts used to project generated evidence into GitHub Actions annotations."
+covered_by = ["python scripts/ripr-annotations.py", "cargo xtask check-file-policy"]
+
+[[allow]]
+glob = ".uselesskey/goals/archive/.gitkeep"
+kind = "active_goal_archive_placeholder"
+owner = "repo-policy"
+surface = "ops"
+classification = "config"
+reason = "Keeps the active-goal archive directory present before the first archived lane file is written."
+covered_by = ["cargo xtask spec-check --strict", "cargo xtask check-file-policy"]
+
+# === Repo automation / hooks ================================================
+
+[[allow]]
+glob = ".githooks/pre-commit"
+kind = "git_hook"
+owner = "repo-policy"
+surface = "tooling"
+classification = "tooling"
+reason = "Repo-managed pre-commit hook script."
+covered_by = ["cargo xtask setup"]
+
+[[allow]]
+glob = ".githooks/pre-push"
+kind = "git_hook"
+owner = "repo-policy"
+surface = "tooling"
+classification = "tooling"
+reason = "Repo-managed pre-push hook script."
+covered_by = ["cargo xtask gate"]
+
+# === Cargo / lock / manifests ==============================================
+
+[[allow]]
+glob = "Cargo.lock"
+kind = "cargo_lockfile"
+owner = "repo-policy"
+surface = "build"
+classification = "generated"
+reason = "Cargo lockfile."
+generated_by = "cargo build"
+covered_by = ["cargo xtask dep-guard"]
+
+[[allow]]
+glob = "fuzz/Cargo.lock"
+kind = "cargo_lockfile"
+owner = "fuzz"
+surface = "build"
+classification = "generated"
+reason = "Fuzz workspace lockfile."
+generated_by = "cargo fuzz build"
+covered_by = ["cargo xtask fuzz"]
+
+[[allow]]
+glob = "fuzz/.gitignore"
+kind = "vcs_meta"
+owner = "fuzz"
+surface = "build"
+classification = "config"
+reason = "Fuzz workspace gitignore."
+covered_by = ["manual review"]
+
+[[allow]]
+glob = ".cargo/*.toml"
+kind = "cargo_config"
+owner = "repo-policy"
+surface = "build"
+classification = "config"
+reason = "Cargo build configuration (workspace + mutants tuning)."
+covered_by = ["cargo xtask ci"]
+
+[[allow]]
+glob = "**/uselesskey-fixtures.toml"
+kind = "fixture_manifest"
+owner = "core/buildrs"
+surface = "fixtures"
+classification = "test"
+reason = "Materialize build.rs example fixture manifest."
+covered_by = ["cargo xtask test"]
+
+[[allow]]
+glob = ".typos.toml"
+kind = "tooling_config"
+owner = "repo-policy"
+surface = "tooling"
+classification = "config"
+reason = "typos spell-check configuration."
+covered_by = ["cargo xtask typos"]
+
+# === BDD feature files ======================================================
+
+[[allow]]
+glob = "crates/uselesskey-bdd/features/*.feature"
+kind = "bdd_feature"
+owner = "bdd"
+surface = "tests"
+classification = "test"
+reason = "Cucumber feature files for BDD tests."
+covered_by = ["cargo xtask bdd"]
+
+# === Test fixtures (golden, snapshots, regressions) ========================
+
+[[allow]]
+glob = "crates/uselesskey-cli/tests/golden/*.json"
+kind = "fixture_input"
+owner = "cli"
+surface = "fixtures"
+classification = "test"
+reason = "CLI golden fixture inputs."
+covered_by = ["cargo test -p uselesskey-cli"]
+
+[[allow]]
+glob = "crates/uselesskey-cli/tests/golden/*.yaml"
+kind = "fixture_input"
+owner = "cli"
+surface = "fixtures"
+classification = "test"
+reason = "CLI golden fixture inputs (k8s/sops shape)."
+covered_by = ["cargo test -p uselesskey-cli"]
+
+[[allow]]
+glob = "crates/uselesskey-cli/tests/golden/*.env"
+kind = "fixture_input"
+owner = "cli"
+surface = "fixtures"
+classification = "test"
+reason = "CLI golden fixture .env file."
+covered_by = ["cargo test -p uselesskey-cli"]
+
+[[allow]]
+glob = "tests/fixtures/**/.gitignore"
+kind = "vcs_meta"
+owner = "tests"
+surface = "fixtures"
+classification = "config"
+reason = "Per-fixture gitignore."
+covered_by = ["manual review"]
+
+[[allow]]
+glob = "**/snapshots/**/*.snap"
+kind = "snapshot"
+owner = "tests"
+surface = "tests"
+classification = "test"
+reason = "insta snapshot files (per-crate and workspace-level)."
+generated_by = "cargo insta accept"
+covered_by = ["cargo test"]
+
+[[allow]]
+glob = "**/*.proptest-regressions"
+kind = "proptest_regressions"
+owner = "tests"
+surface = "tests"
+classification = "test"
+reason = "proptest regression seeds."
+generated_by = "proptest persistence"
+covered_by = ["cargo test"]
+
+[[allow]]
+glob = "tests/compile_fail/*.stderr"
+kind = "trybuild_stderr"
+owner = "tests"
+surface = "tests"
+classification = "test"
+reason = "trybuild compile-fail expected stderr output."
+generated_by = "TRYBUILD=overwrite cargo test"
+covered_by = ["cargo test --test compile_fail"]
+
+# === Generated metadata =====================================================
+
+[[allow]]
+glob = "docs/metadata/*.json"
+kind = "generated_metadata"
+owner = "docs/metadata"
+surface = "docs"
+classification = "generated"
+reason = "Generated workspace docs / perf-baseline metadata."
+generated_by = "cargo xtask docs-sync"
+covered_by = ["cargo xtask docs-sync --check"]
+
+[[allow]]
+glob = "docs/schemas/*.json"
+kind = "published_schema"
+owner = "docs/spec"
+surface = "docs"
+classification = "config"
+reason = "Published JSON schemas document stable machine-readable contracts for downstream users."
+covered_by = ["cargo xtask docs-sync --check", "cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "badges/*.json"
+kind = "generated_badge_endpoint"
+owner = "release/ci"
+surface = "docs"
+classification = "generated"
+reason = "Generated Shields endpoint JSON for public README badges."
+generated_by = "cargo xtask badges"
+covered_by = ["cargo xtask badges --check"]
+
+# === Example reference outputs =============================================
+
+[[allow]]
+glob = "examples/external/downstream-ci-bundle-audit/.github/workflows/*.yml.example"
+kind = "external_example_ci_workflow"
+owner = "cli"
+surface = "examples"
+classification = "docs"
+reason = "Downstream-shaped GitHub Actions workflow example for installed CLI bundle audit. It is inert until copied by a downstream project."
+covered_by = ["cargo xtask external-adoption-smoke --path .", "cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "examples/scanner-safe-bundle/expected/**/*"
+kind = "scanner_safe_bundle_reference"
+owner = "cli"
+surface = "examples"
+classification = "test"
+reason = "Scanner-safe bundle reference outputs (manifest, payload shapes, receipts) used by examples/scanner-safe-bundle/README.md to demonstrate deterministic generator stability. Shape-only — never real secret material."
+covered_by = ["examples/scanner-safe-bundle/README.md", "manual review"]

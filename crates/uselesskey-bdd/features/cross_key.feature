@@ -1,0 +1,142 @@
+Feature: Cross-key validation failures
+  As a test author
+  I want to verify that wrong key types fail validation
+  So that I can test error handling in cryptographic workflows
+
+  # --- RSA vs ECDSA ---
+
+  Scenario: RSA key has different JWK kty than ECDSA key
+    Given a deterministic factory seeded with "cross-rsa-ecdsa-test"
+    When I generate an RSA key for label "cross-rsa" with spec RS256
+    And I generate an ECDSA ES256 key for label "cross-ecdsa"
+    Then the RSA JWK should have kty "RSA"
+    And the ECDSA JWK should have kty "EC"
+    And the RSA JWK kty should differ from the ECDSA JWK kty
+
+  Scenario: ECDSA key has different curve than expected
+    Given a deterministic factory seeded with "cross-curve-test"
+    When I generate an ECDSA ES256 key for label "p256-key"
+    And I generate an ECDSA ES384 key for label "p384-key"
+    Then the ES256 JWK should have crv "P-256"
+    And the ES384 JWK should have crv "P-384"
+    And the ES256 crv should differ from the ES384 crv
+
+  # --- Key ID uniqueness ---
+
+  Scenario: different key types have different kids
+    Given a deterministic factory seeded with "cross-kid-test"
+    When I generate an RSA key for label "kid-rsa" with spec RS256
+    And I generate an ECDSA ES256 key for label "kid-ecdsa"
+    And I generate an Ed25519 key for label "kid-ed25519"
+    And I generate an HMAC HS256 secret for label "kid-hmac"
+    Then each key should have a unique kid
+
+  # --- Algorithm mismatch ---
+
+  Scenario: RSA key with RS256 spec has correct alg in JWK
+    Given a deterministic factory seeded with "cross-alg-test"
+    When I generate an RSA key for label "alg-rsa256" with spec RS256
+    And I generate an RSA key for label "alg-rsa384" with spec RS384
+    Then the RS256 JWK should have alg "RS256"
+    And the RS384 JWK should have alg "RS384"
+    And the RS256 alg should differ from the RS384 alg
+
+  Scenario: HMAC key with HS256 spec has correct alg in JWK
+    Given a deterministic factory seeded with "cross-hmac-alg-test"
+    When I generate an HMAC HS256 secret for label "hmac256"
+    And I generate an HMAC HS384 secret for label "hmac384"
+    And I generate an HMAC HS512 secret for label "hmac512"
+    Then the HS256 JWK should have alg "HS256"
+    And the HS384 JWK should have alg "HS384"
+    And the HS512 JWK should have alg "HS512"
+
+  # --- Key size differences ---
+
+  Scenario: different RSA key sizes produce different JWK n values
+    Given a deterministic factory seeded with "cross-rsa-size-test"
+    When I generate an RSA key for label "rsa-2048" with spec 2048
+    And I generate an RSA key for label "rsa-3072" with spec 3072
+    And I generate an RSA key for label "rsa-4096" with spec 4096
+    Then the RSA 2048 n value should have different length than RSA 4096 n value
+
+  # --- Deterministic isolation ---
+
+  Scenario: generating one key type does not affect another
+    Given a deterministic factory seeded with "cross-isolation-test"
+    When I generate an RSA key for label "isolation-rsa" with spec RS256
+    And I generate an ECDSA ES256 key for label "isolation-ecdsa"
+    And I generate an Ed25519 key for label "isolation-ed25519"
+    And I clear the factory cache
+    And I generate the same keys again in reverse order
+    Then each regenerated key should be identical to the original
+
+  # --- JWKS key type filtering ---
+
+  Scenario: JWKS can contain mixed key types
+    Given a deterministic factory seeded with "cross-jwks-mixed-test"
+    When I generate an RSA key for label "mixed-rsa" with spec RS256
+    And I generate an ECDSA ES256 key for label "mixed-ecdsa"
+    And I generate an Ed25519 key for label "mixed-ed25519"
+    And I build a JWKS containing all three keys
+    Then the JWKS should contain a key with alg "RS256"
+    And the JWKS should contain a key with alg "ES256"
+    And the JWKS should contain a key with alg "EdDSA"
+
+  # --- Same label different key types produce distinct material ---
+
+  Scenario: same label across RSA and ECDSA produces different kid values
+    Given a deterministic factory seeded with "same-label-cross-test"
+    When I generate an RSA key for label "shared-label" with spec RS256
+    And I generate an ECDSA ES256 key for label "shared-label"
+    Then the RSA JWK kty should differ from the ECDSA JWK kty
+
+  Scenario: same label across all key types produces unique kids
+    Given a deterministic factory seeded with "same-label-all-types"
+    When I generate an RSA key for label "identical-label" with spec RS256
+    And I generate an ECDSA ES256 key for label "identical-label"
+    And I generate an Ed25519 key for label "identical-label"
+    And I generate an HMAC HS256 secret for label "identical-label"
+    Then each key should have a unique kid
+
+  # --- Mismatch variants produce parseable but different keys across types ---
+
+  Scenario: RSA and ECDSA mismatch variants both produce distinct public keys
+    Given a deterministic factory seeded with "cross-mismatch-test"
+    When I generate an RSA key for label "cross-mismatch" with spec RS256
+    And I generate an ECDSA ES256 key for label "cross-mismatch"
+    Then a mismatched SPKI DER should parse and differ
+    And an ECDSA mismatched SPKI DER should parse and differ
+
+  # --- JWKS with all four key types ---
+
+  Scenario: JWKS can contain all four key types including HMAC
+    Given a deterministic factory seeded with "cross-jwks-all-four"
+    When I generate an RSA key for label "all-rsa" with spec RS256
+    And I generate an ECDSA ES256 key for label "all-ecdsa"
+    And I generate an Ed25519 key for label "all-ed25519"
+    And I generate an HMAC HS256 secret for label "all-hmac"
+    And I build a JWKS containing all keys
+    Then the JWKS should contain 4 keys
+    And the JWKS should contain a key with kty "RSA"
+    And the JWKS should contain a key with kty "EC"
+    And the JWKS should contain a key with kty "OKP"
+
+  # --- Ed25519 mismatch also works across types ---
+
+  Scenario: Ed25519 mismatch variant produces distinct public key
+    Given a deterministic factory seeded with "cross-ed25519-mismatch"
+    When I generate an RSA key for label "rsa-for-mismatch" with spec RS256
+    And I generate an Ed25519 key for label "ed25519-for-mismatch"
+    Then a mismatched SPKI DER should parse and differ
+    And an Ed25519 mismatched SPKI DER should parse and differ
+
+  # --- Key format validity across all types in same factory ---
+
+  Scenario: all key types produce valid DER formats from same factory
+    Given a deterministic factory seeded with "cross-format-validity"
+    When I generate an RSA key for label "format-rsa" with spec RS256
+    And I generate an ECDSA ES256 key for label "format-ecdsa"
+    And I generate an Ed25519 key for label "format-ed25519"
+    Then the PKCS8 DER should be parseable
+    And the ECDSA PKCS8 DER should be parseable
+    And the Ed25519 PKCS8 DER should be parseable

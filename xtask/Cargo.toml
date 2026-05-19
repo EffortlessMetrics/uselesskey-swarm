@@ -1,0 +1,32 @@
+[package]
+name = "xtask"
+version = "0.0.0"
+publish = false
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+description = "Build automation tasks (CI, test, lint, publish) for the uselesskey workspace."
+categories.workspace = true
+keywords = ["xtask", "build", "automation", "ci", "testing"]
+
+[dependencies]
+anyhow.workspace = true
+base64.workspace = true
+chrono = "0.4"
+clap.workspace = true
+indicatif = "0.18"
+owo-colors = "4.0"
+regex = "1.11"
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+toml.workspace = true
+uselesskey-feature-grid.workspace = true
+
+[dev-dependencies]
+tempfile.workspace = true
+
+[lints]
+workspace = true

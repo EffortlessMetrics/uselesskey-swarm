@@ -1,0 +1,53 @@
+[package]
+name = "uselesskey-core"
+version = "0.9.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "Core factory, deterministic derivation, and cache engine for uselesskey test fixtures."
+categories.workspace = true
+keywords = ["test", "fixtures", "deterministic", "cache", "seeded"]
+readme = "README.md"
+exclude = ["fuzz/**", "corpus/**", "**/*.der", "**/*.pem"]
+homepage.workspace = true
+documentation = "https://docs.rs/uselesskey-core"
+authors.workspace = true
+
+[features]
+default = ["std"]
+std = [
+    "dep:base64",
+    "dep:dashmap",
+    "dep:tempfile",
+    "blake3/std",
+    "rand10/std",
+    "rand10/sys_rng",
+    "rand_chacha10/std",
+    "thiserror/std",
+]
+
+[dependencies]
+base64 = { workspace = true, optional = true }
+blake3.workspace = true
+dashmap = { workspace = true, optional = true }
+rand10.workspace = true
+rand_chacha10.workspace = true
+rand_core10.workspace = true
+spin = { version = "0.11.0", default-features = false, features = ["mutex", "spin_mutex"] }
+tempfile = { workspace = true, optional = true }
+thiserror = { version = "2.0.18", default-features = false }
+
+[dev-dependencies]
+insta.workspace = true
+proptest.workspace = true
+rstest.workspace = true
+serde = { workspace = true }
+uselesskey-test-support = { workspace = true }
+
+[package.metadata.docs.rs]
+features = ["std"]
+
+
+[lints]
+workspace = true

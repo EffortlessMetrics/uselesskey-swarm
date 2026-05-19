@@ -1,0 +1,149 @@
+mod testutil;
+
+#[test]
+fn prelude_exposes_core_items() {
+    use uselesskey::prelude::*;
+
+    let fx = Factory::random();
+    assert!(matches!(fx.mode(), Mode::Random));
+
+    let seed = Seed::from_env_value("facade-seed").unwrap();
+    let fx = Factory::deterministic(seed);
+    assert!(matches!(fx.mode(), Mode::Deterministic { .. }));
+
+    let pem = "-----BEGIN TEST-----\nAAA=\n-----END TEST-----\n";
+    let corrupted = corrupt_pem(pem, CorruptPem::BadHeader);
+    assert!(corrupted.contains("CORRUPTED"));
+}
+
+#[test]
+#[cfg(feature = "rsa")]
+fn rsa_reexport_works() {
+    use uselesskey::RsaFactoryExt;
+    use uselesskey::RsaSpec;
+
+    let fx = testutil::fx();
+    let key = fx.rsa("issuer", RsaSpec::rs256());
+    assert!(key.private_key_pkcs8_pem().contains("BEGIN PRIVATE KEY"));
+}
+
+#[test]
+#[cfg(feature = "ecdsa")]
+fn ecdsa_reexport_works() {
+    use uselesskey::EcdsaFactoryExt;
+    use uselesskey::EcdsaSpec;
+
+    let fx = testutil::fx();
+    let key = fx.ecdsa("issuer", EcdsaSpec::es256());
+    assert!(key.private_key_pkcs8_pem().contains("BEGIN PRIVATE KEY"));
+}
+
+#[test]
+#[cfg(feature = "ed25519")]
+fn ed25519_reexport_works() {
+    use uselesskey::Ed25519FactoryExt;
+    use uselesskey::Ed25519Spec;
+
+    let fx = testutil::fx();
+    let key = fx.ed25519("issuer", Ed25519Spec::new());
+    assert!(key.private_key_pkcs8_pem().contains("BEGIN PRIVATE KEY"));
+}
+
+#[test]
+#[cfg(feature = "hmac")]
+fn hmac_reexport_works() {
+    use uselesskey::HmacFactoryExt;
+    use uselesskey::HmacSpec;
+
+    let fx = testutil::fx();
+    let secret = fx.hmac("issuer", HmacSpec::hs256());
+    assert_eq!(secret.secret_bytes().len(), HmacSpec::hs256().byte_len());
+}
+
+#[test]
+#[cfg(feature = "token")]
+fn token_reexport_works() {
+    use uselesskey::NegativeToken;
+    use uselesskey::TokenFactoryExt;
+    use uselesskey::TokenSpec;
+
+    let fx = testutil::fx();
+    let token = fx.token("issuer", TokenSpec::api_key());
+    assert!(token.value().starts_with("uk_test_"));
+
+    let near_miss = token.negative_value(NegativeToken::NearMissApiKey);
+    assert!(near_miss.starts_with("uk_tset_"));
+    assert!(!near_miss.starts_with("uk_test_"));
+}
+
+#[test]
+#[cfg(all(feature = "rsa", feature = "token"))]
+fn deterministic_facade_usage_is_order_independent() {
+    use uselesskey::{Factory, RsaFactoryExt, RsaSpec, Seed, TokenFactoryExt, TokenSpec};
+
+    let seed = Seed::new([0x5A; 32]);
+
+    let fx_a = Factory::deterministic(seed);
+    let token_a = fx_a.token("dogfood-token", TokenSpec::api_key());
+    let rsa_a = fx_a.rsa("dogfood-rsa", RsaSpec::rs256());
+
+    let fx_b = Factory::deterministic(seed);
+    let rsa_b = fx_b.rsa("dogfood-rsa", RsaSpec::rs256());
+    let token_b = fx_b.token("dogfood-token", TokenSpec::api_key());
+
+    assert_eq!(token_a.value(), token_b.value());
+    assert_eq!(rsa_a.kid(), rsa_b.kid());
+    assert_eq!(rsa_a.private_key_pkcs8_der(), rsa_b.private_key_pkcs8_der());
+}
+
+#[test]
+#[cfg(feature = "x509")]
+fn x509_reexport_works() {
+    use uselesskey::{ChainSpec, X509FactoryExt, X509Spec};
+
+    let fx = testutil::fx();
+    let cert = fx.x509_self_signed("issuer", X509Spec::self_signed("facade.example.com"));
+    assert!(cert.cert_pem().contains("BEGIN CERTIFICATE"));
+    assert!(cert.private_key_pkcs8_pem().contains("BEGIN PRIVATE KEY"));
+
+    let chain = fx.x509_chain("issuer-chain", ChainSpec::new("facade.example.com"));
+    assert!(chain.chain_pem().contains("BEGIN CERTIFICATE"));
+    assert!(chain.root_cert_pem().contains("BEGIN CERTIFICATE"));
+    assert!(
+        chain
+            .leaf_private_key_pkcs8_pem()
+            .contains("BEGIN PRIVATE KEY")
+    );
+}
+
+#[test]
+#[cfg(feature = "pgp")]
+fn pgp_reexport_works() {
+    use uselesskey::PgpFactoryExt;
+    use uselesskey::PgpSpec;
+
+    let fx = testutil::fx();
+    let key = fx.pgp("issuer", PgpSpec::ed25519());
+    assert!(
+        key.private_key_armored()
+            .contains("BEGIN PGP PRIVATE KEY BLOCK")
+    );
+}
+
+#[test]
+#[cfg(feature = "jwk")]
+fn jwk_module_reexports_work() {
+    use uselesskey::jwk::{JwksBuilder, PublicJwk, RsaPublicJwk};
+
+    let jwk = PublicJwk::Rsa(RsaPublicJwk {
+        kty: "RSA",
+        use_: "sig",
+        alg: "RS256",
+        kid: "kid".to_string(),
+        n: "n".to_string(),
+        e: "e".to_string(),
+    });
+
+    let jwks = JwksBuilder::new().add_public(jwk).build();
+    assert_eq!(jwks.keys.len(), 1);
+}

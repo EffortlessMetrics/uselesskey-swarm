@@ -1,0 +1,144 @@
+id = "uselesskey-v0.10.0-external-adoption"
+title = "v0.10.0 external adoption and installed-user workflows"
+status = "archived"
+owner = "EffortlessMetrics"
+created = "2026-05-17"
+
+objective = """
+Make uselesskey useful from outside the repo. A user should be able to install
+the CLI or add the crate to a clean project, copy documented snippets, generate
+scanner-safe/TLS/OIDC/webhook fixtures, inspect or verify bundles, and
+understand the proof boundary without learning xtask or release machinery.
+"""
+
+end_state = [
+  "Clean-project external adoption smoke exists for local path mode and writes Markdown/JSON receipts.",
+  "Published-version external adoption smoke is available as an audit/reference mode, not a release trigger.",
+  "Installed CLI user docs are clearly separated from repo-local proof and maintainer docs.",
+  "Clean-project examples cover webhook, OIDC/JWKS, TLS, and Rust test fixture adoption paths.",
+  "CLI profile, bundle explain, and inspect output make generated files, scanner-safety, runtime material, proof path, and boundaries clear.",
+  "The installed proof handoff boundary is decided before adding any executable proof command.",
+  "Any external adoption proof remains metadata-aware and does not create provider compatibility or production security claims.",
+  "The lane closes without a version bump, tag, publish, new badge, or new contract pack.",
+]
+
+[[work_item]]
+id = "lane-open"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/v0.10.0-external-adoption/implementation-plan.md"
+commands = [
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "external-adoption-smoke-spec"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0013"
+plan = "plans/v0.10.0-external-adoption/implementation-plan.md"
+commands = [
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "external-adoption-smoke"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0013"
+plan = "plans/v0.10.0-external-adoption/implementation-plan.md"
+commands = [
+  "cargo test -p xtask external_adoption_smoke",
+  "cargo xtask external-adoption-smoke --path .",
+  "cargo xtask external-adoption-smoke --path . --format json",
+  "cargo xtask pr-lite",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "installed-cli-docs"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0012"
+plan = "plans/v0.10.0-external-adoption/implementation-plan.md"
+commands = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "clean-project-examples"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0003"
+plan = "plans/v0.10.0-external-adoption/implementation-plan.md"
+commands = [
+  "cargo xtask external-adoption-smoke --path .",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "cli-explain-inspect-polish"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0012"
+plan = "plans/v0.10.0-external-adoption/implementation-plan.md"
+commands = [
+  "cargo test -p uselesskey-cli --all-features profile",
+  "cargo xtask external-adoption-smoke --path .",
+  "cargo xtask pr-lite",
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "proof-handoff-boundary"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0012"
+plan = "plans/v0.10.0-external-adoption/implementation-plan.md"
+commands = [
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "adoption-regression-external-mode"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0013"
+plan = "plans/v0.10.0-external-adoption/implementation-plan.md"
+commands = [
+  "cargo test -p xtask adoption_regression",
+  "cargo xtask adoption-regression",
+  "cargo xtask adoption-regression --external",
+  "cargo xtask pr-lite",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "lane-closeout"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/v0.10.0-external-adoption/closeout.md"
+commands = [
+  "cargo xtask external-adoption-smoke --path .",
+  "cargo xtask adoption-regression",
+  "cargo xtask docs-sync --check",
+  "cargo xtask pr-lite",
+  "cargo xtask pr",
+  "git diff --check",
+]

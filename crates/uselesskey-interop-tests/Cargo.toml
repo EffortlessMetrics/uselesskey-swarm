@@ -1,0 +1,58 @@
+[package]
+name = "uselesskey-interop-tests"
+version = "0.0.0"
+publish = false
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+description = "Cross-adapter interoperability tests for uselesskey fixture crates."
+categories.workspace = true
+keywords = ["testing", "interop", "fixtures", "crypto", "adapter"]
+
+[dependencies]
+# Adapter crates — optional, gated behind features
+uselesskey-ring = { path = "../uselesskey-ring", features = ["all"], optional = true }
+uselesskey-rustcrypto = { path = "../uselesskey-rustcrypto", features = ["all"], optional = true }
+uselesskey-aws-lc-rs = { path = "../uselesskey-aws-lc-rs", features = ["all"], optional = true }
+uselesskey-rustls = { path = "../uselesskey-rustls", features = ["tls-config", "all", "rustls-ring"], optional = true }
+uselesskey-x509 = { path = "../uselesskey-x509", optional = true }
+uselesskey-hmac = { path = "../uselesskey-hmac", features = ["jwk"], optional = true }
+uselesskey-jsonwebtoken = { path = "../uselesskey-jsonwebtoken", features = ["all"], optional = true }
+aws-lc-rs = { workspace = true, optional = true }
+
+[dev-dependencies]
+uselesskey-core = { path = "../uselesskey-core" }
+uselesskey-rsa = { path = "../uselesskey-rsa", features = ["jwk"] }
+uselesskey-ecdsa = { path = "../uselesskey-ecdsa", features = ["jwk"] }
+uselesskey-ed25519 = { path = "../uselesskey-ed25519", features = ["jwk"] }
+
+# Crypto backends for verification
+ring = { workspace = true }
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
+p384 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
+rustls-pki-types = { workspace = true }
+ed25519-dalek = { workspace = true }
+rsa = { workspace = true, features = ["sha2"] }
+sha2 = { version = "0.11", features = ["oid"] }
+signature = "3"
+hmac = "0.13.0-rc.6"
+rustls = { workspace = true }
+jsonwebtoken = { workspace = true }
+base64 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+insta = { workspace = true }
+
+[features]
+default = []
+cross-signing = ["dep:uselesskey-ring", "dep:uselesskey-rustcrypto", "dep:uselesskey-hmac"]
+cross-tls = ["dep:uselesskey-x509", "dep:uselesskey-rustls"]
+jwt-interop = ["dep:uselesskey-jsonwebtoken"]
+aws-lc-rs-interop = ["dep:uselesskey-aws-lc-rs", "dep:aws-lc-rs", "uselesskey-rustls?/rustls-aws-lc-rs"]
+all = ["cross-signing", "cross-tls", "jwt-interop", "aws-lc-rs-interop"]
+
+[lints]
+workspace = true

@@ -1,0 +1,541 @@
+#![forbid(unsafe_code)]
+
+//! Deterministic PKCS#11-like mock fixtures.
+//!
+//! This crate provides a tiny test fixture layer for hardware-adjacent tests.
+//! It does **not** emulate a full PKCS#11 daemon.
+
+use std::collections::HashMap;
+use std::fmt;
+use std::sync::{Arc, Mutex};
+
+use sha2::{Digest, Sha256};
+use uselesskey_core::Factory;
+
+/// Stable cache domain for PKCS#11 mock artifacts.
+pub const DOMAIN_PKCS11_MOCK: &str = "uselesskey:pkcs11:mock:v1";
+
+/// Metadata describing a mock slot and token.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct SlotTokenInfo {
+    pub slot_id: u64,
+    pub token_label: String,
+    pub manufacturer_id: String,
+    pub model: String,
+    pub serial_number: String,
+}
+
+/// Identifier to reference a key in the mock provider.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct KeyHandle(pub u64);
+
+#[derive(Clone)]
+pub struct MockPkcs11Provider {
+    inner: Arc<Inner>,
+}
+
+impl fmt::Debug for MockPkcs11Provider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("MockPkcs11Provider")
+            .field("slot", &self.inner.slot)
+            .field("key_count", &self.inner.keys.len())
+            .finish()
+    }
+}
+
+struct Inner {
+    slot: SlotTokenInfo,
+    certificates: HashMap<KeyHandle, Vec<u8>>,
+    keys: HashMap<KeyHandle, KeyRecord>,
+    next_sign_count: Mutex<u64>,
+}
+
+struct KeyRecord {
+    label: String,
+    algorithm: String,
+    secret: [u8; 32],
+}
+
+/// Deterministic builder spec for PKCS#11-like fixtures.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Pkcs11MockSpec {
+    pub token_label: String,
+    pub manufacturer_id: String,
+    pub model: String,
+    pub key_labels: Vec<String>,
+}
+
+impl Pkcs11MockSpec {
+    pub fn basic(token_label: impl Into<String>) -> Self {
+        Self {
+            token_label: token_label.into(),
+            manufacturer_id: "uselesskey".to_string(),
+            model: "UK-PKCS11-MOCK".to_string(),
+            key_labels: vec!["signing-key".to_string()],
+        }
+    }
+
+    pub fn stable_bytes(&self) -> Vec<u8> {
+        let mut out = Vec::new();
+        write_field(&mut out, "token_label", self.token_label.as_bytes());
+        write_field(&mut out, "manufacturer_id", self.manufacturer_id.as_bytes());
+        write_field(&mut out, "model", self.model.as_bytes());
+        for label in self.effective_key_labels() {
+            write_field(&mut out, "key_label", label.as_bytes());
+        }
+        out
+    }
+
+    fn effective_key_labels(&self) -> impl Iterator<Item = &str> {
+        self.key_labels
+            .iter()
+            .map(String::as_str)
+            .chain((self.key_labels.is_empty()).then_some("signing-key"))
+    }
+}
+
+/// Extension trait to build PKCS#11-like mock providers from a core [`Factory`].
+pub trait Pkcs11MockFactoryExt {
+    fn pkcs11_mock(&self, label: impl AsRef<str>, spec: Pkcs11MockSpec) -> MockPkcs11Provider;
+}
+
+impl Pkcs11MockFactoryExt for Factory {
+    fn pkcs11_mock(&self, label: impl AsRef<str>, spec: Pkcs11MockSpec) -> MockPkcs11Provider {
+        let spec_bytes = spec.stable_bytes();
+        self.get_or_init(
+            DOMAIN_PKCS11_MOCK,
+            label.as_ref(),
+            &spec_bytes,
+            "good",
+            move |seed| build_provider(spec, *seed.bytes()),
+        )
+        .as_ref()
+        .clone()
+    }
+}
+
+impl MockPkcs11Provider {
+    pub fn slot_info(&self) -> SlotTokenInfo {
+        self.inner.slot.clone()
+    }
+
+    pub fn key_handles(&self) -> Vec<KeyHandle> {
+        let mut handles: Vec<KeyHandle> = self.inner.keys.keys().copied().collect();
+        handles.sort_by_key(|h| h.0);
+        handles
+    }
+
+    pub fn sign(&self, handle: KeyHandle, message: &[u8]) -> Option<Vec<u8>> {
+        let key = self.inner.keys.get(&handle)?;
+        let mut hasher = Sha256::new();
+        hasher.update(key.secret);
+        hasher.update(key.algorithm.as_bytes());
+        hasher.update(message);
+        Some(hasher.finalize().to_vec())
+    }
+
+    pub fn verify(&self, handle: KeyHandle, message: &[u8], signature: &[u8]) -> bool {
+        self.sign(handle, message)
+            .is_some_and(|expected| expected == signature)
+    }
+
+    pub fn certificate_der(&self, handle: KeyHandle) -> Option<&[u8]> {
+        self.inner.certificates.get(&handle).map(Vec::as_slice)
+    }
+
+    pub fn key_label(&self, handle: KeyHandle) -> Option<&str> {
+        self.inner.keys.get(&handle).map(|key| key.label.as_str())
+    }
+
+    pub fn next_sign_count(&self) -> u64 {
+        let mut guard = self.inner.next_sign_count.lock().expect("sign_count mutex");
+        *guard += 1;
+        *guard
+    }
+}
+
+fn build_provider(spec: Pkcs11MockSpec, seed: [u8; 32]) -> MockPkcs11Provider {
+    let slot_id = u64::from_le_bytes(seed[0..8].try_into().expect("seed slice for slot id"));
+    let serial_hex = hex8(&seed[8..16]);
+    let mut keys = HashMap::new();
+    let mut certs = HashMap::new();
+
+    let key_labels: Vec<&str> = spec.effective_key_labels().collect();
+    for (idx, key_label) in key_labels.iter().enumerate() {
+        let mut key_hasher = Sha256::new();
+        key_hasher.update(seed);
+        key_hasher.update((idx as u32).to_le_bytes());
+        key_hasher.update(key_label.as_bytes());
+        let key_seed = key_hasher.finalize();
+
+        let mut secret = [0u8; 32];
+        secret.copy_from_slice(&key_seed[..32]);
+
+        let handle = KeyHandle((idx as u64) + 1);
+        let cert = mock_certificate_der(
+            &spec.token_label,
+            key_label,
+            &spec.manufacturer_id,
+            &spec.model,
+            &secret,
+        );
+        certs.insert(handle, cert);
+        keys.insert(
+            handle,
+            KeyRecord {
+                label: (*key_label).to_string(),
+                algorithm: "MOCK-SHA256".to_string(),
+                secret,
+            },
+        );
+    }
+
+    MockPkcs11Provider {
+        inner: Arc::new(Inner {
+            slot: SlotTokenInfo {
+                slot_id,
+                token_label: spec.token_label,
+                manufacturer_id: spec.manufacturer_id,
+                model: spec.model,
+                serial_number: serial_hex,
+            },
+            certificates: certs,
+            keys,
+            next_sign_count: Mutex::new(0),
+        }),
+    }
+}
+
+fn mock_certificate_der(
+    token_label: &str,
+    key_label: &str,
+    manufacturer_id: &str,
+    model: &str,
+    secret: &[u8; 32],
+) -> Vec<u8> {
+    let mut out = Vec::with_capacity(128);
+    out.extend_from_slice(&[0x30, 0x82]); // looks DER-like for parser tests
+    out.extend_from_slice(&[0x00, 0x00]);
+    write_field(&mut out, "token", token_label.as_bytes());
+    write_field(&mut out, "key", key_label.as_bytes());
+    write_field(&mut out, "mfr", manufacturer_id.as_bytes());
+    write_field(&mut out, "model", model.as_bytes());
+    write_field(&mut out, "fingerprint", &Sha256::digest(secret));
+    let body_len = u16_len("certificate_der_body", out.len() - 4);
+    out[2..4].copy_from_slice(&body_len.to_be_bytes());
+    out
+}
+
+fn write_field(out: &mut Vec<u8>, name: &str, value: &[u8]) {
+    out.extend_from_slice(name.as_bytes());
+    out.push(b'=');
+    out.extend_from_slice(&u16_len(name, value.len()).to_be_bytes());
+    out.extend_from_slice(value);
+    out.push(0);
+}
+
+fn u16_len(field_name: &str, len: usize) -> u16 {
+    u16::try_from(len).unwrap_or_else(|_| {
+        panic!(
+            "{field_name} length {len} exceeds u16::MAX; fixture encoding requires <= {} bytes",
+            u16::MAX
+        )
+    })
+}
+
+fn hex8(bytes: &[u8]) -> String {
+    bytes.iter().map(|b| format!("{b:02X}")).collect::<String>()
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::{HashMap, HashSet};
+
+    use uselesskey_core::Seed;
+    use uselesskey_test_support::{TestResult, require_ok, require_some};
+
+    use super::*;
+
+    #[test]
+    fn deterministic_provider_stable() {
+        let fx = Factory::deterministic(Seed::from_env_value("pkcs11-seed").unwrap());
+        let spec = Pkcs11MockSpec::basic("HSM-A");
+
+        let a = fx.pkcs11_mock("issuer", spec.clone());
+        let b = fx.pkcs11_mock("issuer", spec);
+
+        assert_eq!(a.slot_info(), b.slot_info());
+        assert_eq!(a.key_handles(), b.key_handles());
+    }
+
+    #[test]
+    fn sign_verify_round_trip() {
+        let fx = Factory::random();
+        let provider = fx.pkcs11_mock("rt", Pkcs11MockSpec::basic("HSM-RT"));
+        let handle = provider.key_handles()[0];
+        let msg = b"hello from fixture";
+
+        let sig = provider.sign(handle, msg).expect("signature");
+        assert!(provider.verify(handle, msg, &sig));
+        assert!(!provider.verify(handle, b"other", &sig));
+    }
+
+    #[test]
+    fn sign_count_increments_from_one() {
+        let fx = Factory::random();
+        let provider = fx.pkcs11_mock("count", Pkcs11MockSpec::basic("HSM-COUNT"));
+
+        assert_eq!(provider.next_sign_count(), 1);
+        assert_eq!(provider.next_sign_count(), 2);
+    }
+
+    #[test]
+    fn debug_summary_names_slot_and_key_count() {
+        let fx = Factory::random();
+        let provider = fx.pkcs11_mock("debug", Pkcs11MockSpec::basic("HSM-DEBUG"));
+        let debug = format!("{provider:?}");
+
+        assert!(debug.contains("MockPkcs11Provider"));
+        assert!(debug.contains("slot"));
+        assert!(debug.contains("key_count"));
+    }
+
+    #[test]
+    fn multiple_keys_get_one_based_sequential_handles() {
+        let fx = Factory::deterministic(Seed::from_env_value("pkcs11-handles").unwrap());
+        let mut spec = Pkcs11MockSpec::basic("HSM-HANDLES");
+        spec.key_labels = vec!["signing-key".to_string(), "verification-key".to_string()];
+
+        let provider = fx.pkcs11_mock("handles", spec);
+        let handles = provider.key_handles();
+
+        assert_eq!(handles, vec![KeyHandle(1), KeyHandle(2)]);
+        assert_eq!(provider.key_label(KeyHandle(1)), Some("signing-key"));
+        assert_eq!(provider.key_label(KeyHandle(2)), Some("verification-key"));
+    }
+
+    #[test]
+    fn cert_lookup_returns_der_like_bytes() {
+        let fx = Factory::random();
+        let provider = fx.pkcs11_mock("der", Pkcs11MockSpec::basic("HSM-DER"));
+        let handle = provider.key_handles()[0];
+        let der = provider.certificate_der(handle).expect("certificate");
+        assert_eq!(&der[0..2], &[0x30, 0x82]);
+        let body_len = u16::from_be_bytes(der[2..4].try_into().expect("DER body length"));
+        assert_eq!(usize::from(body_len), der.len() - 4);
+    }
+
+    #[test]
+    fn slot_serial_is_uppercase_hex() {
+        let fx = Factory::deterministic(Seed::from_env_value("pkcs11-serial").unwrap());
+        let provider = fx.pkcs11_mock("serial", Pkcs11MockSpec::basic("HSM-SERIAL"));
+        let serial = provider.slot_info().serial_number;
+
+        assert_eq!(serial.len(), 16);
+        assert!(
+            serial
+                .bytes()
+                .all(|byte| byte.is_ascii_digit() || (b'A'..=b'F').contains(&byte)),
+            "expected uppercase hex serial, got {serial}"
+        );
+    }
+
+    #[test]
+    fn empty_key_labels_falls_back_to_default_key() {
+        let fx = Factory::deterministic(Seed::from_env_value("pkcs11-empty-keys").unwrap());
+        let mut spec = Pkcs11MockSpec::basic("HSM-EMPTY");
+        spec.key_labels.clear();
+
+        let provider = fx.pkcs11_mock("empty", spec);
+        let handles = provider.key_handles();
+        assert_eq!(handles.len(), 1);
+        assert_eq!(provider.key_label(handles[0]), Some("signing-key"));
+    }
+
+    #[test]
+    fn empty_key_labels_and_explicit_default_share_stable_identity() {
+        let mut empty = Pkcs11MockSpec::basic("HSM-EMPTY");
+        empty.key_labels.clear();
+        let explicit = Pkcs11MockSpec::basic("HSM-EMPTY");
+
+        assert_eq!(empty.stable_bytes(), explicit.stable_bytes());
+    }
+
+    #[test]
+    fn key_labels_participate_in_stable_identity() {
+        let explicit = Pkcs11MockSpec::basic("HSM-IDENTITY");
+        let mut alternate = Pkcs11MockSpec::basic("HSM-IDENTITY");
+        alternate.key_labels = vec!["verification-key".to_string()];
+
+        let stable = explicit.stable_bytes();
+        assert_contains_bytes(&stable, b"key_label");
+        assert_contains_bytes(&stable, b"signing-key");
+        assert_ne!(stable, alternate.stable_bytes());
+    }
+
+    fn assert_contains_bytes(haystack: &[u8], needle: &[u8]) {
+        assert!(
+            haystack
+                .windows(needle.len())
+                .any(|window| window == needle),
+            "expected stable identity to contain {}",
+            String::from_utf8_lossy(needle)
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "token_label length")]
+    fn rejects_oversized_field_length() {
+        let fx = Factory::random();
+        let spec = Pkcs11MockSpec::basic("a".repeat((u16::MAX as usize) + 1));
+        let _ = fx.pkcs11_mock("oversized-field", spec);
+    }
+
+    #[test]
+    #[should_panic(expected = "certificate_der_body length")]
+    fn rejects_oversized_der_body() {
+        let fx = Factory::random();
+        let mut spec = Pkcs11MockSpec::basic("token");
+        let long = "z".repeat(22_000);
+        spec.manufacturer_id = long.clone();
+        spec.model = long;
+        spec.key_labels = vec!["k".repeat(22_000)];
+        let _ = fx.pkcs11_mock("oversized-der", spec);
+    }
+
+    #[test]
+    fn domain_constant_is_stable_for_the_lifetime_of_v1() {
+        // Changing this constant changes derived outputs. The test exists so
+        // an accidental rename is caught by CI rather than by silent fixture
+        // drift in downstream test suites.
+        assert_eq!(DOMAIN_PKCS11_MOCK, "uselesskey:pkcs11:mock:v1");
+    }
+
+    #[test]
+    fn sign_with_unknown_handle_returns_none() {
+        let fx = Factory::random();
+        let provider = fx.pkcs11_mock("err-sign", Pkcs11MockSpec::basic("HSM-ERR-SIGN"));
+
+        // Handle 0 is below the 1-based handle range, and 999 is above the
+        // single-key default — neither maps to a stored KeyRecord.
+        assert!(provider.sign(KeyHandle(0), b"msg").is_none());
+        assert!(provider.sign(KeyHandle(999), b"msg").is_none());
+    }
+
+    #[test]
+    fn verify_with_unknown_handle_returns_false() -> TestResult<()> {
+        let fx = Factory::random();
+        let provider = fx.pkcs11_mock("err-verify", Pkcs11MockSpec::basic("HSM-ERR-VERIFY"));
+        let valid = *require_some(provider.key_handles().first(), "default key handle present")?;
+        let real_sig = require_some(
+            provider.sign(valid, b"msg"),
+            "signing succeeds for valid handle",
+        )?;
+
+        // A real signature must not verify under an unknown handle, and an
+        // empty signature buffer must not verify either.
+        assert!(!provider.verify(KeyHandle(0), b"msg", &real_sig));
+        assert!(!provider.verify(KeyHandle(999), b"msg", &real_sig));
+        assert!(!provider.verify(KeyHandle(999), b"msg", &[]));
+        Ok(())
+    }
+
+    #[test]
+    fn certificate_der_with_unknown_handle_returns_none() {
+        let fx = Factory::random();
+        let provider = fx.pkcs11_mock("err-cert", Pkcs11MockSpec::basic("HSM-ERR-CERT"));
+
+        assert!(provider.certificate_der(KeyHandle(0)).is_none());
+        assert!(provider.certificate_der(KeyHandle(999)).is_none());
+    }
+
+    #[test]
+    fn key_label_with_unknown_handle_returns_none() {
+        let fx = Factory::random();
+        let provider = fx.pkcs11_mock("err-label", Pkcs11MockSpec::basic("HSM-ERR-LABEL"));
+
+        assert!(provider.key_label(KeyHandle(0)).is_none());
+        assert!(provider.key_label(KeyHandle(999)).is_none());
+    }
+
+    #[test]
+    fn key_handle_is_copy_and_usable_in_hash_collections() {
+        let original = KeyHandle(42);
+        let copied = original; // Copy, not move
+        // Exercising the explicit Clone impl is the point of this test, so
+        // suppress the Copy-friendly suggestion.
+        #[allow(clippy::clone_on_copy)]
+        let cloned = original.clone();
+
+        // Copy semantics: original is still usable after the copy/clone.
+        assert_eq!(original, copied);
+        assert_eq!(original, cloned);
+        assert_eq!(original.0, 42);
+
+        // Hash + Eq make KeyHandle a valid HashMap key.
+        let mut map: HashMap<KeyHandle, &'static str> = HashMap::new();
+        map.insert(original, "first");
+        // Inserting via the copy must collide with the original key.
+        let prior = map.insert(copied, "second");
+        assert_eq!(prior, Some("first"));
+        assert_eq!(map.len(), 1);
+        assert_eq!(map.get(&KeyHandle(42)), Some(&"second"));
+
+        // And HashSet de-duplicates equal-by-value handles.
+        let mut set: HashSet<KeyHandle> = HashSet::new();
+        set.insert(original);
+        set.insert(copied);
+        set.insert(KeyHandle(42));
+        assert_eq!(set.len(), 1);
+    }
+
+    #[test]
+    fn slot_token_info_round_trips_clone_debug_and_equality() {
+        let info = SlotTokenInfo {
+            slot_id: 7,
+            token_label: "HSM-RT".to_string(),
+            manufacturer_id: "uselesskey".to_string(),
+            model: "UK-PKCS11-MOCK".to_string(),
+            serial_number: "ABCDEF0123456789".to_string(),
+        };
+
+        let cloned = info.clone();
+        assert_eq!(info, cloned);
+
+        // Debug output names every field — so a future field rename trips this
+        // assertion before downstream parsers silently regress.
+        let debug = format!("{info:?}");
+        for needle in [
+            "SlotTokenInfo",
+            "slot_id",
+            "token_label",
+            "manufacturer_id",
+            "model",
+            "serial_number",
+        ] {
+            assert!(debug.contains(needle), "debug missing {needle}: {debug}");
+        }
+
+        // Mutating the clone must not change the original (true `Clone`, not
+        // shared state) and must compare unequal afterward.
+        let mut diverged = info.clone();
+        diverged.slot_id = info.slot_id + 1;
+        assert_ne!(info, diverged);
+        assert_eq!(info.slot_id, 7);
+    }
+
+    #[test]
+    fn next_sign_count_increments_monotonically() -> TestResult<()> {
+        let fx = Factory::deterministic(require_ok(
+            Seed::from_env_value("pkcs11-monotonic"),
+            "must parse seed",
+        )?);
+        let provider = fx.pkcs11_mock("monotonic", Pkcs11MockSpec::basic("HSM-MONO"));
+
+        let observed: Vec<u64> = (0..5).map(|_| provider.next_sign_count()).collect();
+
+        // Pin the +1 semantic: starts at 1 and grows by exactly 1 per call.
+        assert_eq!(observed, vec![1, 2, 3, 4, 5]);
+        Ok(())
+    }
+}

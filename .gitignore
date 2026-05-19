@@ -1,0 +1,31 @@
+/target
+**/target
+**/*.rs.bk
+.DS_Store
+
+# proptest
+proptest-regressions/
+
+# cargo-fuzz
+fuzz/artifacts/
+fuzz/corpus/
+
+# cargo-mutants
+mutants.out*/
+
+# IDEs
+.idea/
+.vscode/
+
+# OS
+Thumbs.db
+nul
+
+# Build logs
+output.txt
+
+.gemini/
+gha-creds-*.json
+
+# shipper publish state (plan, receipts, etc.)
+.shipper/

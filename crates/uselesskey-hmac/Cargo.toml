@@ -1,0 +1,42 @@
+[package]
+name = "uselesskey-hmac"
+version = "0.9.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+description = "HMAC HS256/HS384/HS512 secret fixtures for deterministic and random tests."
+categories.workspace = true
+keywords = ["hmac", "jwt", "fixtures", "testing", "deterministic"]
+readme = "README.md"
+exclude = ["fuzz/**", "corpus/**", "**/*.der", "**/*.pem"]
+homepage.workspace = true
+documentation = "https://docs.rs/uselesskey-hmac"
+authors.workspace = true
+
+[dependencies]
+uselesskey-core = { path = "../uselesskey-core", version = "0.9.1" }
+rand_chacha10.workspace = true
+rand_core10.workspace = true
+
+# Optional JWK/JWKS support
+uselesskey-jwk = { path = "../uselesskey-jwk", version = "0.9.1", optional = true }
+base64 = { workspace = true, optional = true }
+
+[package.metadata.docs.rs]
+features = ["jwk"]
+
+[dev-dependencies]
+base64 = { workspace = true }
+insta.workspace = true
+proptest.workspace = true
+serde.workspace = true
+uselesskey-test-support = { workspace = true }
+
+[features]
+default = []
+jwk = ["dep:uselesskey-jwk", "dep:base64"]
+
+
+[lints]
+workspace = true

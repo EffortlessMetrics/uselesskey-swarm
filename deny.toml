@@ -1,0 +1,38 @@
+# cargo-deny configuration
+# https://github.com/EmbarkStudios/cargo-deny
+
+[advisories]
+yanked = "warn"
+# RUSTSEC-2023-0071: Marvin Attack timing side-channel in `rsa` crate.
+# Acceptable for this project — uselesskey is a *test-fixture* library,
+# not a production crypto implementation. The keys it generates are
+# intentionally throwaway.
+ignore = [
+    "RUSTSEC-2023-0071",
+]
+
+[bans]
+multiple-versions = "warn"
+wildcards = "deny"
+# Internal-only crates use path deps with wildcard versions; allow them.
+allow-wildcard-paths = true
+skip = []
+
+[licenses]
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "BlueOak-1.0.0",
+    "ISC",
+    "CC0-1.0",
+    "OpenSSL",
+    "Unicode-3.0",
+    "Zlib",
+]
+confidence-threshold = 0.8
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "warn"

@@ -1,0 +1,43 @@
+# uselesskey-jwk
+
+Typed JWK/JWKS models, deterministic JWKS builders, ordering helpers, and
+scanner-safe negative JWK fixtures used by `uselesskey` fixture crates.
+
+This is the canonical public JWK/JWKS crate. (The former `uselesskey-core-jwk*`
+published-internal compatibility shims were removed in v0.8.0.)
+
+## Example
+
+```rust
+use uselesskey_jwk::{JwksBuilder, OctJwk, PrivateJwk};
+
+let mut builder = JwksBuilder::new();
+builder.push_private(PrivateJwk::Oct(OctJwk {
+    kty: "oct",
+    use_: "sig",
+    alg: "HS256",
+    kid: "test-key-1".to_string(),
+    k: "dGVzdF9zZWNyZXQ".to_string(),
+}));
+
+let jwks = builder.build();
+assert_eq!(jwks.keys.len(), 1);
+
+let duplicate = jwks.negative_value(uselesskey_jwk::NegativeJwks::DuplicateKey);
+assert_eq!(duplicate["keys"].as_array().unwrap().len(), 2);
+
+let mixed = jwks.negative_value(uselesskey_jwk::NegativeJwks::MixedValidInvalid);
+assert_eq!(
+    uselesskey_jwk::NegativeJwks::MixedValidInvalid.stable_id(),
+    "jwks_mixed_valid_invalid"
+);
+assert_eq!(mixed["keys"].as_array().unwrap().len(), 2);
+```
+
+## License
+
+Licensed under either of [Apache License, Version 2.0](https://www.apache.org/licenses/LICENSE-2.0)
+or [MIT license](https://opensource.org/licenses/MIT) at your option.
+
+See the [`uselesskey` crate](https://crates.io/crates/uselesskey) for full
+documentation.

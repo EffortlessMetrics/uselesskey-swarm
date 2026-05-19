@@ -1,0 +1,344 @@
+[package]
+name = "uselesskey-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+arbitrary = { version = "1", features = ["derive"] }
+blake3 = "1.8.3"
+
+# fuzz targets
+uselesskey = { path = "../crates/uselesskey", features = ["ecdsa", "ed25519", "hmac", "token", "x509", "rsa", "pgp"] }
+uselesskey-core = { path = "../crates/uselesskey-core" }
+uselesskey-jwk = { path = "../crates/uselesskey-jwk" }
+uselesskey-token = { path = "../crates/uselesskey-token" }
+base64 = "0.22"
+uselesskey-ecdsa = { path = "../crates/uselesskey-ecdsa" }
+uselesskey-ed25519 = { path = "../crates/uselesskey-ed25519" }
+uselesskey-hmac = { path = "../crates/uselesskey-hmac" }
+uselesskey-x509 = { path = "../crates/uselesskey-x509" }
+uselesskey-jsonwebtoken = { path = "../crates/uselesskey-jsonwebtoken", features = ["ecdsa", "ed25519", "hmac"] }
+uselesskey-ring = { path = "../crates/uselesskey-ring", features = ["ecdsa", "ed25519"] }
+uselesskey-pgp = { path = "../crates/uselesskey-pgp" }
+uselesskey-rsa = { path = "../crates/uselesskey-rsa" }
+uselesskey-rustcrypto = { path = "../crates/uselesskey-rustcrypto", features = ["rsa", "ecdsa", "ed25519", "hmac"] }
+uselesskey-rustls = { path = "../crates/uselesskey-rustls", features = ["x509", "ecdsa", "ed25519"] }
+rustls-pki-types = "1"
+ring = "0.17"
+hmac = "0.13.0-rc.6"
+sha2 = "0.10"
+rsa = { version = "0.9", features = ["pem"] }
+p256 = { version = "0.13", features = ["ecdsa", "pkcs8", "pem"] }
+ed25519-dalek = { version = "2", features = ["pkcs8"] }
+serde_json = "1"
+
+[[bin]]
+name = "pem_corrupt"
+path = "fuzz_targets/pem_corrupt.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "core_negative_pem"
+path = "fuzz_targets/core_negative_pem.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "der_ops"
+path = "fuzz_targets/der_ops.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "rsa_pkcs8_pem_parse"
+path = "fuzz_targets/rsa_pkcs8_pem_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "ecdsa_pkcs8_pem_parse"
+path = "fuzz_targets/ecdsa_pkcs8_pem_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "token_format"
+path = "fuzz_targets/token_format.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "seed_parse"
+path = "fuzz_targets/seed_parse.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "core_keypair_material"
+path = "fuzz_targets/core_keypair_material.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "core_factory_cache"
+path = "fuzz_targets/core_factory_cache.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "core_hash"
+path = "fuzz_targets/core_hash.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "core_x509_negative"
+path = "fuzz_targets/core_x509_negative.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "core_token_shape"
+path = "fuzz_targets/core_token_shape.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "jwk_builder"
+path = "fuzz_targets/jwk_builder.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "jwk_order"
+path = "fuzz_targets/jwk_order.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "jwk_shape"
+path = "fuzz_targets/jwk_shape.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "negative_pem_roundtrip"
+path = "fuzz_targets/negative_pem_roundtrip.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "jwk_serde"
+path = "fuzz_targets/jwk_serde.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "x509_negative"
+path = "fuzz_targets/x509_negative.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "token_shape"
+path = "fuzz_targets/token_shape.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "keypair_material"
+path = "fuzz_targets/keypair_material.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "seed_derivation"
+path = "fuzz_targets/seed_derivation.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "jwks_builder"
+path = "fuzz_targets/jwks_builder.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_ecdsa_keygen"
+path = "fuzz_targets/fuzz_ecdsa_keygen.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_ed25519_keygen"
+path = "fuzz_targets/fuzz_ed25519_keygen.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_hmac_keygen"
+path = "fuzz_targets/fuzz_hmac_keygen.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_x509_cert"
+path = "fuzz_targets/fuzz_x509_cert.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_negative_fixtures"
+path = "fuzz_targets/fuzz_negative_fixtures.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_derivation_stability"
+path = "fuzz_targets/fuzz_derivation_stability.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_token_generation"
+path = "fuzz_targets/fuzz_token_generation.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "adapter_jsonwebtoken_roundtrip"
+path = "fuzz_targets/adapter_jsonwebtoken_roundtrip.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "adapter_ring_roundtrip"
+path = "fuzz_targets/adapter_ring_roundtrip.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "adapter_rustls_roundtrip"
+path = "fuzz_targets/adapter_rustls_roundtrip.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "x509_chain_build"
+path = "fuzz_targets/x509_chain_build.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "factory_concurrent_access"
+path = "fuzz_targets/factory_concurrent_access.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "jwks_builder_ordering"
+path = "fuzz_targets/jwks_builder_ordering.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_token_shape"
+path = "fuzz_targets/fuzz_token_shape.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_negative_pem"
+path = "fuzz_targets/fuzz_negative_pem.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_negative_der"
+path = "fuzz_targets/fuzz_negative_der.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_x509_spec"
+path = "fuzz_targets/fuzz_x509_spec.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_kid_generation"
+path = "fuzz_targets/fuzz_kid_generation.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_factory_concurrent"
+path = "fuzz_targets/fuzz_factory_concurrent.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_seed_edge_cases"
+path = "fuzz_targets/fuzz_seed_edge_cases.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_label_edge_cases"
+path = "fuzz_targets/fuzz_label_edge_cases.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_factory_stress"
+path = "fuzz_targets/fuzz_factory_stress.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_negative_fixture_edge"
+path = "fuzz_targets/fuzz_negative_fixture_edge.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_jwk_serialization"
+path = "fuzz_targets/fuzz_jwk_serialization.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_pgp_keygen"
+path = "fuzz_targets/fuzz_pgp_keygen.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_pgp_negative"
+path = "fuzz_targets/fuzz_pgp_negative.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_rsa_keygen"
+path = "fuzz_targets/fuzz_rsa_keygen.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "adapter_rustcrypto_roundtrip"
+path = "fuzz_targets/adapter_rustcrypto_roundtrip.rs"
+test = false
+doc = false
+
+[[bin]]
+name = "fuzz_order_independent_identity"
+path = "fuzz_targets/fuzz_order_independent_identity.rs"
+test = false
+doc = false

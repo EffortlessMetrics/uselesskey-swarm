@@ -1,0 +1,128 @@
+id = "uselesskey-no-panic-burndown"
+title = "No-panic burndown"
+status = "archived"
+owner = "EffortlessMetrics"
+created = "2026-05-13"
+
+objective = """
+Burn down the no-panic-family debt tracked by issue #575 without resetting the
+baseline, weakening policy, or absorbing new debt into the snapshot.
+"""
+
+end_state = [
+  "cargo xtask check-no-panic-family exits 0 in no-new-debt mode.",
+  "New-debt count reaches 0 without running cargo xtask no-panic baseline --reset.",
+  "Test-code panic-family sites move to fallible test-support helpers.",
+  "Production-path findings are removed or receipted in policy/no-panic-allowlist.toml.",
+  "Remaining exceptions have owner, explanation, classification, and expiry.",
+  "The policy can advance toward Stage C only after the baseline has burned down.",
+]
+
+[[work_item]]
+id = "open-lane"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "cli-tests"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo test -p uselesskey-cli --test cli",
+  "cargo xtask check-no-panic-family",
+  "cargo xtask pr-lite",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "xtask-tests"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo test -p xtask",
+  "cargo xtask check-no-panic-family",
+  "cargo xtask pr-lite",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "core-tests"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo test -p uselesskey-core",
+  "cargo xtask check-no-panic-family",
+  "cargo xtask pr-lite",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "jwk-token-tests"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo test -p uselesskey-jwk",
+  "cargo test -p uselesskey-token",
+  "cargo xtask check-no-panic-family",
+  "cargo xtask pr-lite",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "production-path-review"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo xtask no-panic propose",
+  "cargo xtask pr-lite",
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "policy-stage-flip"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo xtask check-lint-policy",
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "lane-closeout"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/closeout.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo xtask check-lint-policy",
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "cargo xtask pr",
+  "git diff --check",
+]

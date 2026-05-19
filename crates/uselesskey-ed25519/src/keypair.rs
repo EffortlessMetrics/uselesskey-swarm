@@ -1,0 +1,356 @@
+use std::fmt;
+use std::sync::Arc;
+
+use ed25519_dalek::{SigningKey, VerifyingKey, pkcs8::EncodePrivateKey, pkcs8::EncodePublicKey};
+use pkcs8::LineEnding;
+use uselesskey_core::Factory;
+use uselesskey_core::srp::keypair_material::Pkcs8SpkiKeyMaterial;
+
+use crate::Ed25519Spec;
+
+/// Cache domain for Ed25519 keypair fixtures.
+///
+/// Keep this stable: changing it changes deterministic outputs.
+pub const DOMAIN_ED25519_KEYPAIR: &str = "uselesskey:ed25519:keypair";
+
+/// An Ed25519 keypair fixture with various output formats.
+///
+/// Created via [`Ed25519FactoryExt::ed25519()`]. Provides access to:
+/// - Private key in PKCS#8 PEM and DER formats
+/// - Public key in SPKI PEM and DER formats
+/// - Negative fixtures (corrupted PEM, truncated DER, mismatched keys)
+/// - JWK output (with the `jwk` feature)
+///
+/// # Examples
+///
+/// ```
+/// use uselesskey_core::Factory;
+/// use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+///
+/// let fx = Factory::random();
+/// let keypair = fx.ed25519("my-service", Ed25519Spec::new());
+///
+/// let private_pem = keypair.private_key_pkcs8_pem();
+/// let public_der = keypair.public_key_spki_der();
+///
+/// assert!(private_pem.contains("BEGIN PRIVATE KEY"));
+/// assert!(!public_der.is_empty());
+/// ```
+#[derive(Clone)]
+pub struct Ed25519KeyPair {
+    factory: Factory,
+    label: String,
+    spec: Ed25519Spec,
+    inner: Arc<Inner>,
+}
+
+struct Inner {
+    /// Kept for potential signing methods; not currently used.
+    _private: SigningKey,
+    #[cfg_attr(not(feature = "jwk"), allow(dead_code))]
+    public: VerifyingKey,
+    material: Pkcs8SpkiKeyMaterial,
+    /// Raw secret bytes (for private JWK).
+    #[cfg_attr(not(feature = "jwk"), allow(dead_code))]
+    secret_bytes: [u8; 32],
+}
+
+impl fmt::Debug for Ed25519KeyPair {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Ed25519KeyPair")
+            .field("label", &self.label)
+            .field("spec", &self.spec)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Extension trait to hang Ed25519 helpers off the core [`Factory`].
+pub trait Ed25519FactoryExt {
+    /// Generate (or retrieve from cache) an Ed25519 keypair fixture.
+    ///
+    /// The `label` identifies this keypair within your test suite.
+    /// In deterministic mode, `seed + label + spec` always produces the same key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uselesskey_core::{Factory, Seed};
+    /// use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    ///
+    /// let seed = Seed::from_env_value("test-seed").unwrap();
+    /// let fx = Factory::deterministic(seed);
+    /// let keypair = fx.ed25519("signing-key", Ed25519Spec::new());
+    ///
+    /// let pem = keypair.private_key_pkcs8_pem();
+    /// assert!(pem.contains("BEGIN PRIVATE KEY"));
+    /// ```
+    fn ed25519(&self, label: impl AsRef<str>, spec: Ed25519Spec) -> Ed25519KeyPair;
+}
+
+impl Ed25519FactoryExt for Factory {
+    fn ed25519(&self, label: impl AsRef<str>, spec: Ed25519Spec) -> Ed25519KeyPair {
+        Ed25519KeyPair::new(self.clone(), label.as_ref(), spec)
+    }
+}
+
+impl Ed25519KeyPair {
+    fn new(factory: Factory, label: &str, spec: Ed25519Spec) -> Self {
+        let inner = load_inner(&factory, label, spec, "good");
+        Self {
+            factory,
+            label: label.to_string(),
+            spec,
+            inner,
+        }
+    }
+
+    fn load_variant(&self, variant: &str) -> Arc<Inner> {
+        load_inner(&self.factory, &self.label, self.spec, variant)
+    }
+
+    /// Returns the spec used to create this keypair.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("svc", Ed25519Spec::new());
+    /// assert_eq!(kp.spec(), Ed25519Spec::new());
+    /// ```
+    pub fn spec(&self) -> Ed25519Spec {
+        self.spec
+    }
+
+    /// Returns the label used to create this keypair.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("my-svc", Ed25519Spec::new());
+    /// assert_eq!(kp.label(), "my-svc");
+    /// ```
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+
+    uselesskey_core::impl_pkcs8_spki_fixture_accessors!();
+
+    /// Alias for [`Self::public_jwk`].
+    ///
+    /// Requires the `jwk` feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("svc", Ed25519Spec::new());
+    /// let jwk = kp.public_key_jwk();
+    /// assert_eq!(jwk.to_value()["kty"], "OKP");
+    /// ```
+    #[cfg(feature = "jwk")]
+    pub fn public_key_jwk(&self) -> uselesskey_jwk::PublicJwk {
+        self.public_jwk()
+    }
+
+    /// Public JWK for this keypair (kty=OKP, crv=Ed25519, use=sig, kid=...).
+    ///
+    /// Requires the `jwk` feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("svc", Ed25519Spec::new());
+    /// let jwk = kp.public_jwk();
+    /// let val = jwk.to_value();
+    /// assert_eq!(val["kty"], "OKP");
+    /// assert_eq!(val["crv"], "Ed25519");
+    /// ```
+    #[cfg(feature = "jwk")]
+    pub fn public_jwk(&self) -> uselesskey_jwk::PublicJwk {
+        use base64::Engine as _;
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use uselesskey_jwk::{OkpPublicJwk, PublicJwk};
+
+        // Ed25519 public key is 32 bytes
+        let x = self.inner.public.as_bytes();
+
+        PublicJwk::Okp(OkpPublicJwk {
+            kty: "OKP",
+            crv: "Ed25519",
+            use_: "sig",
+            alg: "EdDSA",
+            kid: self.kid(),
+            x: URL_SAFE_NO_PAD.encode(x),
+        })
+    }
+
+    /// Private JWK for this keypair (kty=OKP, crv=Ed25519, d=...).
+    ///
+    /// Requires the `jwk` feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("svc", Ed25519Spec::new());
+    /// let jwk = kp.private_key_jwk();
+    /// let val = jwk.to_value();
+    /// assert_eq!(val["kty"], "OKP");
+    /// assert!(val["d"].is_string());
+    /// ```
+    #[cfg(feature = "jwk")]
+    pub fn private_key_jwk(&self) -> uselesskey_jwk::PrivateJwk {
+        use base64::Engine as _;
+        use base64::engine::general_purpose::URL_SAFE_NO_PAD;
+        use uselesskey_jwk::{OkpPrivateJwk, PrivateJwk};
+
+        let x = self.inner.public.as_bytes();
+        let d = &self.inner.secret_bytes;
+
+        PrivateJwk::Okp(OkpPrivateJwk {
+            kty: "OKP",
+            crv: "Ed25519",
+            use_: "sig",
+            alg: "EdDSA",
+            kid: self.kid(),
+            x: URL_SAFE_NO_PAD.encode(x),
+            d: URL_SAFE_NO_PAD.encode(d),
+        })
+    }
+
+    /// JWKS containing a single public key.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("svc", Ed25519Spec::new());
+    /// let jwks = kp.public_jwks();
+    /// assert!(jwks.to_value()["keys"].is_array());
+    /// ```
+    #[cfg(feature = "jwk")]
+    pub fn public_jwks(&self) -> uselesskey_jwk::Jwks {
+        use uselesskey_jwk::JwksBuilder;
+
+        let mut builder = JwksBuilder::new();
+        builder.push_public(self.public_jwk());
+        builder.build()
+    }
+
+    /// Public JWK serialized to `serde_json::Value`.
+    ///
+    /// Requires the `jwk` feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("svc", Ed25519Spec::new());
+    /// let val = kp.public_jwk_json();
+    /// assert_eq!(val["kty"], "OKP");
+    /// ```
+    #[cfg(feature = "jwk")]
+    pub fn public_jwk_json(&self) -> serde_json::Value {
+        self.public_jwk().to_value()
+    }
+
+    /// JWKS serialized to `serde_json::Value`.
+    ///
+    /// Requires the `jwk` feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("svc", Ed25519Spec::new());
+    /// let val = kp.public_jwks_json();
+    /// assert!(val["keys"].is_array());
+    /// ```
+    #[cfg(feature = "jwk")]
+    pub fn public_jwks_json(&self) -> serde_json::Value {
+        self.public_jwks().to_value()
+    }
+
+    /// Private JWK serialized to `serde_json::Value`.
+    ///
+    /// Requires the `jwk` feature.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use uselesskey_core::Factory;
+    /// # use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
+    /// let fx = Factory::random();
+    /// let kp = fx.ed25519("svc", Ed25519Spec::new());
+    /// let val = kp.private_key_jwk_json();
+    /// assert_eq!(val["kty"], "OKP");
+    /// assert!(val["d"].is_string());
+    /// ```
+    #[cfg(feature = "jwk")]
+    pub fn private_key_jwk_json(&self) -> serde_json::Value {
+        self.private_key_jwk().to_value()
+    }
+}
+
+fn load_inner(factory: &Factory, label: &str, spec: Ed25519Spec, variant: &str) -> Arc<Inner> {
+    let spec_bytes = spec.stable_bytes();
+
+    factory.get_or_init(
+        DOMAIN_ED25519_KEYPAIR,
+        label,
+        &spec_bytes,
+        variant,
+        |seed| {
+            let mut secret_bytes = [0u8; 32];
+            seed.fill_bytes(&mut secret_bytes);
+            let private = SigningKey::from_bytes(&secret_bytes);
+            let public = private.verifying_key();
+
+            let pkcs8_der_doc = private
+                .to_pkcs8_der()
+                .expect("failed to encode Ed25519 private key as PKCS#8 DER");
+            let pkcs8_der: Arc<[u8]> = Arc::from(pkcs8_der_doc.as_bytes());
+
+            let pkcs8_pem = private
+                .to_pkcs8_pem(LineEnding::LF)
+                .expect("failed to encode Ed25519 private key as PKCS#8 PEM")
+                .to_string();
+
+            let spki_der_doc = public
+                .to_public_key_der()
+                .expect("failed to encode Ed25519 public key as SPKI DER");
+            let spki_der: Arc<[u8]> = Arc::from(spki_der_doc.as_ref());
+
+            let spki_pem = public
+                .to_public_key_pem(LineEnding::LF)
+                .expect("failed to encode Ed25519 public key as SPKI PEM");
+
+            let material = Pkcs8SpkiKeyMaterial::new(pkcs8_der, pkcs8_pem, spki_der, spki_pem);
+
+            Inner {
+                _private: private,
+                public,
+                material,
+                secret_bytes,
+            }
+        },
+    )
+}

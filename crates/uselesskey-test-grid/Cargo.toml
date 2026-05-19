@@ -1,0 +1,25 @@
+[package]
+name = "uselesskey-test-grid"
+version = "0.9.1"
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+documentation = "https://docs.rs/uselesskey-test-grid"
+readme = "README.md"
+homepage = "https://github.com/EffortlessMetrics/uselesskey"
+description = "Compatibility façade for `uselesskey-feature-grid` data exports."
+categories = ["development-tools::testing"]
+keywords = ["testing", "fixtures", "feature-flags", "feature-matrix", "bdd"]
+authors.workspace = true
+publish = false
+
+[dependencies]
+uselesskey-feature-grid.workspace = true
+
+[dev-dependencies]
+uselesskey-feature-grid.workspace = true
+
+
+[lints]
+workspace = true

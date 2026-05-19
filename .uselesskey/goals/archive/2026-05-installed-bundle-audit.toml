@@ -1,0 +1,109 @@
+id = "uselesskey-installed-bundle-audit"
+title = "Installed bundle audit and reviewer handoff"
+status = "archived"
+owner = "EffortlessMetrics"
+created = "2026-05-18"
+
+objective = """
+Make installed CLI-generated bundles locally auditable and reviewer-friendly.
+Users should be able to generate scanner-safe/TLS/OIDC/webhook fixtures,
+inspect and verify the bundle, and attach metadata-only audit receipts without
+cloning the repo or learning xtask.
+"""
+
+end_state = [
+  "Installed bundle audit behavior and boundaries are specified.",
+  "The installed CLI writes deterministic JSON and Markdown bundle-audit receipts.",
+  "Audit receipts prove local bundle consistency and metadata classification without copying raw fixture payloads.",
+  "Scanner-safe, TLS, OIDC, webhook, and runtime bundles have bounded audit coverage.",
+  "External adoption smoke runs bundle, verify-bundle, audit-bundle, and inspect-bundle for installed-style bundle paths.",
+  "Reviewer handoff and downstream CI docs explain what audit-bundle proves and does not prove.",
+  "The lane closes without a version bump, tag, publish, new badge, or new contract pack.",
+]
+
+[[work_item]]
+id = "lane-open"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/installed-bundle-audit/implementation-plan.md"
+commands = [
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "installed-bundle-audit-spec"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0014"
+plan = "plans/installed-bundle-audit/implementation-plan.md"
+commands = [
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "audit-bundle-cli"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0014"
+plan = "plans/installed-bundle-audit/implementation-plan.md"
+commands = [
+  "cargo test -p uselesskey-cli --all-features audit_bundle",
+  "cargo xtask external-adoption-smoke --path .",
+  "cargo xtask adoption-regression --external",
+  "cargo xtask no-blob",
+  "cargo xtask pr-lite",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "external-adoption-audit"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0014"
+plan = "plans/installed-bundle-audit/implementation-plan.md"
+commands = [
+  "cargo test -p xtask external_adoption_smoke",
+  "cargo xtask external-adoption-smoke --path .",
+  "cargo xtask external-adoption-smoke --path . --format json",
+  "cargo xtask adoption-regression --external",
+  "cargo xtask pr-lite",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "reviewer-handoff-docs"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0014"
+plan = "plans/installed-bundle-audit/implementation-plan.md"
+commands = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "cargo xtask external-adoption-smoke --path .",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "lane-closeout"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/installed-bundle-audit/closeout.md"
+commands = [
+  "cargo xtask external-adoption-smoke --path .",
+  "cargo xtask adoption-regression --external",
+  "cargo xtask claim-report --check-public-claims",
+  "cargo xtask contract-packs --check",
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "cargo +nightly xtask pr-lite",
+  "cargo xtask pr",
+  "git diff --check",
+]

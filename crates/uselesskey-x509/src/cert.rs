@@ -1,0 +1,840 @@
+//! X.509 certificate generation and output.
+
+use std::fmt;
+use std::sync::Arc;
+
+use rand_chacha::ChaCha20Rng;
+use rand_core::SeedableRng;
+use uselesskey_core::negative::CorruptPem;
+use uselesskey_core::sink::TempArtifact;
+use uselesskey_core::{Error, Factory};
+
+use crate::chain::X509Chain;
+use crate::negative::{
+    corrupt_cert_der_deterministic, corrupt_cert_pem, corrupt_cert_pem_deterministic,
+    truncate_cert_der,
+};
+use crate::srp::negative::X509Negative;
+use crate::srp::spec::{ChainSpec, X509Spec};
+
+mod material;
+mod params;
+
+/// Cache domain for X.509 certificate fixtures.
+///
+/// Keep this stable: changing it changes deterministic outputs.
+pub const DOMAIN_X509_CERT: &str = "uselesskey:x509:cert";
+
+/// An X.509 certificate fixture.
+///
+/// Created via [`X509FactoryExt::x509_self_signed()`]. Provides access to:
+/// - Certificate in PEM and DER formats
+/// - Private key in PKCS#8 PEM and DER formats
+/// - Combined identity PEM (cert + key)
+/// - Negative fixtures (expired, not-yet-valid, wrong key usage, corrupt PEM)
+///
+/// # Examples
+///
+/// ```no_run
+/// # use uselesskey_core::{Factory, Seed};
+/// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+/// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+/// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+///
+/// assert!(cert.cert_pem().contains("-----BEGIN CERTIFICATE-----"));
+/// assert!(cert.private_key_pkcs8_pem().contains("-----BEGIN PRIVATE KEY-----"));
+/// ```
+#[derive(Clone)]
+pub struct X509Cert {
+    factory: Factory,
+    label: String,
+    spec: X509Spec,
+    inner: Arc<Inner>,
+}
+
+struct Inner {
+    cert_der: Arc<[u8]>,
+    cert_pem: String,
+    private_key_pkcs8_der: Arc<[u8]>,
+    private_key_pkcs8_pem: String,
+}
+
+impl Inner {
+    fn certificate_unavailable(keys: &material::CertKeyMaterial) -> Self {
+        Self {
+            cert_der: Arc::<[u8]>::from(Vec::<u8>::new()),
+            cert_pem: String::new(),
+            private_key_pkcs8_der: Arc::from(keys.rsa.private_key_pkcs8_der()),
+            private_key_pkcs8_pem: keys.rsa.private_key_pkcs8_pem().to_string(),
+        }
+    }
+}
+
+impl fmt::Debug for X509Cert {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("X509Cert")
+            .field("label", &self.label)
+            .field("spec", &self.spec)
+            .finish_non_exhaustive()
+    }
+}
+
+/// Extension trait to add X.509 certificate generation to [`Factory`].
+pub trait X509FactoryExt {
+    /// Generate a self-signed X.509 certificate.
+    ///
+    /// The certificate is cached by `(label, spec)` and will be reused on subsequent calls
+    /// with the same parameters.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let spec = X509Spec::self_signed("test.example.com");
+    /// let cert = fx.x509_self_signed("my-service", spec);
+    /// assert!(cert.cert_pem().contains("-----BEGIN CERTIFICATE-----"));
+    /// ```
+    fn x509_self_signed(&self, label: impl AsRef<str>, spec: X509Spec) -> X509Cert;
+
+    /// Generate a three-level X.509 certificate chain (root CA → intermediate CA → leaf).
+    ///
+    /// The chain is cached by `(label, spec)` and will be reused on subsequent calls
+    /// with the same parameters.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, ChainSpec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let chain = fx.x509_chain("my-service", ChainSpec::new("test.example.com"));
+    /// assert!(chain.leaf_cert_pem().contains("-----BEGIN CERTIFICATE-----"));
+    /// ```
+    fn x509_chain(&self, label: impl AsRef<str>, spec: ChainSpec) -> X509Chain;
+}
+
+impl X509FactoryExt for Factory {
+    fn x509_self_signed(&self, label: impl AsRef<str>, spec: X509Spec) -> X509Cert {
+        X509Cert::new(self.clone(), label.as_ref(), spec)
+    }
+
+    fn x509_chain(&self, label: impl AsRef<str>, spec: ChainSpec) -> X509Chain {
+        X509Chain::new(self.clone(), label.as_ref(), spec)
+    }
+}
+
+impl X509Cert {
+    fn new(factory: Factory, label: &str, spec: X509Spec) -> Self {
+        let inner = load_inner(&factory, label, &spec, "good");
+        Self {
+            factory,
+            label: label.to_string(),
+            spec,
+            inner,
+        }
+    }
+
+    #[allow(
+        dead_code,
+        reason = "reserved for future variant-based negative fixtures"
+    )]
+    fn load_variant(&self, variant: &str) -> Arc<Inner> {
+        load_inner(&self.factory, &self.label, &self.spec, variant)
+    }
+
+    // =========================================================================
+    // Certificate outputs
+    // =========================================================================
+
+    /// DER-encoded certificate bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// assert!(!cert.cert_der().is_empty());
+    /// ```
+    pub fn cert_der(&self) -> &[u8] {
+        &self.inner.cert_der
+    }
+
+    /// PEM-encoded certificate.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// assert!(cert.cert_pem().starts_with("-----BEGIN CERTIFICATE-----"));
+    /// ```
+    pub fn cert_pem(&self) -> &str {
+        &self.inner.cert_pem
+    }
+
+    /// DER-encoded PKCS#8 private key bytes.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// assert!(!cert.private_key_pkcs8_der().is_empty());
+    /// ```
+    pub fn private_key_pkcs8_der(&self) -> &[u8] {
+        &self.inner.private_key_pkcs8_der
+    }
+
+    /// PEM-encoded PKCS#8 private key.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// assert!(cert.private_key_pkcs8_pem().contains("-----BEGIN PRIVATE KEY-----"));
+    /// ```
+    pub fn private_key_pkcs8_pem(&self) -> &str {
+        &self.inner.private_key_pkcs8_pem
+    }
+
+    /// Combined PEM containing both certificate and private key.
+    ///
+    /// This is a common format for TLS server configuration where
+    /// a single file holds the server identity (cert + key).
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let identity = cert.identity_pem();
+    /// assert!(identity.contains("-----BEGIN CERTIFICATE-----"));
+    /// assert!(identity.contains("-----BEGIN PRIVATE KEY-----"));
+    /// ```
+    pub fn identity_pem(&self) -> String {
+        format!("{}\n{}", self.cert_pem(), self.private_key_pkcs8_pem())
+    }
+
+    // =========================================================================
+    // Tempfile outputs
+    // =========================================================================
+
+    /// Write the PEM certificate to a tempfile.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let temp = cert.write_cert_pem().unwrap();
+    /// assert!(temp.path().exists());
+    /// ```
+    pub fn write_cert_pem(&self) -> Result<TempArtifact, Error> {
+        TempArtifact::new_string("uselesskey-", ".crt.pem", self.cert_pem())
+    }
+
+    /// Write the DER certificate to a tempfile.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let temp = cert.write_cert_der().unwrap();
+    /// assert!(temp.path().exists());
+    /// ```
+    pub fn write_cert_der(&self) -> Result<TempArtifact, Error> {
+        TempArtifact::new_bytes("uselesskey-", ".crt.der", self.cert_der())
+    }
+
+    /// Write the PEM private key to a tempfile.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let temp = cert.write_private_key_pem().unwrap();
+    /// assert!(temp.path().exists());
+    /// ```
+    pub fn write_private_key_pem(&self) -> Result<TempArtifact, Error> {
+        TempArtifact::new_string("uselesskey-", ".key.pem", self.private_key_pkcs8_pem())
+    }
+
+    /// Write the combined identity PEM (cert + key) to a tempfile.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let temp = cert.write_identity_pem().unwrap();
+    /// assert!(temp.path().exists());
+    /// ```
+    pub fn write_identity_pem(&self) -> Result<TempArtifact, Error> {
+        TempArtifact::new_string("uselesskey-", ".identity.pem", &self.identity_pem())
+    }
+
+    // =========================================================================
+    // Negative fixtures
+    // =========================================================================
+
+    /// Produce a corrupted variant of the certificate PEM.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_core::negative::CorruptPem;
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let bad = cert.corrupt_cert_pem(CorruptPem::BadHeader);
+    /// assert!(bad.contains("CORRUPTED"));
+    /// ```
+    pub fn corrupt_cert_pem(&self, how: CorruptPem) -> String {
+        corrupt_cert_pem(self.cert_pem(), how)
+    }
+
+    /// Produce a deterministic corrupted certificate PEM using a variant string.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let bad = cert.corrupt_cert_pem_deterministic("corrupt:v1");
+    /// assert!(!bad.is_empty());
+    /// ```
+    pub fn corrupt_cert_pem_deterministic(&self, variant: &str) -> String {
+        corrupt_cert_pem_deterministic(self.cert_pem(), variant)
+    }
+
+    /// Produce a truncated variant of the certificate DER.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let truncated = cert.truncate_cert_der(10);
+    /// assert_eq!(truncated.len(), 10);
+    /// ```
+    pub fn truncate_cert_der(&self, len: usize) -> Vec<u8> {
+        truncate_cert_der(self.cert_der(), len)
+    }
+
+    /// Produce a deterministic corrupted certificate DER using a variant string.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let bad = cert.corrupt_cert_der_deterministic("corrupt:v1");
+    /// assert!(!bad.is_empty());
+    /// ```
+    pub fn corrupt_cert_der_deterministic(&self, variant: &str) -> Vec<u8> {
+        corrupt_cert_der_deterministic(self.cert_der(), variant)
+    }
+
+    /// Generate a negative fixture variant of this certificate.
+    ///
+    /// The variant is cached separately from the valid certificate.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec, X509Negative};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let expired = cert.negative(X509Negative::Expired);
+    /// assert_ne!(cert.cert_der(), expired.cert_der());
+    /// ```
+    pub fn negative(&self, negative_type: X509Negative) -> X509Cert {
+        let modified_spec = negative_type.apply_to_spec(&self.spec);
+        let variant = negative_type.variant_name();
+        let inner = load_inner_with_spec(&self.factory, &self.label, &modified_spec, variant);
+
+        X509Cert {
+            factory: self.factory.clone(),
+            label: self.label.clone(),
+            spec: modified_spec,
+            inner,
+        }
+    }
+
+    /// Get a certificate that is already expired.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let expired = cert.expired();
+    /// assert_ne!(cert.cert_der(), expired.cert_der());
+    /// ```
+    pub fn expired(&self) -> X509Cert {
+        self.negative(X509Negative::Expired)
+    }
+
+    /// Get a certificate that is not yet valid.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let future = cert.not_yet_valid();
+    /// assert_ne!(cert.cert_der(), future.cert_der());
+    /// ```
+    pub fn not_yet_valid(&self) -> X509Cert {
+        self.negative(X509Negative::NotYetValid)
+    }
+
+    /// Get a certificate with wrong key usage flags.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("svc", X509Spec::self_signed("svc.example.com"));
+    /// let wrong = cert.wrong_key_usage();
+    /// assert!(wrong.spec().is_ca);
+    /// ```
+    pub fn wrong_key_usage(&self) -> X509Cert {
+        self.negative(X509Negative::WrongKeyUsage)
+    }
+
+    // =========================================================================
+    // Metadata
+    // =========================================================================
+
+    /// Get the specification used to create this certificate.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let spec = X509Spec::self_signed("svc.example.com");
+    /// let cert = fx.x509_self_signed("svc", spec.clone());
+    /// assert_eq!(cert.spec().subject_cn, "svc.example.com");
+    /// ```
+    pub fn spec(&self) -> &X509Spec {
+        &self.spec
+    }
+
+    /// Get the label used to create this certificate.
+    ///
+    /// # Examples
+    ///
+    /// ```no_run
+    /// # use uselesskey_core::{Factory, Seed};
+    /// # use uselesskey_x509::{X509FactoryExt, X509Spec};
+    /// let fx = Factory::deterministic(Seed::from_env_value("test-seed").unwrap());
+    /// let cert = fx.x509_self_signed("my-svc", X509Spec::self_signed("svc.example.com"));
+    /// assert_eq!(cert.label(), "my-svc");
+    /// ```
+    pub fn label(&self) -> &str {
+        &self.label
+    }
+}
+
+fn load_inner(factory: &Factory, label: &str, spec: &X509Spec, variant: &str) -> Arc<Inner> {
+    load_inner_with_spec(factory, label, spec, variant)
+}
+
+fn load_inner_with_spec(
+    factory: &Factory,
+    label: &str,
+    spec: &X509Spec,
+    variant: &str,
+) -> Arc<Inner> {
+    let spec_bytes = spec.stable_bytes();
+
+    factory.get_or_init(DOMAIN_X509_CERT, label, &spec_bytes, variant, |seed| {
+        let mut rng = ChaCha20Rng::from_seed(*seed.bytes());
+        let keys = material::generate(factory, label, spec.rsa_bits);
+        let base_time = params::deterministic_base_time(label, spec);
+        let cert_params = params::self_signed_params(spec, base_time, &mut rng);
+
+        let Some(key_pair) = keys.kp.as_ref() else {
+            return Inner::certificate_unavailable(&keys);
+        };
+        let Ok(cert) = cert_params.self_signed(key_pair) else {
+            return Inner::certificate_unavailable(&keys);
+        };
+
+        Inner {
+            cert_der: Arc::from(cert.der().as_ref()),
+            cert_pem: cert.pem(),
+            private_key_pkcs8_der: Arc::from(keys.rsa.private_key_pkcs8_der()),
+            private_key_pkcs8_pem: keys.rsa.private_key_pkcs8_pem().to_string(),
+        }
+    })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::srp::spec::NotBeforeOffset;
+    use crate::testutil::fx;
+    use uselesskey_core::Seed;
+
+    #[test]
+    fn test_self_signed_cert_generation() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        assert!(cert.cert_der().len() > 1);
+        assert!(cert.cert_pem().contains("-----BEGIN CERTIFICATE-----"));
+        assert!(cert.private_key_pkcs8_der().len() > 1);
+        assert!(
+            cert.private_key_pkcs8_pem()
+                .contains("-----BEGIN PRIVATE KEY-----")
+        );
+
+        // Verify CN and leaf-not-CA
+        use x509_parser::prelude::*;
+        let (_, parsed) = X509Certificate::from_der(cert.cert_der()).expect("parse cert");
+        let cn = parsed.subject().iter_common_name().next().expect("CN");
+        assert_eq!(cn.as_str().unwrap(), "test.example.com");
+        assert!(!parsed.is_ca(), "leaf cert must not be CA");
+    }
+
+    #[test]
+    fn invalid_dns_san_does_not_block_self_signed_generation() {
+        let factory = fx();
+        let spec =
+            X509Spec::self_signed("test.example.com").with_sans(vec!["not a dns name".into()]);
+        let cert = factory.x509_self_signed("invalid-san", spec);
+
+        assert!(cert.cert_der().len() > 1);
+        assert!(cert.cert_pem().contains("-----BEGIN CERTIFICATE-----"));
+    }
+
+    #[test]
+    fn test_deterministic_cert_generation() {
+        let seed = Seed::from_env_value("test-seed").unwrap();
+        let factory = Factory::deterministic(seed);
+        let spec = X509Spec::self_signed("test.example.com");
+
+        let cert1 = factory.x509_self_signed("test", spec.clone());
+        factory.clear_cache();
+        let cert2 = factory.x509_self_signed("test", spec);
+
+        assert_eq!(cert1.cert_pem(), cert2.cert_pem());
+        assert_eq!(cert1.private_key_pkcs8_pem(), cert2.private_key_pkcs8_pem());
+    }
+
+    #[test]
+    fn test_identity_pem() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        let identity = cert.identity_pem();
+        assert!(identity.contains("-----BEGIN CERTIFICATE-----"));
+        assert!(identity.contains("-----BEGIN PRIVATE KEY-----"));
+    }
+
+    #[test]
+    fn test_good_cert_not_expired_within_five_years() {
+        use x509_parser::prelude::*;
+
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        let (_, parsed) = X509Certificate::from_der(cert.cert_der()).expect("parse cert");
+        let not_before = parsed.validity().not_before.timestamp();
+        let not_after = parsed.validity().not_after.timestamp();
+        let validity_days = (not_after - not_before) / 86400;
+        assert!(validity_days >= 365 * 5);
+    }
+
+    #[test]
+    fn test_expired_cert() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        let expired = cert.expired();
+        // The expired cert should have a different DER (different validity)
+        assert_ne!(cert.cert_der(), expired.cert_der());
+    }
+
+    #[test]
+    fn test_not_yet_valid_cert() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        let not_valid = cert.not_yet_valid();
+        assert_ne!(cert.cert_der(), not_valid.cert_der());
+    }
+
+    #[test]
+    fn test_corrupt_cert_pem() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        let corrupted = cert.corrupt_cert_pem(CorruptPem::BadHeader);
+        assert!(corrupted.contains("-----BEGIN CORRUPTED KEY-----"));
+    }
+
+    #[test]
+    fn test_truncate_cert_der() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        let truncated = cert.truncate_cert_der(10);
+        assert_eq!(truncated.len(), 10);
+    }
+
+    #[test]
+    fn test_deterministic_corrupt_helpers() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        let pem_a = cert.corrupt_cert_pem_deterministic("corrupt:v1");
+        let pem_b = cert.corrupt_cert_pem_deterministic("corrupt:v1");
+        assert_eq!(pem_a, pem_b);
+
+        let der_a = cert.corrupt_cert_der_deterministic("corrupt:v1");
+        let der_b = cert.corrupt_cert_der_deterministic("corrupt:v1");
+        assert_eq!(der_a, der_b);
+
+        assert!(!pem_a.is_empty());
+        assert_ne!(pem_a, "xyzzy");
+        assert!(der_a.len() > 1);
+    }
+
+    #[test]
+    fn test_tempfile_outputs() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("test.example.com");
+        let cert = factory.x509_self_signed("test", spec);
+
+        let cert_file = cert.write_cert_pem().unwrap();
+        assert!(cert_file.path().exists());
+
+        let cert_der_file = cert.write_cert_der().unwrap();
+        assert!(cert_der_file.path().exists());
+
+        let key_file = cert.write_private_key_pem().unwrap();
+        assert!(key_file.path().exists());
+
+        let identity_file = cert.write_identity_pem().unwrap();
+        assert!(identity_file.path().exists());
+    }
+
+    #[test]
+    fn test_debug_includes_label_and_spec() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("debug.example.com");
+        let cert = factory.x509_self_signed("debug-label", spec);
+
+        let dbg = format!("{:?}", cert);
+        assert!(dbg.contains("X509Cert"));
+        assert!(dbg.contains("debug-label"));
+    }
+
+    #[test]
+    fn test_factory_chain_extension_works() {
+        let factory = fx();
+        let chain = factory.x509_chain("test-chain", ChainSpec::new("test.example.com"));
+        assert!(!chain.leaf_cert_der().is_empty());
+    }
+
+    #[test]
+    fn test_load_variant_generates_distinct_cert() {
+        let factory = Factory::deterministic(Seed::from_env_value("variant-seed").unwrap());
+        let spec = X509Spec::self_signed("variant.example.com");
+        let cert = factory.x509_self_signed("variant", spec);
+
+        let other = cert.load_variant("alt");
+        assert_ne!(cert.cert_der(), other.cert_der.as_ref());
+    }
+
+    #[test]
+    fn test_wrong_key_usage_variant_updates_spec() {
+        let factory = fx();
+        let spec = X509Spec::self_signed("badku.example.com");
+        let cert = factory.x509_self_signed("badku", spec);
+
+        let wrong = cert.wrong_key_usage();
+        assert!(wrong.spec().is_ca);
+        assert!(!wrong.spec().key_usage.key_cert_sign);
+        assert_eq!(wrong.label(), "badku");
+    }
+
+    #[test]
+    fn test_not_before_offset_affects_cert_time() {
+        use x509_parser::prelude::*;
+
+        let factory = fx();
+
+        let spec_ago = X509Spec::self_signed("offset.example.com")
+            .with_not_before(NotBeforeOffset::DaysAgo(30));
+        let cert_ago = factory.x509_self_signed("offset", spec_ago);
+
+        let spec_future = X509Spec::self_signed("offset.example.com")
+            .with_not_before(NotBeforeOffset::DaysFromNow(30));
+        let cert_future = factory.x509_self_signed("offset", spec_future);
+
+        let (_, parsed_ago) =
+            X509Certificate::from_der(cert_ago.cert_der()).expect("parse ago cert");
+        let (_, parsed_future) =
+            X509Certificate::from_der(cert_future.cert_der()).expect("parse future cert");
+
+        // DaysFromNow cert must have a later not_before than DaysAgo cert
+        assert!(
+            parsed_future.validity().not_before.timestamp()
+                > parsed_ago.validity().not_before.timestamp()
+        );
+    }
+
+    #[test]
+    fn test_leaf_cert_has_eku() {
+        use x509_parser::prelude::*;
+
+        let factory = fx();
+        let spec = X509Spec::self_signed("eku.example.com");
+        let cert = factory.x509_self_signed("eku", spec);
+
+        let (_, parsed) = X509Certificate::from_der(cert.cert_der()).expect("parse cert");
+
+        // Leaf cert (is_ca=false) should have Extended Key Usage
+        let eku_ext = parsed
+            .extensions()
+            .iter()
+            .find(|ext| ext.oid == x509_parser::oid_registry::OID_X509_EXT_EXTENDED_KEY_USAGE)
+            .expect("leaf cert should have EKU extension");
+
+        let eku = match eku_ext.parsed_extension() {
+            x509_parser::extensions::ParsedExtension::ExtendedKeyUsage(eku) => eku,
+            other => panic!("expected ExtendedKeyUsage, got {:?}", other),
+        };
+
+        assert!(eku.server_auth, "leaf EKU must include ServerAuth");
+        assert!(eku.client_auth, "leaf EKU must include ClientAuth");
+    }
+
+    #[test]
+    fn test_self_signed_ca_executes_ca_branches() {
+        use x509_parser::prelude::*;
+
+        let factory = fx();
+        let spec = X509Spec::self_signed_ca("ca.example.com");
+        let cert = factory.x509_self_signed("ca", spec);
+
+        let (_, parsed) = X509Certificate::from_der(cert.cert_der()).expect("parse cert");
+        assert!(parsed.is_ca());
+
+        // CA cert must NOT have EKU extension
+        let eku = parsed
+            .extensions()
+            .iter()
+            .find(|e| e.oid == x509_parser::oid_registry::OID_X509_EXT_EXTENDED_KEY_USAGE);
+        assert!(eku.is_none(), "CA cert should not have EKU");
+    }
+
+    #[test]
+    fn test_leaf_key_usage_bits() {
+        use x509_parser::prelude::*;
+
+        let factory = fx();
+        let spec = X509Spec::self_signed("ku-leaf.example.com");
+        let cert = factory.x509_self_signed("ku-leaf", spec);
+
+        let (_, parsed) = X509Certificate::from_der(cert.cert_der()).expect("parse cert");
+
+        let ku_ext = parsed
+            .extensions()
+            .iter()
+            .find(|ext| ext.oid == x509_parser::oid_registry::OID_X509_EXT_KEY_USAGE)
+            .expect("leaf cert should have KeyUsage extension");
+
+        let ku = match ku_ext.parsed_extension() {
+            x509_parser::extensions::ParsedExtension::KeyUsage(ku) => ku,
+            other => panic!("expected KeyUsage, got {:?}", other),
+        };
+
+        // Leaf defaults: digital_signature=true, key_encipherment=true,
+        //                key_cert_sign=false, crl_sign=false
+        assert!(ku.digital_signature(), "leaf must have DigitalSignature");
+        assert!(ku.key_encipherment(), "leaf must have KeyEncipherment");
+        assert!(!ku.key_cert_sign(), "leaf must NOT have KeyCertSign");
+        assert!(!ku.crl_sign(), "leaf must NOT have CrlSign");
+    }
+
+    #[test]
+    fn test_ca_key_usage_bits() {
+        use x509_parser::prelude::*;
+
+        let factory = fx();
+        let spec = X509Spec::self_signed_ca("ku-ca.example.com");
+        let cert = factory.x509_self_signed("ku-ca", spec);
+
+        let (_, parsed) = X509Certificate::from_der(cert.cert_der()).expect("parse cert");
+
+        let ku_ext = parsed
+            .extensions()
+            .iter()
+            .find(|ext| ext.oid == x509_parser::oid_registry::OID_X509_EXT_KEY_USAGE)
+            .expect("CA cert should have KeyUsage extension");
+
+        let ku = match ku_ext.parsed_extension() {
+            x509_parser::extensions::ParsedExtension::KeyUsage(ku) => ku,
+            other => panic!("expected KeyUsage, got {:?}", other),
+        };
+
+        // CA defaults: digital_signature=true, key_encipherment=false,
+        //              key_cert_sign=true, crl_sign=true
+        assert!(ku.digital_signature(), "CA must have DigitalSignature");
+        assert!(!ku.key_encipherment(), "CA must NOT have KeyEncipherment");
+        assert!(ku.key_cert_sign(), "CA must have KeyCertSign");
+        assert!(ku.crl_sign(), "CA must have CrlSign");
+    }
+}

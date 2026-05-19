@@ -1,0 +1,92 @@
+id = "uselesskey-adoption-confidence"
+title = "Adoption correctness and fixture confidence"
+status = "archived"
+owner = "EffortlessMetrics"
+created = "2026-05-16"
+
+objective = """
+Make the copied user paths correct, well-covered, scanner-safe where claimed,
+and hard to overclaim. Users should be able to generate fixtures, inspect
+manifest/audit metadata, trust scanner-safe labels, run proof, and avoid
+committing generated payloads.
+"""
+
+end_state = [
+  "Runtime public JWK/JWKS scanner-safe metadata matches material sensitivity.",
+  "Main fixture families have confidence coverage for deterministic identity, negative variants, public JWK/JWKS shape, or redaction-sensitive behavior where relevant.",
+  "Adapter and contract-pack paths have user-visible confidence coverage.",
+  "cargo xtask adoption-regression summarizes copied user-path correctness.",
+  "cargo xtask check-no-panic-family reports 0 new debt.",
+  "Broad generated refactor drafts are closed or parked outside this lane.",
+  "v0.9.1 patch scope is defined if the scanner-safe fix should be published before the next product lane.",
+]
+
+[[work_item]]
+id = "scanner-safe-runtime-metadata"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0002"
+plan = "plans/adoption-confidence/closeout.md"
+commands = [
+  "cargo test -p uselesskey-cli --all-features",
+  "cargo xtask no-blob",
+  "cargo xtask user-path-smoke",
+  "cargo xtask pr-lite",
+  "cargo xtask pr",
+]
+
+[[work_item]]
+id = "fixture-confidence-matrix"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0003"
+plan = "plans/adoption-confidence/closeout.md"
+commands = [
+  "cargo test -p uselesskey-token --all-features",
+  "cargo test -p uselesskey-rsa --all-features",
+  "cargo test -p uselesskey-ecdsa --all-features",
+  "cargo test -p uselesskey-pgp",
+  "cargo test -p uselesskey-x509",
+  "cargo xtask check-no-panic-family",
+]
+
+[[work_item]]
+id = "adapter-confidence"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0003"
+plan = "plans/adoption-confidence/closeout.md"
+commands = [
+  "cargo test -p uselesskey-jsonwebtoken --all-features",
+  "cargo test -p uselesskey-rustls --all-features",
+  "cargo xtask pr-lite",
+]
+
+[[work_item]]
+id = "adoption-regression"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0006"
+plan = "plans/adoption-confidence/closeout.md"
+commands = [
+  "cargo xtask adoption-regression",
+  "cargo xtask adoption-regression --format json",
+]
+
+[[work_item]]
+id = "lane-closeout"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/adoption-confidence/closeout.md"
+commands = [
+  "cargo xtask adoption-regression",
+  "cargo xtask adoption-regression --format json",
+  "cargo xtask check-no-panic-family",
+  "cargo xtask claim-report --check-public-claims",
+  "cargo xtask contract-packs --check",
+  "cargo xtask docs-sync --check",
+  "cargo +nightly xtask pr-lite",
+  "cargo xtask pr",
+  "git diff --check",
+]

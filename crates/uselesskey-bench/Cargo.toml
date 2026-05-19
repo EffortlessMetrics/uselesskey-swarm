@@ -1,0 +1,28 @@
+[package]
+name = "uselesskey-bench"
+version = "0.0.0"
+publish = false
+edition.workspace = true
+license.workspace = true
+rust-version.workspace = true
+repository.workspace = true
+homepage.workspace = true
+authors.workspace = true
+description = "Machine-readable performance harness for uselesskey fixture hot paths."
+
+[dependencies]
+anyhow.workspace = true
+clap.workspace = true
+serde = { workspace = true, features = ["derive"] }
+serde_json.workspace = true
+tempfile.workspace = true
+uselesskey = { path = "../uselesskey", features = ["full"] }
+uselesskey-cli.workspace = true
+uselesskey-pkcs11-mock = { path = "../uselesskey-pkcs11-mock", version = "0.9.1" }
+uselesskey-webauthn = { path = "../uselesskey-webauthn", version = "0.9.1" }
+
+[dev-dependencies]
+serde_json.workspace = true
+
+[lints]
+workspace = true

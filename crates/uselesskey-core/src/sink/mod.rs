@@ -1,0 +1,104 @@
+use std::fmt;
+use std::path::Path;
+
+use crate::Error;
+use crate::srp::sink::TempArtifact as RawTempArtifact;
+
+pub struct TempArtifact {
+    inner: RawTempArtifact,
+}
+
+impl fmt::Debug for TempArtifact {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("TempArtifact")
+            .field("path", &self.inner.path())
+            .finish_non_exhaustive()
+    }
+}
+
+impl TempArtifact {
+    pub fn new_bytes(prefix: &str, suffix: &str, bytes: &[u8]) -> Result<Self, Error> {
+        let inner = RawTempArtifact::new_bytes(prefix, suffix, bytes)?;
+        Ok(Self { inner })
+    }
+
+    pub fn new_string(prefix: &str, suffix: &str, s: &str) -> Result<Self, Error> {
+        let inner = RawTempArtifact::new_string(prefix, suffix, s)?;
+        Ok(Self { inner })
+    }
+
+    pub fn path(&self) -> &Path {
+        self.inner.path()
+    }
+
+    pub fn read_to_bytes(&self) -> Result<Vec<u8>, Error> {
+        self.inner.read_to_bytes().map_err(Error::from)
+    }
+
+    pub fn read_to_string(&self) -> Result<String, Error> {
+        self.inner.read_to_string().map_err(Error::from)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::TempArtifact;
+    use std::thread;
+    use std::time::Duration;
+
+    #[test]
+    fn temp_artifact_string_round_trips_and_debug_mentions_path() -> Result<(), crate::Error> {
+        let artifact = TempArtifact::new_string("uselesskey-", ".unit.txt", "hello-world")?;
+
+        let dbg = format!("{artifact:?}");
+        assert!(dbg.contains("TempArtifact"));
+        assert!(dbg.contains(".unit.txt"));
+
+        let text = artifact.read_to_string()?;
+        assert_eq!(text, "hello-world");
+        Ok(())
+    }
+
+    #[test]
+    fn temp_artifact_bytes_round_trip() -> Result<(), crate::Error> {
+        let bytes = vec![0x01, 0x02, 0x03, 0xFF];
+        let artifact = TempArtifact::new_bytes("uselesskey-", ".unit.bin", &bytes)?;
+
+        let read = artifact.read_to_bytes()?;
+        assert_eq!(read, bytes);
+        Ok(())
+    }
+
+    #[test]
+    fn temp_artifact_exposes_live_path_and_deletes_on_drop() -> Result<(), crate::Error> {
+        let path = {
+            let artifact = TempArtifact::new_string("uselesskey-", ".unit.cleanup", "cleanup")?;
+            let path = artifact.path().to_path_buf();
+            assert!(
+                path.exists(),
+                "temp file should exist while artifact is alive"
+            );
+            path
+        };
+
+        let mut attempts = 0;
+        loop {
+            thread::sleep(Duration::from_millis(10));
+            attempts += 1;
+            if !path.exists() || attempts >= 5 {
+                break;
+            }
+        }
+
+        assert!(!path.exists(), "temp file should be deleted after drop");
+        Ok(())
+    }
+
+    #[test]
+    fn temp_artifact_read_to_string_replaces_invalid_utf8() -> Result<(), crate::Error> {
+        let artifact = TempArtifact::new_bytes("uselesskey-", ".unit.utf8", &[0xFF, 0xFE, 0xFD])?;
+        let text = artifact.read_to_string()?;
+        assert!(text.contains('\u{FFFD}'));
+        Ok(())
+    }
+}
