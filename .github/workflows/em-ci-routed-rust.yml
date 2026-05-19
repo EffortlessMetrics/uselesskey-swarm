@@ -41,12 +41,21 @@ jobs:
       reason: ${{ steps.route.outputs.reason }}
       error: ${{ steps.route.outputs.error }}
     steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
       - name: Decide target runner
         id: route
         env:
-          GH_TOKEN: ${{ secrets.EM_RUNNER_READ_TOKEN }}
+          RUNNER_READ_TOKEN: ${{ secrets.EM_RUNNER_READ_TOKEN }}
           ORG: EffortlessMetrics
           FORCE_TARGET: ${{ inputs.force_target || 'auto' }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          BEFORE_SHA: ${{ github.event.before || '' }}
+          HEAD_SHA: ${{ github.sha }}
           IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
         shell: bash
         run: |
@@ -81,12 +90,89 @@ jobs:
             exit 0
           fi
 
-          if [ -z "${GH_TOKEN:-}" ]; then
+          changed_files() {
+            case "${EVENT_NAME}" in
+              pull_request)
+                if [ -z "${BASE_SHA}" ] || [ -z "${HEAD_SHA}" ]; then
+                  return 1
+                fi
+                git diff --name-only "${BASE_SHA}...${HEAD_SHA}"
+                ;;
+              push)
+                if [ -z "${BEFORE_SHA}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+                  return 1
+                fi
+                git diff --name-only "${BEFORE_SHA}" "${HEAD_SHA}"
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          classify_change() {
+            if ! files="$(changed_files 2>/tmp/diff.err)"; then
+              echo "rust"
+              return 0
+            fi
+
+            if [ -z "${files}" ]; then
+              echo "rust"
+              return 0
+            fi
+
+            echo "changed_files:"
+            printf '%s\n' "${files}"
+
+            local all_light="true"
+            while IFS= read -r path; do
+              case "${path}" in
+                .github/workflows/*)
+                  echo "workflow"
+                  return 0
+                  ;;
+                README.md|CHANGELOG.md|SECURITY.md|LICENSE|LICENSE-*|NOTICE|AGENTS.md|docs/*|badges/*|policy/*|plans/*|.github/CODEOWNERS|.github/dependabot.yml|.github/pull_request_template.md|.github/PULL_REQUEST_TEMPLATE/*)
+                  ;;
+                *)
+                  all_light="false"
+                  ;;
+              esac
+            done <<EOF
+          ${files}
+          EOF
+
+            if [ "${all_light}" = "true" ]; then
+              echo "docs"
+            else
+              echo "rust"
+            fi
+          }
+
+          change_class="$(classify_change | tail -n 1)"
+          echo "change_class=${change_class}"
+
+          case "${change_class}" in
+            docs)
+              emit "docs" "docs_policy_light" "false"
+              exit 0
+              ;;
+            workflow)
+              emit "github" "workflow_change_hosted" "false"
+              exit 0
+              ;;
+            rust) ;;
+            *)
+              emit "github" "unknown_change_class" "true"
+              exit 0
+              ;;
+          esac
+
+          if [ -z "${RUNNER_READ_TOKEN:-}" ]; then
             emit "github" "token_missing" "true"
             exit 0
           fi
 
-          if ! runners_json="$(gh api \
+          if ! runners_json="$(GH_TOKEN="${RUNNER_READ_TOKEN}" gh api \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "orgs/${ORG}/actions/runners?per_page=100" 2>/tmp/gh.err)"; then
@@ -426,6 +512,35 @@ jobs:
           path: target/xtask/receipt.json
           if-no-files-found: warn
 
+  uselesskey-docs-policy-light:
+    name: Uselesskey Docs/Policy Light on GitHub Hosted
+    needs: route-uselesskey-rust-small
+    if: needs.route-uselesskey-rust-small.outputs.target == 'docs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install typos
+        uses: taiki-e/install-action@v2
+        with:
+          tool: typos-cli
+
+      - name: docs-sync check
+        run: cargo xtask docs-sync --check
+
+      - name: typos check
+        run: cargo xtask typos
+
   uselesskey-rust-small-result:
     name: Uselesskey Rust Small Result
     needs:
@@ -433,6 +548,7 @@ jobs:
       - uselesskey-rust-small-cx43
       - uselesskey-rust-small-cx53
       - uselesskey-rust-small-github
+      - uselesskey-docs-policy-light
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -445,6 +561,7 @@ jobs:
           CX43_RESULT: ${{ needs.uselesskey-rust-small-cx43.result }}
           CX53_RESULT: ${{ needs.uselesskey-rust-small-cx53.result }}
           GITHUB_RESULT: ${{ needs.uselesskey-rust-small-github.result }}
+          DOCS_RESULT: ${{ needs.uselesskey-docs-policy-light.result }}
         run: |
           set -eu
           echo "router_target=${TARGET:-<empty>}"
@@ -452,6 +569,7 @@ jobs:
           echo "cx43_result=${CX43_RESULT:-<empty>}"
           echo "cx53_result=${CX53_RESULT:-<empty>}"
           echo "github_result=${GITHUB_RESULT:-<empty>}"
+          echo "docs_result=${DOCS_RESULT:-<empty>}"
 
           if [ "${ROUTER_RESULT}" != "success" ]; then
             echo "router job did not succeed; failing normalized result" >&2
@@ -474,6 +592,12 @@ jobs:
             github)
               if [ "${GITHUB_RESULT}" != "success" ]; then
                 echo "selected target github but result was ${GITHUB_RESULT}" >&2
+                exit 1
+              fi
+              ;;
+            docs)
+              if [ "${DOCS_RESULT}" != "success" ]; then
+                echo "selected target docs but result was ${DOCS_RESULT}" >&2
                 exit 1
               fi
               ;;
