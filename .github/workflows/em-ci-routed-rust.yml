@@ -272,10 +272,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Build Uselesskey CI image
+        shell: bash
+        run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
+
       - name: Run Uselesskey rust-small on CX43
         shell: bash
         env:
-          IMAGE: em-ci-rust:1.95
+          IMAGE: uselesskey-ci-rust:1.95
         run: |
           set -euo pipefail
           docker run --rm \
@@ -384,10 +388,14 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
+      - name: Build Uselesskey CI image
+        shell: bash
+        run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
+
       - name: Run Uselesskey rust-small on CX53
         shell: bash
         env:
-          IMAGE: em-ci-rust:1.95
+          IMAGE: uselesskey-ci-rust:1.95
         run: |
           set -euo pipefail
           docker run --rm \
