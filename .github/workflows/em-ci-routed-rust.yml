@@ -1,0 +1,763 @@
+name: EM CI Routed Rust
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    types: [opened, synchronize, reopened]
+  merge_group:
+  workflow_dispatch:
+    inputs:
+      force_target:
+        description: "Force a runner target for proof runs"
+        required: false
+        default: "auto"
+        type: choice
+        options:
+          - auto
+          - cx43
+          - cx53
+          - github
+      run_full_gate:
+        description: "Also run the hosted full main gate"
+        required: false
+        default: false
+        type: boolean
+
+concurrency:
+  group: em-ci-routed-rust-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+env:
+  CARGO_INCREMENTAL: "0"
+  CARGO_TERM_COLOR: always
+
+jobs:
+  route-uselesskey-rust-small:
+    name: Route Uselesskey Rust Small
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      target: ${{ steps.route.outputs.target }}
+      reason: ${{ steps.route.outputs.reason }}
+      error: ${{ steps.route.outputs.error }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Decide target runner
+        id: route
+        env:
+          RUNNER_READ_TOKEN: ${{ secrets.EM_RUNNER_READ_TOKEN }}
+          ORG: EffortlessMetrics
+          FORCE_TARGET: ${{ inputs.force_target || 'auto' }}
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
+          BEFORE_SHA: ${{ github.event.before || '' }}
+          HEAD_SHA: ${{ github.sha }}
+          SELF_HOSTED_READY: ${{ vars.USELESSKEY_SELF_HOSTED_READY || 'false' }}
+          IS_FORK_PR: ${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name != github.repository }}
+        shell: bash
+        run: |
+          set -eu
+
+          emit() {
+            local target="$1" reason="$2" error="$3"
+            echo "router_target=$target"
+            echo "router_reason=$reason"
+            echo "router_error=$error"
+            {
+              echo "target=$target"
+              echo "reason=$reason"
+              echo "error=$error"
+            } >> "$GITHUB_OUTPUT"
+          }
+
+          case "${FORCE_TARGET}" in
+            auto|"") ;;
+            cx43|cx53|github)
+              emit "${FORCE_TARGET}" "forced_${FORCE_TARGET}" "false"
+              exit 0
+              ;;
+            *)
+              emit "github" "invalid_force_target" "true"
+              exit 0
+              ;;
+          esac
+
+          if [ "${IS_FORK_PR}" = "true" ]; then
+            emit "github" "fork_pr_hosted" "false"
+            exit 0
+          fi
+
+          changed_files() {
+            case "${EVENT_NAME}" in
+              pull_request)
+                if [ -z "${BASE_SHA}" ] || [ -z "${HEAD_SHA}" ]; then
+                  return 1
+                fi
+                git diff --name-only "${BASE_SHA}...${HEAD_SHA}"
+                ;;
+              push)
+                if [ -z "${BEFORE_SHA}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+                  return 1
+                fi
+                git diff --name-only "${BEFORE_SHA}" "${HEAD_SHA}"
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          classify_change() {
+            if ! files="$(changed_files 2>/tmp/diff.err)"; then
+              echo "rust"
+              return 0
+            fi
+
+            if [ -z "${files}" ]; then
+              echo "rust"
+              return 0
+            fi
+
+            echo "changed_files:"
+            printf '%s\n' "${files}"
+
+            local all_light="true"
+            while IFS= read -r path; do
+              case "${path}" in
+                .github/workflows/*)
+                  echo "workflow"
+                  return 0
+                  ;;
+                README.md|CHANGELOG.md|SECURITY.md|LICENSE|LICENSE-*|NOTICE|AGENTS.md|docs/*|badges/*|policy/*|plans/*|.github/CODEOWNERS|.github/dependabot.yml|.github/pull_request_template.md|.github/PULL_REQUEST_TEMPLATE/*)
+                  ;;
+                *)
+                  all_light="false"
+                  ;;
+              esac
+            done <<EOF
+          ${files}
+          EOF
+
+            if [ "${all_light}" = "true" ]; then
+              echo "docs"
+            else
+              echo "rust"
+            fi
+          }
+
+          change_class="$(classify_change | tail -n 1)"
+          echo "change_class=${change_class}"
+
+          case "${change_class}" in
+            docs)
+              emit "docs" "docs_policy_light" "false"
+              exit 0
+              ;;
+            workflow)
+              emit "github" "workflow_change_hosted" "false"
+              exit 0
+              ;;
+            rust) ;;
+            *)
+              emit "github" "unknown_change_class" "true"
+              exit 0
+              ;;
+          esac
+
+          if [ "${SELF_HOSTED_READY}" != "true" ]; then
+            emit "github" "self_hosted_not_marked_ready" "false"
+            exit 0
+          fi
+
+          if [ -z "${RUNNER_READ_TOKEN:-}" ]; then
+            emit "github" "token_missing" "true"
+            exit 0
+          fi
+
+          if ! runners_json="$(GH_TOKEN="${RUNNER_READ_TOKEN}" gh api \
+              -H "Accept: application/vnd.github+json" \
+              -H "X-GitHub-Api-Version: 2022-11-28" \
+              "orgs/${ORG}/actions/runners?per_page=100" 2>/tmp/gh.err)"; then
+            echo "runner API request failed:" >&2
+            cat /tmp/gh.err >&2 || true
+            emit "github" "runner_api_failed" "true"
+            exit 0
+          fi
+
+          idle_runner_count() {
+            local runner_label="$1"
+            printf '%s' "$runners_json" | jq --arg runner_label "$runner_label" '
+              [ .runners[]?
+                | select(.status == "online")
+                | select(.busy == false)
+                | ([.labels[].name] // []) as $have
+                | select(
+                    ($have | index("em-ci")) and
+                    ($have | index($runner_label)) and
+                    ($have | index("rust-small")) and
+                    ($have | index("trusted-pr"))
+                  )
+              ] | length
+            '
+          }
+
+          if ! idle_cx43="$(idle_runner_count "cx43" 2>/tmp/jq.err)"; then
+            echo "runner API parse failed:" >&2
+            cat /tmp/jq.err >&2 || true
+            emit "github" "parse_failed" "true"
+            exit 0
+          fi
+
+          if ! idle_cx53="$(idle_runner_count "cx53" 2>/tmp/jq.err)"; then
+            echo "runner API parse failed:" >&2
+            cat /tmp/jq.err >&2 || true
+            emit "github" "parse_failed" "true"
+            exit 0
+          fi
+
+          echo "idle_cx43=${idle_cx43:-0}"
+          echo "idle_cx53=${idle_cx53:-0}"
+
+          if [ "${idle_cx43:-0}" -gt 0 ]; then
+            emit "cx43" "cx43_idle" "false"
+          elif [ "${idle_cx53:-0}" -gt 0 ]; then
+            emit "cx53" "cx53_idle" "false"
+          else
+            emit "github" "no_idle_runner" "false"
+          fi
+
+  uselesskey-rust-small-cx43:
+    name: Uselesskey Rust Small on CX43
+    needs: route-uselesskey-rust-small
+    if: needs.route-uselesskey-rust-small.outputs.target == 'cx43'
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx43, rust-small, trusted-pr]
+    timeout-minutes: 90
+    env:
+      CARGO_HOME: /mnt/ci-cache/cargo-home
+      SCCACHE_DIR: /mnt/ci-cache/sccache
+      SCCACHE_CACHE_SIZE: 30G
+      RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+      CARGO_BUILD_JOBS: "4"
+      TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+      CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Disk guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 50
+          ci-disk-guard /mnt/docker 10
+          ci-disk-guard /mnt/ci-cache 10
+
+      - name: Prepare scratch dirs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
+
+      - name: Pre-clean workspace
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'find /workspace -mindepth 1 -maxdepth 1 -exec rm -rf {} +'
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          clean: false
+
+      - name: Build Uselesskey CI image
+        shell: bash
+        run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
+
+      - name: Clean workspace target
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target'
+
+      - name: Run Uselesskey rust-small on CX43
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --cpus="6" \
+            --memory="12g" \
+            -e CARGO_HOME=/cargo-home \
+            -e SCCACHE_DIR=/sccache \
+            -e SCCACHE_CACHE_SIZE="${SCCACHE_CACHE_SIZE}" \
+            -e RUSTC_WRAPPER=/usr/local/cargo/bin/sccache \
+            -e CARGO_INCREMENTAL="${CARGO_INCREMENTAL}" \
+            -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" \
+            -e CARGO_TARGET_DIR=/cargo-target \
+            -e TMPDIR=/tmp/jobtmp \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${CARGO_HOME}:/cargo-home" \
+            -v "${SCCACHE_DIR}:/sccache" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            -w /workspace \
+            "${IMAGE}" \
+            bash -eu -o pipefail -c '
+              rustc --version
+              cargo --version
+              cargo deny --version
+              cargo fuzz --version
+              cargo mutants --version
+              typos --version
+              nasm -v
+              sccache --version || true
+              cargo deny check advisories
+              cargo xtask pr
+              cargo xtask docs-sync --check
+              cargo xtask examples-smoke
+              sccache --show-stats || true
+            '
+          if [ -f "${CARGO_TARGET_DIR}/xtask/receipt.json" ]; then
+            mkdir -p target/xtask
+            cp "${CARGO_TARGET_DIR}/xtask/receipt.json" target/xtask/receipt.json
+          fi
+
+      - name: Upload receipt
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: receipt-rust-small-cx43
+          path: target/xtask/receipt.json
+          if-no-files-found: warn
+
+      - name: Cleanup workspace target
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target' || true
+
+      - name: Cleanup scratch dirs
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            "${IMAGE}" \
+            bash -c '
+              rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?* 2>/dev/null || true
+              rm -rf /cargo-target/* /cargo-target/.[!.]* /cargo-target/..?* 2>/dev/null || true
+            ' || true
+          rmdir "$TMPDIR" 2>/dev/null || true
+          rmdir "$CARGO_TARGET_DIR" 2>/dev/null || true
+
+      - name: Disk report
+        if: always()
+        shell: bash
+        run: df -h / /mnt/docker /mnt/actions /mnt/ci-scratch /mnt/ci-cache /mnt/ci-artifacts 2>/dev/null || true
+
+  uselesskey-rust-small-cx53:
+    name: Uselesskey Rust Small on CX53
+    needs: route-uselesskey-rust-small
+    if: needs.route-uselesskey-rust-small.outputs.target == 'cx53'
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx53, rust-small, trusted-pr]
+    timeout-minutes: 90
+    env:
+      CARGO_HOME: /mnt/ci-cache/cargo-home
+      SCCACHE_DIR: /mnt/ci-cache/sccache
+      SCCACHE_CACHE_SIZE: 60G
+      RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+      CARGO_BUILD_JOBS: "12"
+      TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+      CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - name: Disk guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 100
+          ci-disk-guard /mnt/docker 20
+          ci-disk-guard /mnt/ci-cache 20
+
+      - name: Prepare scratch dirs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
+
+      - name: Pre-clean workspace
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'find /workspace -mindepth 1 -maxdepth 1 -exec rm -rf {} +'
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          clean: false
+
+      - name: Build Uselesskey CI image
+        shell: bash
+        run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
+
+      - name: Clean workspace target
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target'
+
+      - name: Run Uselesskey rust-small on CX53
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --cpus="14" \
+            --memory="28g" \
+            -e CARGO_HOME=/cargo-home \
+            -e SCCACHE_DIR=/sccache \
+            -e SCCACHE_CACHE_SIZE="${SCCACHE_CACHE_SIZE}" \
+            -e RUSTC_WRAPPER=/usr/local/cargo/bin/sccache \
+            -e CARGO_INCREMENTAL="${CARGO_INCREMENTAL}" \
+            -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" \
+            -e CARGO_TARGET_DIR=/cargo-target \
+            -e TMPDIR=/tmp/jobtmp \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${CARGO_HOME}:/cargo-home" \
+            -v "${SCCACHE_DIR}:/sccache" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            -w /workspace \
+            "${IMAGE}" \
+            bash -eu -o pipefail -c '
+              rustc --version
+              cargo --version
+              cargo deny --version
+              cargo fuzz --version
+              cargo mutants --version
+              typos --version
+              nasm -v
+              sccache --version || true
+              cargo deny check advisories
+              cargo xtask pr
+              cargo xtask docs-sync --check
+              cargo xtask examples-smoke
+              sccache --show-stats || true
+            '
+          if [ -f "${CARGO_TARGET_DIR}/xtask/receipt.json" ]; then
+            mkdir -p target/xtask
+            cp "${CARGO_TARGET_DIR}/xtask/receipt.json" target/xtask/receipt.json
+          fi
+
+      - name: Upload receipt
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: receipt-rust-small-cx53
+          path: target/xtask/receipt.json
+          if-no-files-found: warn
+
+      - name: Cleanup workspace target
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target' || true
+
+      - name: Cleanup scratch dirs
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            "${IMAGE}" \
+            bash -c '
+              rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?* 2>/dev/null || true
+              rm -rf /cargo-target/* /cargo-target/.[!.]* /cargo-target/..?* 2>/dev/null || true
+            ' || true
+          rmdir "$TMPDIR" 2>/dev/null || true
+          rmdir "$CARGO_TARGET_DIR" 2>/dev/null || true
+
+      - name: Disk report
+        if: always()
+        shell: bash
+        run: df -h / /mnt/docker /mnt/actions /mnt/ci-scratch /mnt/ci-cache /mnt/ci-artifacts 2>/dev/null || true
+
+  uselesskey-rust-small-github:
+    name: Uselesskey Rust Small on GitHub Hosted
+    needs: route-uselesskey-rust-small
+    if: needs.route-uselesskey-rust-small.outputs.target == 'github'
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install NASM
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz,cargo-mutants,typos-cli,cargo-deny
+
+      - name: Toolchain diagnostics
+        run: |
+          rustc -vV
+          cargo +nightly -vV
+          cargo deny --version
+          cargo fuzz --version
+          cargo mutants --version
+          typos --version
+          nasm -v
+
+      - name: Fetch base branch
+        if: github.base_ref != ''
+        run: git fetch origin ${{ github.base_ref }}
+
+      - name: cargo deny advisories
+        run: cargo deny check advisories
+
+      - name: xtask pr
+        run: cargo xtask pr
+
+      - name: docs-sync check
+        run: cargo xtask docs-sync --check
+
+      - name: examples smoke check
+        run: cargo xtask examples-smoke
+
+      - name: Upload receipt
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: receipt-rust-small-github
+          path: target/xtask/receipt.json
+          if-no-files-found: warn
+
+  uselesskey-docs-policy-light:
+    name: Uselesskey Docs/Policy Light on GitHub Hosted
+    needs: route-uselesskey-rust-small
+    if: needs.route-uselesskey-rust-small.outputs.target == 'docs'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install typos
+        uses: taiki-e/install-action@v2
+        with:
+          tool: typos-cli
+
+      - name: docs-sync check
+        run: cargo xtask docs-sync --check
+
+      - name: typos check
+        run: cargo xtask typos
+
+  uselesskey-rust-small-result:
+    name: Uselesskey Rust Small Result
+    needs:
+      - route-uselesskey-rust-small
+      - uselesskey-rust-small-cx43
+      - uselesskey-rust-small-cx53
+      - uselesskey-rust-small-github
+      - uselesskey-docs-policy-light
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Evaluate router and selected target
+        shell: bash
+        env:
+          TARGET: ${{ needs.route-uselesskey-rust-small.outputs.target }}
+          ROUTER_RESULT: ${{ needs.route-uselesskey-rust-small.result }}
+          CX43_RESULT: ${{ needs.uselesskey-rust-small-cx43.result }}
+          CX53_RESULT: ${{ needs.uselesskey-rust-small-cx53.result }}
+          GITHUB_RESULT: ${{ needs.uselesskey-rust-small-github.result }}
+          DOCS_RESULT: ${{ needs.uselesskey-docs-policy-light.result }}
+        run: |
+          set -eu
+          echo "router_target=${TARGET:-<empty>}"
+          echo "router_result=${ROUTER_RESULT:-<empty>}"
+          echo "cx43_result=${CX43_RESULT:-<empty>}"
+          echo "cx53_result=${CX53_RESULT:-<empty>}"
+          echo "github_result=${GITHUB_RESULT:-<empty>}"
+          echo "docs_result=${DOCS_RESULT:-<empty>}"
+
+          if [ "${ROUTER_RESULT}" != "success" ]; then
+            echo "router job did not succeed; failing normalized result" >&2
+            exit 1
+          fi
+
+          case "${TARGET}" in
+            cx43)
+              if [ "${CX43_RESULT}" != "success" ]; then
+                echo "selected target cx43 but result was ${CX43_RESULT}" >&2
+                exit 1
+              fi
+              ;;
+            cx53)
+              if [ "${CX53_RESULT}" != "success" ]; then
+                echo "selected target cx53 but result was ${CX53_RESULT}" >&2
+                exit 1
+              fi
+              ;;
+            github)
+              if [ "${GITHUB_RESULT}" != "success" ]; then
+                echo "selected target github but result was ${GITHUB_RESULT}" >&2
+                exit 1
+              fi
+              ;;
+            docs)
+              if [ "${DOCS_RESULT}" != "success" ]; then
+                echo "selected target docs but result was ${DOCS_RESULT}" >&2
+                exit 1
+              fi
+              ;;
+            *)
+              echo "router produced unknown target: ${TARGET}" >&2
+              exit 1
+              ;;
+          esac
+
+          echo "Uselesskey Rust Small Result: success"
+
+  main-full-gate:
+    name: Uselesskey Main Full Gate
+    if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_full_gate)
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+
+      - uses: dtolnay/rust-toolchain@nightly
+
+      - name: Install NASM
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
+
+      - name: Install tools
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-fuzz,cargo-mutants,typos-cli,cargo-deny
+
+      - name: Toolchain diagnostics
+        run: |
+          rustc -vV
+          cargo +nightly -vV
+          cargo deny --version
+          cargo fuzz --version
+          cargo mutants --version
+          typos --version
+          nasm -v
+
+      - name: xtask ci
+        run: cargo xtask ci
+
+      - name: Upload receipt
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: receipt-main-full-gate
+          path: target/xtask/receipt.json
+          if-no-files-found: warn

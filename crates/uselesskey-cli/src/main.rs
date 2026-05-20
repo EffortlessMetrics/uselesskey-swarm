@@ -156,7 +156,10 @@ struct InspectBundleArgs {
 
 Boundary:
   audit-bundle checks local bundle consistency and metadata labels. It does
-  not prove production security, provider compatibility, or repo public claims.")]
+  not prove production security, provider compatibility, or repo public claims.
+
+CI:
+  --ci emits stable audit failure classes in JSON for downstream policy checks.")]
 struct AuditBundleArgs {
     /// Bundle directory to audit. `--bundle-dir` remains available as an alias.
     #[arg(long = "path", visible_alias = "bundle-dir", value_name = "BUNDLE_DIR")]
