@@ -266,6 +266,24 @@ jobs:
           set -euo pipefail
           mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
 
+      - name: Pre-clean workspace
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'find /workspace -mindepth 1 -maxdepth 1 -exec rm -rf {} +'
+
       - name: Checkout
         uses: actions/checkout@v6
         with:
@@ -405,6 +423,24 @@ jobs:
         run: |
           set -euo pipefail
           mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
+
+      - name: Pre-clean workspace
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'find /workspace -mindepth 1 -maxdepth 1 -exec rm -rf {} +'
 
       - name: Checkout
         uses: actions/checkout@v6
