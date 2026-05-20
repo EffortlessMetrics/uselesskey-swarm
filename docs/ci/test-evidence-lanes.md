@@ -49,6 +49,11 @@ Typical signals:
   guidance;
 - `git diff --check`.
 
+In the swarm development repository, routed PR CI exposes one required contract
+check: `Uselesskey Rust Small Result`. The route, hosted fallback, and concrete
+runner jobs are implementation details; branch protection should require the
+normalized result check only.
+
 Blocking posture:
 
 - normal build, lint, docs, public-surface, publish, no-blob, and example
