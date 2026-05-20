@@ -2,6 +2,22 @@
 
 This file provides guidance to AI coding agents when working with code in this repository.
 
+## Repository role
+
+Normal same-repo agent development happens in
+`EffortlessMetrics/uselesskey-swarm`. Clone this repository side-by-side with
+the source repository; do not retarget an existing `EffortlessMetrics/uselesskey`
+checkout in place.
+
+`EffortlessMetrics/uselesskey` remains the release and public-source boundary
+until a deliberate source/release sync moves that boundary. Do not move
+release, publish, signing, crates.io, tag, or GitHub-release workflows into
+this swarm repository unless explicitly assigned.
+
+For swarm PRs, wait for the normalized `Uselesskey Rust Small Result` check.
+Conditional runner jobs are routing plumbing and should not be treated as
+separate required checks.
+
 ## Project Overview
 
 **uselesskey** is a Rust test utility library that generates deterministic and random cryptographic key fixtures for testing. It prevents committing secret-shaped blobs (PEM, DER, tokens) into version control while allowing tests to work with realistic key formats.
