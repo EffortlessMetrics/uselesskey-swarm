@@ -107,7 +107,7 @@ tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
 # inside uselesskey-rsa.
 # Legacy rsa 0.9 / rand_core 0.6 remains as an explicit upstream island under
 # adapters such as jsonwebtoken and pgp.
-rsa = { version = "0.10.0-rc.17", features = ["sha2"] }
+rsa = { version = "0.10.0-rc.18", features = ["sha2"] }
 
 # Ed25519
 ed25519-dalek = { version = "2.2.0", features = ["pkcs8", "pem", "rand_core"] }
