@@ -113,7 +113,7 @@ enum Cmd {
         #[arg(long, value_enum, default_value = "human")]
         format: AdoptionRegressionFormat,
     },
-    /// Prove clean-project external adoption paths and write receipts.
+    /// Prove clean-project external adoption and optional downstream CI recipe paths.
     ExternalAdoptionSmoke {
         /// Use a local workspace or crate path. Pass "." for the current checkout.
         #[arg(long, conflicts_with = "version")]
