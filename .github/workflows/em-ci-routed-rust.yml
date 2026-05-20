@@ -271,10 +271,22 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          clean: false
 
       - name: Build Uselesskey CI image
         shell: bash
         run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
+
+      - name: Clean workspace target
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target'
 
       - name: Run Uselesskey rust-small on CX43
         shell: bash
@@ -327,6 +339,18 @@ jobs:
           name: receipt-rust-small-cx43
           path: target/xtask/receipt.json
           if-no-files-found: warn
+
+      - name: Cleanup workspace target
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target' || true
 
       - name: Cleanup scratch dirs
         if: always()
@@ -387,10 +411,22 @@ jobs:
         with:
           persist-credentials: false
           fetch-depth: 0
+          clean: false
 
       - name: Build Uselesskey CI image
         shell: bash
         run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
+
+      - name: Clean workspace target
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target'
 
       - name: Run Uselesskey rust-small on CX53
         shell: bash
@@ -443,6 +479,18 @@ jobs:
           name: receipt-rust-small-cx53
           path: target/xtask/receipt.json
           if-no-files-found: warn
+
+      - name: Cleanup workspace target
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target' || true
 
       - name: Cleanup scratch dirs
         if: always()
