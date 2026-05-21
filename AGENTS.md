@@ -121,6 +121,26 @@ cargo xtask publish         # Publish all crates in dependency order
 cargo xtask setup           # Configure git hooks (sets core.hooksPath to .githooks)
 ```
 
+Source-of-truth and policy checks:
+```bash
+cargo xtask spec-check --strict       # Validate specs, ADRs, plans, goals, and claim ledgers
+cargo xtask docs-sync --check         # Check generated docs snippets and source-of-truth inventory
+cargo xtask check-doc-artifacts       # Validate policy/doc-artifacts.toml links and artifact IDs
+cargo xtask check-goals               # Validate active and archived .uselesskey goal manifests
+cargo xtask check-support-tiers       # Validate support tiers against public claims and specs
+cargo xtask check-claim-proof-policy  # Validate claim-proof policy rows without running handlers
+cargo xtask check-negative-fixtures   # Validate negative fixture ledger, matrix, and taxonomy coverage
+cargo xtask check-bundle-schemas      # Validate generated bundle manifests and negative coverage receipts
+cargo xtask claim-report --check-public-claims # Check PUBLIC_CLAIMS.md against policy/claim-ledger.toml
+```
+
+Claim and reviewer evidence:
+```bash
+cargo xtask claim-proof --claim scanner-safe-fixtures # Run allowlisted proof handlers for one claim
+cargo xtask claim-proof --all-stable                  # Run implemented all-stable claim proofs
+cargo xtask verification-pack --out target/uselesskey-verification # Build metadata-only reviewer packet
+```
+
 Run a single test:
 ```bash
 cargo test -p uselesskey-core test_name
