@@ -40,6 +40,12 @@ cargo xtask verification-pack --out target/uselesskey-verification
 | `release-proof` | Claim whose primary proof is an external or shipped-state release lane. |
 | `advisory` | Reviewer or agent evidence that informs work but does not make a user-facing guarantee by itself. |
 
+Claim status and support tier are separate axes. Claim status controls how
+strongly a public claim may appear in README, release, and handoff wording.
+Support tiers in [`SUPPORT_TIERS.md`](SUPPORT_TIERS.md) describe the maturity of
+the user workflow that carries the claim. When they differ, use the stricter
+claim boundary for public wording.
+
 ## Current Claims
 
 | Claim ID | Claim | Status | Proof commands | Boundary |
