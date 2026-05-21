@@ -2412,6 +2412,54 @@ mod tests {
     }
 
     #[test]
+    fn routed_rust_workflow_uses_org_runner_discovery_and_cpx42_contract() -> Result<()> {
+        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/workflows/em-ci-routed-rust.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        for expected in [
+            "- cpx42",
+            "cpx42|cx43|cx53|github)",
+            "orgs/${ORG}/actions/runners?per_page=100",
+            "emit \"github\" \"fork_pr\" \"false\"",
+            "emit \"github\" \"runner_token_missing\" \"true\"",
+            "emit \"github\" \"runner_api_failed\" \"true\"",
+            "local runner_size_label=\"$2\"",
+            "--arg runner_size_label \"$runner_size_label\"",
+            "($have | index($runner_size_label))",
+            "idle_runner_count \"cpx42\" \"rust-medium\"",
+            "idle_runner_count \"cx43\" \"rust-small\"",
+            "idle_runner_count \"cx53\" \"rust-small\"",
+            "emit \"github\" \"parse_failed\" \"true\"",
+            "emit \"cpx42\" \"cpx42_idle\" \"false\"",
+            "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
+            "toolchain: 1.95.0",
+            "- uselesskey-rust-small-cpx42",
+            "- uselesskey-rust-small-cx43",
+            "- uselesskey-rust-small-cx53",
+            "- uselesskey-rust-small-github",
+            "Uselesskey Rust Small Result",
+        ] {
+            assert!(
+                workflow.contains(expected),
+                "routed workflow missing expected contract text: {expected}"
+            );
+        }
+
+        assert!(
+            !workflow.contains("repos/${{ github.repository }}/actions/runners"),
+            "routed workflow must use org-level runner discovery"
+        );
+        assert!(
+            workflow.find("Prepare CPX42 scratch") < workflow.find("dtolnay/rust-toolchain@v1"),
+            "CPX42 scratch preparation must run before installing the Rust toolchain"
+        );
+
+        Ok(())
+    }
+
+    #[test]
     fn implemented_negative_fixture_requires_public_contract_fields() {
         let entry = NegativeFixtureEntry {
             stable_id: "jwt_missing_kid".into(),
