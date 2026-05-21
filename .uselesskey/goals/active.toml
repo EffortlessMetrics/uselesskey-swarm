@@ -91,7 +91,7 @@ commands = [
 
 [[work_item]]
 id = "package-dry-run"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
@@ -99,12 +99,18 @@ commands = [
   "cargo xtask publish-preflight",
   "cargo xtask publish-check",
   "cargo xtask no-blob",
+  "cargo test -p uselesskey-rsa --all-features",
+  "cargo test -p uselesskey-ecdsa --all-features",
+  "cargo test -p uselesskey-ed25519 --all-features",
+  "cargo xtask lint-fix --check --no-clippy",
+  "cargo xtask docs-sync --check",
+  "cargo xtask check-goals",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "release-readiness-record"
-status = "planned"
+status = "ready"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
