@@ -7,7 +7,7 @@ use std::io::{self, Read, Write};
 use std::path::{Component, Path, PathBuf};
 
 use anyhow::{Context, Result, bail};
-use clap::{Parser, Subcommand, ValueEnum};
+use clap::{ArgGroup, Parser, Subcommand, ValueEnum};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use uselesskey_cli::{
@@ -33,7 +33,7 @@ use uselesskey_x509::{ChainNegative, ChainSpec, X509Chain, X509FactoryExt, X509S
   uselesskey doctor
   uselesskey profiles
   uselesskey bundle --profile webhook --out target/uselesskey-webhook
-  uselesskey audit-bundle --path target/uselesskey-webhook --ci
+  uselesskey audit-bundle target/uselesskey-webhook --ci
 
 Boundaries:
   Installed CLI commands generate, verify, inspect, and audit local fixtures.
@@ -101,9 +101,9 @@ struct GenerateArgs {
 #[derive(clap::Args, Debug)]
 #[command(after_help = "Examples:
   uselesskey bundle --profile webhook --out target/uselesskey-webhook
-  uselesskey verify-bundle --path target/uselesskey-webhook
-  uselesskey inspect-bundle --path target/uselesskey-webhook
-  uselesskey audit-bundle --path target/uselesskey-webhook --ci
+  uselesskey verify-bundle target/uselesskey-webhook
+  uselesskey inspect-bundle target/uselesskey-webhook
+  uselesskey audit-bundle target/uselesskey-webhook --ci
 
 Boundary:
   bundle writes test fixtures; keep generated payloads under target/ unless
@@ -130,17 +130,33 @@ struct BundleArgs {
 }
 
 #[derive(clap::Args, Debug)]
+#[command(group(
+    ArgGroup::new("verify_bundle_input")
+        .required(true)
+        .args(["bundle_dir", "path"])
+))]
 struct VerifyBundleArgs {
     /// Bundle directory to verify.
+    #[arg(value_name = "BUNDLE_DIR")]
+    bundle_dir: Option<PathBuf>,
+    /// Bundle directory to verify. `--bundle-dir` remains available as an alias.
     #[arg(long = "path", visible_alias = "bundle-dir", value_name = "BUNDLE_DIR")]
-    bundle_dir: PathBuf,
+    path: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
+#[command(group(
+    ArgGroup::new("inspect_bundle_input")
+        .required(true)
+        .args(["bundle_dir", "path"])
+))]
 struct InspectBundleArgs {
     /// Bundle directory to inspect.
+    #[arg(value_name = "BUNDLE_DIR")]
+    bundle_dir: Option<PathBuf>,
+    /// Bundle directory to inspect. `--bundle-dir` remains available as an alias.
     #[arg(long = "path", visible_alias = "bundle-dir", value_name = "BUNDLE_DIR")]
-    bundle_dir: PathBuf,
+    path: Option<PathBuf>,
     /// Optional path for writing the human summary.
     #[arg(long)]
     out: Option<PathBuf>,
@@ -148,11 +164,11 @@ struct InspectBundleArgs {
 
 #[derive(clap::Args, Debug)]
 #[command(after_help = "Examples:
-  uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit
-  uselesskey audit-bundle --path target/uselesskey-webhook --ci
-  uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook
-  uselesskey audit-bundle --path target/uselesskey-webhook --ci --policy strict
-  uselesskey audit-bundle --path target/uselesskey-webhook --summary
+  uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
+  uselesskey audit-bundle target/uselesskey-webhook --ci
+  uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook
+  uselesskey audit-bundle target/uselesskey-webhook --ci --policy strict
+  uselesskey audit-bundle target/uselesskey-webhook --summary
 
 Boundary:
   audit-bundle checks local bundle consistency and metadata labels. It does
@@ -161,10 +177,18 @@ Boundary:
 
 CI:
   --ci emits stable audit failure classes in JSON for downstream policy checks.")]
+#[command(group(
+    ArgGroup::new("audit_bundle_input")
+        .required(true)
+        .args(["bundle_dir", "path"])
+))]
 struct AuditBundleArgs {
+    /// Bundle directory to audit.
+    #[arg(value_name = "BUNDLE_DIR")]
+    bundle_dir: Option<PathBuf>,
     /// Bundle directory to audit. `--bundle-dir` remains available as an alias.
     #[arg(long = "path", visible_alias = "bundle-dir", value_name = "BUNDLE_DIR")]
-    bundle_dir: PathBuf,
+    path: Option<PathBuf>,
     /// Directory for metadata-only Markdown and JSON audit receipts.
     #[arg(long)]
     out: Option<PathBuf>,
@@ -183,6 +207,33 @@ struct AuditBundleArgs {
     /// Print a compact human summary for terminals or CI logs.
     #[arg(long)]
     summary: bool,
+}
+
+impl VerifyBundleArgs {
+    fn bundle_dir(&self) -> &Path {
+        self.bundle_dir
+            .as_deref()
+            .or(self.path.as_deref())
+            .expect("clap requires a bundle directory")
+    }
+}
+
+impl InspectBundleArgs {
+    fn bundle_dir(&self) -> &Path {
+        self.bundle_dir
+            .as_deref()
+            .or(self.path.as_deref())
+            .expect("clap requires a bundle directory")
+    }
+}
+
+impl AuditBundleArgs {
+    fn bundle_dir(&self) -> &Path {
+        self.bundle_dir
+            .as_deref()
+            .or(self.path.as_deref())
+            .expect("clap requires a bundle directory")
+    }
 }
 
 #[derive(clap::Args, Debug)]
@@ -493,17 +544,18 @@ fn run_bundle(args: BundleArgs) -> Result<()> {
 }
 
 fn run_verify_bundle(args: VerifyBundleArgs) -> Result<()> {
-    let manifest_path = args.bundle_dir.join("manifest.json");
+    let bundle_dir = args.bundle_dir().to_path_buf();
+    let manifest_path = bundle_dir.join("manifest.json");
     let manifest = load_bundle_manifest(&manifest_path)
         .with_context(|| format!("invalid bundle manifest {}", manifest_path.display()))?;
-    let files = verify_bundle_manifest(&args.bundle_dir, &manifest)
-        .with_context(|| format!("failed to verify bundle {}", args.bundle_dir.display()))?;
+    let files = verify_bundle_manifest(&bundle_dir, &manifest)
+        .with_context(|| format!("failed to verify bundle {}", bundle_dir.display()))?;
 
     emit_artifact(
         &Artifact::Json(json!({
             "verify_bundle": {
                 "status": "ok",
-                "bundle_dir": args.bundle_dir,
+                "bundle_dir": bundle_dir,
                 "manifest": manifest_path,
                 "count": files.len(),
                 "files": files,
@@ -514,11 +566,12 @@ fn run_verify_bundle(args: VerifyBundleArgs) -> Result<()> {
 }
 
 fn run_inspect_bundle(args: InspectBundleArgs) -> Result<()> {
-    let manifest_path = args.bundle_dir.join("manifest.json");
+    let bundle_dir = args.bundle_dir().to_path_buf();
+    let manifest_path = bundle_dir.join("manifest.json");
     let manifest = load_bundle_manifest(&manifest_path)
         .with_context(|| format!("invalid bundle manifest {}", manifest_path.display()))?;
-    let files = verify_bundle_manifest(&args.bundle_dir, &manifest)
-        .with_context(|| format!("failed to verify bundle {}", args.bundle_dir.display()))?;
+    let files = verify_bundle_manifest(&bundle_dir, &manifest)
+        .with_context(|| format!("failed to verify bundle {}", bundle_dir.display()))?;
     let summary = render_bundle_inspection_summary(&manifest, files.len());
 
     emit_artifact(&Artifact::Text(summary), args.out.as_deref())
@@ -533,7 +586,7 @@ fn run_audit_bundle(args: AuditBundleArgs) -> Result<()> {
         return run_audit_bundle_ci(args);
     }
 
-    let audit = match build_bundle_audit(&args.bundle_dir) {
+    let audit = match build_bundle_audit(args.bundle_dir()) {
         Ok(audit) => audit,
         Err(err) => {
             let diagnostic = bundle_audit_failure_diagnostic(&err);
@@ -590,7 +643,7 @@ fn run_audit_bundle(args: AuditBundleArgs) -> Result<()> {
 }
 
 fn run_audit_bundle_ci(args: AuditBundleArgs) -> Result<()> {
-    match build_bundle_audit(&args.bundle_dir) {
+    match build_bundle_audit(args.bundle_dir()) {
         Ok(audit) => {
             if let Some(diagnostic) = bundle_audit_policy_failure(&audit, &args) {
                 let failure = bundle_audit_policy_failure_json(&audit, &diagnostic);
@@ -608,7 +661,7 @@ fn run_audit_bundle_ci(args: AuditBundleArgs) -> Result<()> {
         }
         Err(err) => {
             let diagnostic = bundle_audit_failure_diagnostic(&err);
-            let failure = bundle_audit_failure_json(&args.bundle_dir, &diagnostic);
+            let failure = bundle_audit_failure_json(args.bundle_dir(), &diagnostic);
             emit_artifact(&Artifact::Json(failure), None)?;
             bail!(
                 "audit failed: {}: {}",
@@ -913,7 +966,7 @@ fn render_bundle_inspection_summary(
     };
     let proof_path = profile_info
         .map(|info| info.proof_command)
-        .unwrap_or("uselesskey verify-bundle --path <bundle-dir>");
+        .unwrap_or("uselesskey verify-bundle <bundle-dir>");
     let boundary = profile_info
         .map(|info| info.not_proves.join("; "))
         .unwrap_or_else(|| "production security behavior".to_string());
@@ -931,7 +984,7 @@ fn render_bundle_inspection_summary(
             "Runtime material artifacts: {}\n",
             "Verification: ok\n",
             "Receipts: {}\n",
-            "Durable audit receipt: uselesskey audit-bundle --path <bundle-dir> --out <audit-dir>\n",
+            "Durable audit receipt: uselesskey audit-bundle <bundle-dir> --out <audit-dir>\n",
             "Proof/check path: {}\n",
             "Generated files:\n{}\n",
             "Artifact posture:\n{}\n",
@@ -1084,7 +1137,7 @@ fn render_bundle_audit_markdown(audit: &BundleAudit) -> String {
     out.push_str(&format!("- Bundle: {}\n", audit.bundle_path));
     out.push_str(&format!("- Profile: {}\n", audit.profile));
     out.push_str("- Receipt type: durable metadata-only reviewer/CI receipt\n");
-    out.push_str("- Quick summary: uselesskey inspect-bundle --path <bundle-dir>\n");
+    out.push_str("- Quick summary: uselesskey inspect-bundle <bundle-dir>\n");
     out.push_str(
         "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
     );
@@ -1383,7 +1436,7 @@ fn build_doctor_report() -> DoctorReport {
         next_steps: vec![
             "uselesskey profiles".to_string(),
             "uselesskey bundle --profile webhook --out target/uselesskey-webhook".to_string(),
-            "uselesskey audit-bundle --path target/uselesskey-webhook --ci".to_string(),
+            "uselesskey audit-bundle target/uselesskey-webhook --ci".to_string(),
         ],
         boundaries: vec![
             "doctor checks installed CLI concerns only".to_string(),
@@ -1836,7 +1889,8 @@ mod tests {
         policy: Option<AuditPolicy>,
     ) -> AuditBundleArgs {
         AuditBundleArgs {
-            bundle_dir: PathBuf::from("target/uselesskey-webhook"),
+            bundle_dir: Some(PathBuf::from("target/uselesskey-webhook")),
+            path: None,
             out: None,
             format: AuditOutputFormat::Markdown,
             ci: true,
@@ -2190,7 +2244,7 @@ fn profile_info(profile: BundleProfile) -> ProfileInfo {
             purpose: "general runtime fixture bundle for local experimentation",
             required_feature: "uselesskey-cli default features",
             scanner_posture: "may include runtime fixture material; keep generated payloads under target/",
-            proof_command: "uselesskey verify-bundle --path target/uselesskey-runtime",
+            proof_command: "uselesskey verify-bundle target/uselesskey-runtime",
             claim: None,
             docs: "README.md",
             generates: &[
@@ -2251,9 +2305,9 @@ fn render_profile_summary(profile: BundleProfile) -> String {
             "Title: {}\n",
             "Purpose: {}\n",
             "Generate: uselesskey bundle --profile {} --out {}\n",
-            "Verify: uselesskey verify-bundle --path {}\n",
-            "Audit: uselesskey audit-bundle --path {} --out {}-audit\n",
-            "Inspect: uselesskey inspect-bundle --path {}\n",
+            "Verify: uselesskey verify-bundle {}\n",
+            "Audit: uselesskey audit-bundle {} --out {}-audit\n",
+            "Inspect: uselesskey inspect-bundle {}\n",
             "Proof/check path: {}\n",
             "Explain: uselesskey profile {} --explain\n",
             "Bundle explain: uselesskey bundle --profile {} --explain\n",
@@ -2970,7 +3024,7 @@ fn generate_bundle_receipt_artifact(
                 "version": 1,
                 "profile": profile.manifest_name(),
                 "status": "generated",
-                "verification_command": "uselesskey verify-bundle --path <bundle-dir>",
+                "verification_command": "uselesskey verify-bundle <bundle-dir>",
                 "artifact_count": artifacts.len(),
                 "fixture_files": fixture_files,
                 "expected_receipts": receipts.iter().map(|receipt| {

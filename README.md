@@ -35,8 +35,8 @@ Pick the job first; the repo proof machinery is behind links when you need it.
 | write Rust tests | facade crate | `uselesskey = { version = "0.9.1", features = ["rsa"] }` |
 | install CI fixtures | installed CLI bundle | `uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle` |
 | test negative verifier paths | contract packs | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` |
-| review bundle evidence | verify + audit | `uselesskey verify-bundle --path target/uselesskey-webhook` |
-| keep runtime material disposable | `target/` output | `uselesskey audit-bundle --path target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` |
+| review bundle evidence | verify + audit | `uselesskey verify-bundle target/uselesskey-webhook` |
+| keep runtime material disposable | `target/` output | `uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` |
 | prove repo public claims from a checkout | repo verification pack | `cargo xtask verification-pack --out target/uselesskey-verification` |
 
 Install the CLI when you want fixture bundles outside this workspace:
@@ -52,16 +52,16 @@ Generate, verify, inspect, and audit a webhook bundle:
 
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
-uselesskey inspect-bundle --path target/uselesskey-webhook
-uselesskey audit-bundle --path target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
+uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
 ```
 
 Use `--ci --expect-profile <profile> --policy strict` when the audit is part
 of a downstream CI gate:
 
 ```bash
-uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook --policy strict
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict
 ```
 
 Rust test authors start with the facade crate:
@@ -441,10 +441,10 @@ The `uselesskey-cli` bundle workflow generates a deterministic directory of fixt
 uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle
 
 # Verify the bundle against its recorded manifest and receipts
-uselesskey verify-bundle --path target/uselesskey-bundle
+uselesskey verify-bundle target/uselesskey-bundle
 
 # Print a human-readable summary without exposing fixture payloads
-uselesskey inspect-bundle --path target/uselesskey-bundle
+uselesskey inspect-bundle target/uselesskey-bundle
 
 # Render Kubernetes / Vault payloads from the verified bundle
 uselesskey export k8s \

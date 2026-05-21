@@ -53,10 +53,10 @@ cargo run -p uselesskey-cli -- bundle \
   --out target/uselesskey-bundle
 
 cargo run -p uselesskey-cli -- verify-bundle \
-  --path target/uselesskey-bundle
+  target/uselesskey-bundle
 
 cargo run -p uselesskey-cli -- inspect-bundle \
-  --path target/uselesskey-bundle
+  target/uselesskey-bundle
 
 cargo run -p uselesskey-cli -- export k8s \
   --bundle-dir target/uselesskey-bundle \
@@ -74,6 +74,8 @@ the recorded seed/label/format/profile, and fails if any file or manifest
 metadata is missing or changed. Bundles also include deterministic
 `receipts/materialization.json` and `receipts/audit-surface.json` metadata files;
 `verify-bundle` regenerates those receipts and fails on drift.
+The older `--path target/uselesskey-bundle` and `--bundle-dir
+target/uselesskey-bundle` forms remain supported for existing scripts.
 
 `inspect-bundle` runs the same verification first, then prints a short
 human-readable summary of the profile, artifact count, scanner-safety posture,
@@ -98,7 +100,7 @@ cargo run -p uselesskey-cli -- bundle \
   --out target/oidc-fixtures
 
 cargo run -p uselesskey-cli -- verify-bundle \
-  --path target/oidc-fixtures
+  target/oidc-fixtures
 ```
 
 The OIDC profile emits:

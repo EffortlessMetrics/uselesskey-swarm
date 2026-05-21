@@ -7,14 +7,17 @@ bundle contains without committing runtime material.
 
 ```bash
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
-uselesskey verify-bundle --path target/uselesskey-oidc
-uselesskey inspect-bundle --path target/uselesskey-oidc
+uselesskey verify-bundle target/uselesskey-oidc
+uselesskey inspect-bundle target/uselesskey-oidc
 uselesskey audit-bundle \
-  --path target/uselesskey-oidc \
+  target/uselesskey-oidc \
   --ci \
   --expect-profile oidc \
   --out target/uselesskey-oidc-audit
 ```
+
+The older `--path target/uselesskey-oidc` form remains supported for scripts
+that already use it.
 
 Swap `oidc` for `scanner-safe`, `webhook`, or `tls` when that is the workflow
 under test. Keep the output under `target/`.
