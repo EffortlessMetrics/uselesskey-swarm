@@ -1,0 +1,99 @@
+schema_version = "1.0"
+
+[project]
+repo = "uselesskey"
+framework = "rails"
+root = ".rails"
+status = "introduced"
+active_lane = "RAILS-LANE-0001"
+
+[conventions]
+proposal_prefix = "RAILS-PROP"
+spec_prefix = "RAILS-SPEC"
+adr_prefix = "RAILS-ADR"
+lane_prefix = "RAILS-LANE"
+closeout_prefix = "RAILS-CLOSEOUT"
+
+[[directory]]
+kind = "proposal"
+path = ".rails/proposals"
+owns = "why work exists"
+
+[[directory]]
+kind = "spec"
+path = ".rails/specs"
+owns = "behavior and proof contract"
+
+[[directory]]
+kind = "adr"
+path = ".rails/adr"
+owns = "durable architecture decisions"
+
+[[directory]]
+kind = "lane"
+path = ".rails/lanes"
+owns = "PR-sized sequencing and active work"
+
+[[directory]]
+kind = "template"
+path = ".rails/templates"
+owns = "portable artifact scaffolds"
+
+[[directory]]
+kind = "closeout"
+path = ".rails/closeouts"
+owns = "landed work, proof, remaining work, and handoff"
+
+[[legacy_source]]
+kind = "proposal"
+path = "docs/proposals"
+status = "kept"
+notes = "Existing uselesskey proposals remain authoritative until a migration lane mirrors or moves them."
+
+[[legacy_source]]
+kind = "spec"
+path = "docs/specs"
+status = "kept"
+notes = "Existing spec-check inputs remain authoritative."
+
+[[legacy_source]]
+kind = "adr"
+path = "docs/adr"
+status = "kept"
+notes = "Existing ADRs remain authoritative."
+
+[[legacy_source]]
+kind = "plan"
+path = "plans"
+status = "kept"
+notes = "Existing implementation plans remain authoritative until lane migration."
+
+[[legacy_source]]
+kind = "active-goal"
+path = ".uselesskey/goals"
+status = "kept"
+notes = "Existing goal checker remains active while Rails lane tracking is introduced."
+
+[[legacy_source]]
+kind = "claim-support-policy"
+path = "docs/status"
+status = "kept"
+notes = "Support tiers and public claim docs remain here."
+
+[[legacy_source]]
+kind = "policy-ledger"
+path = "policy"
+status = "kept"
+notes = "Policy ledgers remain the governed state source."
+
+[[lane]]
+id = "RAILS-LANE-0001"
+status = "active"
+path = ".rails/lanes/RAILS-LANE-0001-framework-footprint/lane.toml"
+title = "Rails framework footprint"
+
+[external_namespaces]
+codex = ".codex"
+speckit = ".spec"
+claude = ".claude"
+jules = ".jules"

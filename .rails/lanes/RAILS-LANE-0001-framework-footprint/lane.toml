@@ -1,0 +1,58 @@
+schema_version = "1.0"
+
+id = "RAILS-LANE-0001"
+title = "Rails framework footprint"
+status = "active"
+owner = "codex"
+created = "2026-05-21"
+
+objective = """
+Introduce `.rails/` as the durable, portable repo-native control-plane
+footprint while preserving existing uselesskey source-of-truth checkers and
+release boundaries.
+"""
+
+non_goals = [
+  "No product feature work.",
+  "No release, publish, signing, crates.io push, GitHub release, tag, or source sync.",
+  "No broad migration of existing docs/specs, policy ledgers, plans, or goals.",
+  "No production security, provider compatibility, or downstream verifier correctness claim.",
+]
+
+[[work_item]]
+id = "framework-footprint"
+status = "ready"
+scope = "Land `.rails/` root, owned directories, index, and portable templates."
+proof = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "supersede-uselesskey-spec-namespace"
+status = "planned"
+scope = "Close or supersede the older `.uselesskey-spec/` namespace proposal so `.rails/` is the single durable namespace."
+proof = [
+  "git diff --check",
+]
+
+[[work_item]]
+id = "migration-status-map"
+status = "planned"
+scope = "Map current source-of-truth artifacts that remain in place versus later Rails migration or mirroring."
+proof = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "rails-handoff"
+status = "planned"
+scope = "Record what `.rails/` owns now, what remains legacy, and the next migration lane."
+proof = [
+  "cargo xtask docs-sync --check",
+  "git diff --check",
+]
+
