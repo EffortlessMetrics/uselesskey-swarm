@@ -5,7 +5,7 @@ should be explicit, stable, and narrow enough for a checker to validate later.
 
 ## Stable IDs
 
-Use the existing ID families:
+Use the existing uselesskey ID families for current product artifacts:
 
 | Kind | ID pattern | Example |
 | --- | --- | --- |
@@ -15,6 +15,11 @@ Use the existing ID families:
 | Plan item | Lowercase words with hyphens | `doc-artifact-ledger` |
 | Claim | Lowercase words with hyphens | `metadata-only-audit-packets` |
 | Negative fixture ID | Lowercase words with underscores | `jwks_duplicate_kid` |
+
+Use Rails-scoped IDs such as `RAILS-PROP-*`, `RAILS-SPEC-*`, `RAILS-ADR-*`,
+and `RAILS-LANE-*` only for portable Rails framework artifacts under `.rails/`.
+Existing `USELESSKEY-*` IDs remain valid for current uselesskey proposals,
+specs, ADRs, and plans.
 
 Do not change a stable ID after it appears in docs, ledgers, receipts, schemas,
 or generated artifacts. Supersede it with a new ID and a replacement link.
@@ -40,7 +45,9 @@ the lane.
 
 ## Active Goal Links
 
-Active goal work items should be small enough to review as one PR:
+Active goal manifests use `status = "active"` for the current lane and
+`status = "archived"` after closeout. Work items should be small enough to
+review as one PR:
 
 ```toml
 [[work_item]]
@@ -52,14 +59,14 @@ plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = ["cargo xtask check-goals", "git diff --check"]
 ```
 
-Status values should stay simple:
+Work-item status values should stay simple:
 
 ```text
+planned
 ready
 active
 blocked
 done
-archived
 ```
 
 Blocked items need a concrete `blocked_by` value. Done items need proof commands
