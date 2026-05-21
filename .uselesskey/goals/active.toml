@@ -2,7 +2,7 @@ schema_version = "1.0"
 
 id = "v0.10.0-release-readiness"
 title = "v0.10.0 release readiness"
-status = "active"
+status = "archived"
 owner = "codex"
 created = "2026-05-21"
 
