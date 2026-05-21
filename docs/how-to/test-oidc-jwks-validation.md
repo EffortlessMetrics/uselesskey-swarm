@@ -11,7 +11,7 @@ Installed CLI bundle path:
 uselesskey bundle --profile oidc --out target/oidc-fixtures
 uselesskey verify-bundle --path target/oidc-fixtures
 uselesskey inspect-bundle --path target/oidc-fixtures
-uselesskey audit-bundle --path target/oidc-fixtures --out target/oidc-fixtures-audit
+uselesskey audit-bundle --path target/oidc-fixtures --ci --out target/oidc-fixtures-audit
 ```
 
 Rust test dependency path:
@@ -61,7 +61,7 @@ that do not need files:
 - `jwk_unsupported_alg`
 - `jwk_malformed_base64url`
 
-## Positive path
+## Positive path: JWKS accepted
 
 Load `target/oidc-fixtures/jwks/valid.json` in the downstream validator test.
 The positive case should prove that the validator can load the deterministic
@@ -87,9 +87,16 @@ Use taxonomy-backed negative fixtures to assert the specific rejection branch:
 | `jwks_mixed_valid_invalid` | `NegativeJwks::MixedValidInvalid` | invalid key-set member rejection |
 | `jwk_wrong_kty` | `NegativeJwk::WrongKty` | verifier rejects key type |
 | `jwk_unsupported_alg` | `NegativeJwk::UnsupportedAlg` | verifier policy rejects algorithm |
+| `jwt_alg_none` | `tokens/negative-alg-none.json` | verifier policy rejects unsigned algorithm |
+| `jwt_bad_audience` | `tokens/negative-bad-audience.json` | claim validation rejects token |
 
 The useful downstream assertion is the validator's rejection reason, not merely
 that JSON parsing failed.
+
+The OIDC bundle exposes only the token-shape negatives needed to exercise
+common validator policy branches. Use
+[`test-jwt-negative-validation.md`](test-jwt-negative-validation.md) for the
+broader JWT/token taxonomy.
 
 ## Verify
 
@@ -117,7 +124,7 @@ cargo xtask bundle-proof --profile oidc --out target/release-evidence/oidc
 Write metadata-only audit receipts:
 
 ```bash
-uselesskey audit-bundle --path target/oidc-fixtures --out target/oidc-fixtures-audit
+uselesskey audit-bundle --path target/oidc-fixtures --ci --out target/oidc-fixtures-audit
 ```
 
 Attach:

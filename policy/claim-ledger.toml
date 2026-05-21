@@ -139,7 +139,7 @@ boundary = "The TLS contract pack proves the documented generated fixtures, rece
 id = "oidc-jwks-contract-pack"
 title = "OIDC/JWKS contract pack"
 status = "stable"
-spec = "USELESSKEY-SPEC-0002"
+spec = "USELESSKEY-SPEC-0017"
 surfaces = [
   "README",
   "docs/how-to/test-oidc-jwks-validation.md",
