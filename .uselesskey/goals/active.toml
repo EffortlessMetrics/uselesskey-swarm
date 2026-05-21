@@ -150,17 +150,22 @@ commands = [
 
 [[work_item]]
 id = "advisory-source-of-truth-ci"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
+  "python -c \"import yaml, pathlib; yaml.safe_load(pathlib.Path('.github/workflows/source-of-truth.yml').read_text()); print('source-of-truth workflow parses')\"",
+  "cargo xtask check-doc-artifacts",
+  "cargo xtask check-goals",
+  "cargo xtask check-support-tiers",
+  "cargo xtask check-negative-fixtures",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "repo-contract-report"
-status = "planned"
+status = "ready"
 proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
