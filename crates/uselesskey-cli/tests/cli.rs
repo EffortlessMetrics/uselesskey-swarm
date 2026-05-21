@@ -1525,6 +1525,21 @@ fn audit_bundle_ci_outputs_failure_json_and_exit_1() -> TestResult<()> {
     assert_eq!(audit["status"], "fail");
     assert_eq!(audit["checks"][0]["status"], "fail");
     assert_eq!(audit["checks"][0]["failure_class"], "path_escape");
+    let boundaries = audit["boundaries"]
+        .as_array()
+        .test_context("failure boundaries")?;
+    assert!(boundaries.iter().any(|boundary| {
+        boundary.as_str()
+            == Some(
+                "audit-bundle is not standalone proof for broader repo public claims; use cargo xtask claim-proof from a repo checkout",
+            )
+    }));
+    assert!(boundaries.iter().any(|boundary| {
+        boundary.as_str()
+            == Some(
+                "audit-bundle does not prove release readiness; use release-evidence for release proof",
+            )
+    }));
     let detail = audit["checks"][0]["detail"]
         .as_str()
         .test_context("failure detail")?;

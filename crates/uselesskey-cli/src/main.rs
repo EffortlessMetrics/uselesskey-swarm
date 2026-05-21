@@ -1290,13 +1290,21 @@ fn validate_audit_surface_receipt(bundle_dir: &Path, manifest: &BundleManifest) 
     Ok(())
 }
 
+const BUNDLE_AUDIT_LOCAL_BOUNDARY: &str =
+    "audit-bundle proves local bundle consistency and metadata classification";
+const BUNDLE_AUDIT_REPO_CLAIM_BOUNDARY: &str = "audit-bundle is not standalone proof for broader repo public claims; use cargo xtask claim-proof from a repo checkout";
+const BUNDLE_AUDIT_RELEASE_BOUNDARY: &str =
+    "audit-bundle does not prove release readiness; use release-evidence for release proof";
+const BUNDLE_AUDIT_METADATA_ONLY_BOUNDARY: &str =
+    "audit receipts contain metadata only and do not copy generated fixture payloads";
+
 fn bundle_audit_boundaries(info: &ProfileInfo) -> Vec<String> {
     vec![
-        "audit-bundle proves local bundle consistency and metadata classification".to_string(),
-        "audit-bundle is not standalone proof for broader repo public claims; use cargo xtask claim-proof from a repo checkout".to_string(),
-        "audit-bundle does not prove release readiness; use release-evidence for release proof".to_string(),
+        BUNDLE_AUDIT_LOCAL_BOUNDARY.to_string(),
+        BUNDLE_AUDIT_REPO_CLAIM_BOUNDARY.to_string(),
+        BUNDLE_AUDIT_RELEASE_BOUNDARY.to_string(),
         format!("profile proof/check path: {}", info.proof_command),
-        "audit receipts contain metadata only and do not copy generated fixture payloads".to_string(),
+        BUNDLE_AUDIT_METADATA_ONLY_BOUNDARY.to_string(),
     ]
 }
 
@@ -1517,8 +1525,10 @@ fn bundle_audit_failure_json(
             }
         ],
         "boundaries": [
-            "audit-bundle proves local bundle consistency and metadata classification",
-            "audit receipts contain metadata only and do not copy generated fixture payloads",
+            BUNDLE_AUDIT_LOCAL_BOUNDARY,
+            BUNDLE_AUDIT_REPO_CLAIM_BOUNDARY,
+            BUNDLE_AUDIT_RELEASE_BOUNDARY,
+            BUNDLE_AUDIT_METADATA_ONLY_BOUNDARY,
         ],
         "does_not_prove": [
             "broader repo public claims by itself",
