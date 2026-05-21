@@ -904,6 +904,15 @@ fn validate_audit_manifest_link(
             audit.get("profile")
         ));
     }
+    if let (Some(audit_version), Some(manifest_version)) = (
+        audit.get("manifest_version").and_then(Value::as_u64),
+        manifest.get("version").and_then(Value::as_u64),
+    ) && audit_version != manifest_version
+    {
+        errors.push(format!(
+            "bundle-audit.json.manifest_version: expected manifest version {manifest_version}, found {audit_version}"
+        ));
+    }
     let manifest_artifact_count = array_len(manifest.get("artifacts"));
     if audit.get("artifact_count").and_then(Value::as_u64) != Some(manifest_artifact_count as u64) {
         errors.push(format!(
@@ -1678,6 +1687,7 @@ mod tests {
     #[test]
     fn audit_manifest_link_accepts_matching_artifacts_and_receipts() {
         let manifest = json!({
+            "version": 1,
             "profile": "scanner-safe",
             "files": ["token.json", "receipts/negative-coverage.json"],
             "artifacts": [{
@@ -1696,6 +1706,7 @@ mod tests {
         });
         let audit = json!({
             "profile": "scanner-safe",
+            "manifest_version": 1,
             "artifact_count": 1,
             "receipt_count": 1,
             "files": ["token.json", "receipts/negative-coverage.json"],
@@ -1724,6 +1735,7 @@ mod tests {
     #[test]
     fn audit_manifest_link_rejects_metadata_drift() {
         let manifest = json!({
+            "version": 1,
             "profile": "scanner-safe",
             "files": [
                 "token.json",
@@ -1746,6 +1758,7 @@ mod tests {
         });
         let audit = json!({
             "profile": "scanner-safe",
+            "manifest_version": 2,
             "artifact_count": 2,
             "receipt_count": 2,
             "files": [
@@ -1793,6 +1806,7 @@ mod tests {
         for expected in [
             "artifact_count",
             "receipt_count",
+            "manifest_version",
             "kind",
             "format",
             "scanner_safe",
