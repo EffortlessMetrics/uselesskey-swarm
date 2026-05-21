@@ -1,6 +1,6 @@
 schema_version = 1
 owner = "EffortlessMetrics"
-updated = "2026-05-13"
+updated = "2026-05-21"
 
 # Source-of-truth artifact id: USELESSKEY-POLICY-claim-ledger
 
@@ -161,6 +161,32 @@ release_lanes = ["minor"]
 boundary = "The OIDC/JWKS contract pack proves deterministic key-set and token-shape fixtures plus documented negatives; it does not prove production signing-key custody, full OpenID provider behavior, or downstream validator correctness."
 
 [[claim]]
+id = "jwt-token-negative-fixtures"
+title = "JWT/token negative fixtures"
+status = "advisory"
+spec = "USELESSKEY-SPEC-0016"
+surfaces = [
+  "docs/how-to/test-jwt-negative-validation.md",
+  "docs/status/negative-fixture-matrix.md",
+  "policy/negative-fixtures.toml",
+  "docs/status/PUBLIC_CLAIMS.md",
+]
+proof_commands = [
+  "cargo test -p uselesskey-token --all-features",
+  "cargo xtask check-negative-fixtures",
+]
+artifacts = [
+  "policy/negative-fixtures.toml",
+  "docs/status/negative-fixture-matrix.md",
+]
+docs = [
+  "docs/how-to/test-jwt-negative-validation.md",
+  "docs/specs/USELESSKEY-SPEC-0016-negative-fixture-taxonomy.md",
+]
+release_lanes = ["minor"]
+boundary = "JWT/token negative fixtures define stable failure-class IDs and deterministic token-shaped inputs; they do not prove production authorization, provider compatibility, cryptographic signature assurance, or downstream verifier correctness."
+
+[[claim]]
 id = "webhook-contract-pack"
 title = "Webhook contract pack"
 status = "stable"
@@ -184,6 +210,86 @@ docs = [
 ]
 release_lanes = ["minor"]
 boundary = "The webhook contract pack proves deterministic HMAC verifier fixtures for valid and negative request classes; it does not prove provider compatibility, production secret management, replay protection completeness, transport security, or downstream verifier correctness."
+
+[[claim]]
+id = "metadata-only-audit-packets"
+title = "Metadata-only audit packets"
+status = "advisory"
+spec = "USELESSKEY-SPEC-0014"
+surfaces = [
+  "uselesskey audit-bundle --ci",
+  "docs/reference/bundle-audit-json.md",
+  "docs/schemas/bundle-audit.schema.json",
+  "docs/status/PUBLIC_CLAIMS.md",
+]
+proof_commands = [
+  "cargo test -p uselesskey-cli --all-features audit_bundle",
+  "cargo xtask no-blob",
+]
+artifacts = [
+  "target/uselesskey-audit/bundle-audit.json",
+  "target/uselesskey-audit/bundle-audit.md",
+]
+docs = [
+  "docs/reference/bundle-audit-json.md",
+  "docs/specs/USELESSKEY-SPEC-0014-installed-bundle-audit.md",
+  "docs/specs/USELESSKEY-SPEC-0021-material-classification.md",
+]
+release_lanes = ["minor"]
+boundary = "Metadata-only audit packets expose paths, counts, profile names, failure classes, and boundaries; they must not include PEM private keys, JWT values, HMAC secrets, JWK private members, webhook request bodies, or generated secret-shaped payloads."
+
+[[claim]]
+id = "bundle-manifest-schema"
+title = "Bundle manifest schema"
+status = "advisory"
+spec = "USELESSKEY-SPEC-0017"
+surfaces = [
+  "docs/schemas/bundle-manifest.schema.json",
+  "uselesskey bundle",
+  "uselesskey verify-bundle",
+  "docs/status/PUBLIC_CLAIMS.md",
+]
+proof_commands = [
+  "cargo xtask check-bundle-schemas",
+]
+artifacts = [
+  "docs/schemas/bundle-manifest.schema.json",
+  "target/bundle-schema-check/report.json",
+  "target/bundle-schema-check/report.md",
+]
+docs = [
+  "docs/specs/USELESSKEY-SPEC-0017-bundle-product-surface.md",
+  "docs/schemas/bundle-manifest.schema.json",
+]
+release_lanes = ["minor"]
+boundary = "The bundle manifest schema proves the documented metadata shape for generated bundle manifests; it does not prove production token security, provider compatibility, or downstream verifier correctness."
+
+[[claim]]
+id = "negative-coverage-receipt"
+title = "Negative coverage receipt"
+status = "advisory"
+spec = "USELESSKEY-SPEC-0016"
+surfaces = [
+  "docs/schemas/negative-coverage.schema.json",
+  "receipts/negative-coverage.json",
+  "docs/status/negative-fixture-matrix.md",
+  "docs/status/PUBLIC_CLAIMS.md",
+]
+proof_commands = [
+  "cargo xtask check-negative-fixtures",
+  "cargo xtask check-bundle-schemas",
+]
+artifacts = [
+  "docs/schemas/negative-coverage.schema.json",
+  "target/bundle-schema-check/report.json",
+  "target/bundle-schema-check/report.md",
+]
+docs = [
+  "docs/status/negative-fixture-matrix.md",
+  "docs/specs/USELESSKEY-SPEC-0016-negative-fixture-taxonomy.md",
+]
+release_lanes = ["minor"]
+boundary = "The negative coverage receipt records stable negative fixture IDs exposed by bundle profiles; it does not prove exhaustive verifier testing, provider compatibility, or production security."
 
 [[claim]]
 id = "public-crate-surface-cleanup"
