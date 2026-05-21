@@ -254,8 +254,8 @@ proof_commands = [
 ]
 artifacts = [
   "docs/schemas/bundle-manifest.schema.json",
-  "target/bundle-schema-check/report.json",
-  "target/bundle-schema-check/report.md",
+  "target/bundle-schema-check/bundle-schema-check.json",
+  "target/bundle-schema-check/bundle-schema-check.md",
 ]
 docs = [
   "docs/specs/USELESSKEY-SPEC-0017-bundle-product-surface.md",
@@ -281,8 +281,8 @@ proof_commands = [
 ]
 artifacts = [
   "docs/schemas/negative-coverage.schema.json",
-  "target/bundle-schema-check/report.json",
-  "target/bundle-schema-check/report.md",
+  "target/bundle-schema-check/bundle-schema-check.json",
+  "target/bundle-schema-check/bundle-schema-check.md",
 ]
 docs = [
   "docs/status/negative-fixture-matrix.md",
