@@ -1,6 +1,6 @@
 schema_version = "1.0"
 owner = "EffortlessMetrics"
-updated = "2026-05-19"
+updated = "2026-05-21"
 
 # Source-of-truth artifact id: USELESSKEY-POLICY-negative-fixtures
 
@@ -167,7 +167,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -181,7 +181,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -195,7 +195,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -209,7 +209,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -245,7 +245,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -259,7 +259,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -273,7 +273,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -287,7 +287,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -301,7 +301,7 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "oidc-jwks-contract-pack"
+claim = "jwt-token-negative-fixtures"
 does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
@@ -337,8 +337,8 @@ tests = ["cargo test -p uselesskey-token --all-features"]
 scanner_safe = true
 runtime_material = false
 bundle_exposed = false
-claim = "scanner-safe-fixtures"
-does_not_prove = ["scanner evasion", "production token security", "downstream verifier correctness"]
+claim = "jwt-token-negative-fixtures"
+does_not_prove = ["provider compatibility", "production token security", "downstream verifier correctness"]
 
 [[negative]]
 stable_id = "token_near_miss"
