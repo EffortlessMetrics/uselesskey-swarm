@@ -2,6 +2,8 @@ schema_version = 1
 owner = "EffortlessMetrics"
 updated = "2026-05-13"
 
+# Source-of-truth artifact id: USELESSKEY-POLICY-claim-ledger
+
 # `claim_proof` entries are symbolic execution policy, not shell commands.
 # `cargo xtask claim-proof` must map these handler IDs to argv in code.
 [[claim_proof]]

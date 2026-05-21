@@ -22,6 +22,7 @@ mod bundle_schema;
 mod claim_proof;
 mod claim_report;
 mod contract_packs;
+mod doc_artifacts;
 mod docs_sync;
 mod doctor;
 mod economics;
@@ -262,6 +263,8 @@ enum Cmd {
         #[arg(long, value_enum, default_value = "human")]
         format: SpecCheckFormat,
     },
+    /// Validate the source-of-truth document artifact ledger.
+    CheckDocArtifacts,
     /// Index public claim-ledger entries and proof commands for users and reviewers.
     ClaimReport {
         /// Output format.
@@ -714,6 +717,7 @@ fn main() -> Result<()> {
         Cmd::SpecCheck { strict, format } => {
             spec_check::run(&workspace_root_path(), strict, format.into())
         }
+        Cmd::CheckDocArtifacts => doc_artifacts::run(&workspace_root_path()),
         Cmd::ClaimReport {
             format,
             claim,

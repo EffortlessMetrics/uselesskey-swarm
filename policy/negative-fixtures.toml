@@ -2,6 +2,8 @@ schema_version = "1.0"
 owner = "EffortlessMetrics"
 updated = "2026-05-19"
 
+# Source-of-truth artifact id: USELESSKEY-POLICY-negative-fixtures
+
 # This ledger maps USELESSKEY-SPEC-0016 taxonomy IDs to their implementation
 # state. It is intentionally about product availability, not roadmap desire.
 
