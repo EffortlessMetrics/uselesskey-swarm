@@ -181,19 +181,25 @@ commands = [
 
 [[work_item]]
 id = "pr-body-generator"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
+  "cargo fmt --check -p xtask",
   "cargo test -p xtask pr_body",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
   "cargo xtask pr-body --work-item goal-manifest-checker",
+  "cargo xtask check-goals",
+  "cargo xtask check-doc-artifacts",
+  "cargo xtask docs-sync --check",
+  "cargo xtask pr",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "closeout-generator"
-status = "planned"
+status = "ready"
 proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"

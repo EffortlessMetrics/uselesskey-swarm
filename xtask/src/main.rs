@@ -30,6 +30,7 @@ mod external_adoption_smoke;
 mod goals;
 mod plan;
 mod policy;
+mod pr_body;
 mod pr_bundles;
 mod public_surface;
 mod receipt;
@@ -274,6 +275,12 @@ enum Cmd {
     CheckGoals,
     /// Generate the repo-native source-of-truth graph report.
     RepoContractReport,
+    /// Generate a PR body from active source-of-truth work item links.
+    PrBody {
+        /// Work item id from .uselesskey/goals/active.toml.
+        #[arg(long = "work-item")]
+        work_item: String,
+    },
     /// Index public claim-ledger entries and proof commands for users and reviewers.
     ClaimReport {
         /// Output format.
@@ -730,6 +737,7 @@ fn main() -> Result<()> {
         Cmd::CheckSupportTiers => support_tiers::run(&workspace_root_path()),
         Cmd::CheckGoals => goals::run(&workspace_root_path()),
         Cmd::RepoContractReport => repo_contract_report::run(&workspace_root_path()),
+        Cmd::PrBody { work_item } => pr_body::run(&workspace_root_path(), &work_item),
         Cmd::ClaimReport {
             format,
             claim,
