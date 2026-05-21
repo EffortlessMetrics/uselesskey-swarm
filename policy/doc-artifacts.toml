@@ -1,0 +1,375 @@
+schema_version = "1.0"
+owner = "EffortlessMetrics"
+updated = "2026-05-21"
+
+[[artifact]]
+id = "USELESSKEY-PROP-0001"
+kind = "proposal"
+path = "docs/proposals/USELESSKEY-PROP-0001-spec-governed-fixture-platform.md"
+status = "proposed"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0001",
+  "USELESSKEY-SPEC-0002",
+  "USELESSKEY-SPEC-0003",
+  "USELESSKEY-SPEC-0004",
+  "USELESSKEY-SPEC-0005",
+  "USELESSKEY-SPEC-0006",
+  "USELESSKEY-SPEC-0007",
+]
+linked_adrs = [
+  "USELESSKEY-ADR-0001",
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+  "USELESSKEY-ADR-0004",
+]
+linked_plan = "plans/spec-system/implementation-plan.md"
+
+[[artifact]]
+id = "USELESSKEY-PROP-0002"
+kind = "proposal"
+path = "docs/proposals/USELESSKEY-PROP-0002-source-of-truth-control-plane.md"
+status = "proposed"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0001",
+  "USELESSKEY-SPEC-0023",
+]
+linked_adrs = [
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0001-source-of-truth-model.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_plan = "plans/spec-system/implementation-plan.md"
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0002"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0002-public-claim-ledger.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_plan = "plans/spec-system/implementation-plan.md"
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0003"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0003-contract-pack-profile.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_plan = "plans/spec-system/implementation-plan.md"
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0004"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0004-generated-evidence-endpoints.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_plan = "plans/spec-system/implementation-plan.md"
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0005"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0005-agent-lane-state.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0003"]
+linked_plan = "plans/spec-system/implementation-plan.md"
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0006"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0006-release-evidence-lanes.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_plan = "plans/spec-system/implementation-plan.md"
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0007"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0007-pr-review-evidence.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_plan = "plans/spec-system/implementation-plan.md"
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0008"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0008-claim-proof-execution.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0009"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0009-verification-pack.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0010"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0010-pr-lite-evidence.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0003"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0011"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0011-webhook-contract-pack.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0001", "USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0012"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0012-cli-proof-handoff.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0013"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0013-external-adoption-smoke.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0014"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0014-installed-bundle-audit.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0015"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0015-real-user-workflows.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0016"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0016-negative-fixture-taxonomy.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0017"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0017-bundle-product-surface.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0002"]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0018"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0018-install-distribution-polish.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = [
+  "USELESSKEY-ADR-0001",
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+  "USELESSKEY-ADR-0004",
+]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0019"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0019-library-facade-polish.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = [
+  "USELESSKEY-ADR-0001",
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+  "USELESSKEY-ADR-0004",
+]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0020"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0020-downstream-policy-pack.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = [
+  "USELESSKEY-ADR-0001",
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+  "USELESSKEY-ADR-0004",
+]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0021"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0021-material-classification.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = [
+  "USELESSKEY-ADR-0001",
+  "USELESSKEY-ADR-0002",
+]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0022"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0022-task-first-docs.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = [
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+]
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0023"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0023-source-of-truth-enforcement.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0002"
+linked_adrs = [
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+]
+
+[[artifact]]
+id = "USELESSKEY-ADR-0001"
+kind = "adr"
+path = "docs/adr/USELESSKEY-ADR-0001-contract-packs-are-proof-backed-fixture-profiles.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = ["USELESSKEY-SPEC-0003"]
+
+[[artifact]]
+id = "USELESSKEY-ADR-0002"
+kind = "adr"
+path = "docs/adr/USELESSKEY-ADR-0002-public-claims-require-command-backed-evidence.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = ["USELESSKEY-SPEC-0002"]
+
+[[artifact]]
+id = "USELESSKEY-ADR-0003"
+kind = "adr"
+path = "docs/adr/USELESSKEY-ADR-0003-repo-goals-are-the-agent-control-plane.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = ["USELESSKEY-SPEC-0005"]
+
+[[artifact]]
+id = "USELESSKEY-ADR-0004"
+kind = "adr"
+path = "docs/adr/USELESSKEY-ADR-0004-readme-badges-are-front-panel-not-dashboard.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = ["USELESSKEY-SPEC-0004"]
+
+[[artifact]]
+id = "USELESSKEY-PLAN-0001"
+kind = "plan"
+path = "plans/spec-system/implementation-plan.md"
+status = "implemented"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = [
+  "USELESSKEY-SPEC-0001",
+  "USELESSKEY-SPEC-0002",
+  "USELESSKEY-SPEC-0003",
+  "USELESSKEY-SPEC-0004",
+  "USELESSKEY-SPEC-0005",
+  "USELESSKEY-SPEC-0006",
+  "USELESSKEY-SPEC-0007",
+]
+linked_adrs = [
+  "USELESSKEY-ADR-0001",
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+  "USELESSKEY-ADR-0004",
+]
+
+[[artifact]]
+id = "USELESSKEY-PLAN-0024"
+kind = "plan"
+path = "plans/real-workflow-closure/implementation-plan.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = [
+  "USELESSKEY-SPEC-0002",
+  "USELESSKEY-SPEC-0003",
+  "USELESSKEY-SPEC-0005",
+  "USELESSKEY-SPEC-0009",
+  "USELESSKEY-SPEC-0011",
+  "USELESSKEY-SPEC-0013",
+  "USELESSKEY-SPEC-0014",
+  "USELESSKEY-SPEC-0015",
+  "USELESSKEY-SPEC-0016",
+  "USELESSKEY-SPEC-0017",
+  "USELESSKEY-SPEC-0021",
+  "USELESSKEY-SPEC-0022",
+]
+linked_adrs = [
+  "USELESSKEY-ADR-0001",
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+]
+
+[[artifact]]
+id = "USELESSKEY-POLICY-claim-ledger"
+kind = "policy"
+path = "policy/claim-ledger.toml"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = ["USELESSKEY-SPEC-0002"]
+
+[[artifact]]
+id = "USELESSKEY-POLICY-negative-fixtures"
+kind = "policy"
+path = "policy/negative-fixtures.toml"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = ["USELESSKEY-SPEC-0016"]
