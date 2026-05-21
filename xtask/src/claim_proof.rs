@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
@@ -68,6 +68,7 @@ struct HandlerSpec {
 }
 
 const CLAIM_PROOF_POLICY_IMPLEMENTED: &str = "implemented";
+const CLAIM_PROOF_POLICY_PLANNED: &str = "planned";
 
 pub(crate) fn run(root: &Path, claim: Option<&str>, all_stable: bool) -> Result<()> {
     if claim.is_some() == all_stable {
@@ -193,7 +194,49 @@ fn run_handler(root: &Path, handler: &str) -> Result<HandlerReceipt> {
 fn read_ledger(root: &Path) -> Result<ClaimLedger> {
     let path = root.join("policy/claim-ledger.toml");
     let text = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
-    toml::from_str(&text).context("parse policy/claim-ledger.toml")
+    let ledger = toml::from_str(&text).context("parse policy/claim-ledger.toml")?;
+    validate_claim_proof_policies(&ledger)?;
+    Ok(ledger)
+}
+
+fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
+    let claims = ledger
+        .claim
+        .iter()
+        .map(|claim| claim.id.as_str())
+        .collect::<BTreeSet<_>>();
+    let mut seen = BTreeSet::new();
+
+    for policy in &ledger.claim_proof {
+        validate_claim_id(&policy.claim)
+            .with_context(|| format!("claim-proof policy `{}`", policy.claim))?;
+        if !seen.insert(policy.claim.as_str()) {
+            bail!("duplicate claim-proof policy for `{}`", policy.claim);
+        }
+        if !claims.contains(policy.claim.as_str()) {
+            bail!(
+                "claim-proof policy `{}` points to an unknown claim",
+                policy.claim
+            );
+        }
+        match policy.status.as_str() {
+            CLAIM_PROOF_POLICY_IMPLEMENTED | CLAIM_PROOF_POLICY_PLANNED => {}
+            other => bail!(
+                "claim-proof policy `{}` has unknown status `{other}`",
+                policy.claim
+            ),
+        }
+        if policy.include_in_all_stable && policy.status != CLAIM_PROOF_POLICY_IMPLEMENTED {
+            bail!(
+                "claim-proof policy `{}` sets include_in_all_stable with status `{}`, expected `{}`",
+                policy.claim,
+                policy.status,
+                CLAIM_PROOF_POLICY_IMPLEMENTED
+            );
+        }
+    }
+
+    Ok(())
 }
 
 fn stable_claims_with_policy(ledger: &ClaimLedger) -> Result<Vec<String>> {
@@ -477,6 +520,90 @@ mod tests {
         assert!(
             err.to_string().contains(
                 "claim `scanner-safe-fixtures` has claim-proof policy status `planned`, expected `implemented`"
+            ),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_accepts_minimal_ledger() -> Result<()> {
+        validate_claim_proof_policies(&minimal_ledger())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_duplicate_policy() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof.push(ClaimProofPolicy {
+            claim: "scanner-safe-fixtures".to_string(),
+            status: "implemented".to_string(),
+            include_in_all_stable: false,
+            requires_explicit_version: false,
+            handlers: vec!["badges_check".to_string()],
+        });
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string()
+                .contains("duplicate claim-proof policy for `scanner-safe-fixtures`"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_unknown_status() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].status = "ready".to_string();
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string()
+                .contains("claim-proof policy `scanner-safe-fixtures` has unknown status `ready`"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_unknown_claim() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].claim = "future-contract-pack".to_string();
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string()
+                .contains("claim-proof policy `future-contract-pack` points to an unknown claim"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_planned_all_stable() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].status = "planned".to_string();
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains(
+                "claim-proof policy `scanner-safe-fixtures` sets include_in_all_stable with status `planned`, expected `implemented`"
             ),
             "unexpected error: {err}"
         );

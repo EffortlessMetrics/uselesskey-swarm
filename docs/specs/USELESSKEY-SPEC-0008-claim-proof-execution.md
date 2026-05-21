@@ -45,6 +45,14 @@ cargo xtask claim-proof --all-stable
 Claim-proof execution must use symbolic, repo-owned handlers. It must not
 shell-evaluate arbitrary strings from `policy/claim-ledger.toml`.
 
+The claim-proof policy ledger must be validated before handler execution:
+
+- each `claim_proof.claim` must be a valid claim id and resolve to a public
+  claim row;
+- each claim may have at most one `claim_proof` row;
+- `claim_proof.status` must be `implemented` or `planned`;
+- `include_in_all_stable = true` requires `status = "implemented"`.
+
 Initial handler mapping:
 
 | Claim | Handlers |
@@ -179,6 +187,7 @@ Claim-proof implementation tests must cover:
 - handler mapping for `scanner-safe-fixtures`;
 - handler mapping for `tls-contract-pack`;
 - `--all-stable` selection;
+- claim-proof policy ledger validation;
 - planned claim-proof policy rejection;
 - unknown claim rejection;
 - release-proof claim rejection without explicit version;
