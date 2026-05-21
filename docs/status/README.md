@@ -21,6 +21,7 @@ check exist.
 ## Index
 
 - [PUBLIC_CLAIMS.md](PUBLIC_CLAIMS.md) - Public claim to proof-command and boundary map
+- [SUPPORT_TIERS.md](SUPPORT_TIERS.md) - Claim and workflow support-tier map
 - [negative-fixture-matrix.md](negative-fixture-matrix.md) - Negative fixture stable ID implementation state
 - [public-surface-matrix.md](public-surface-matrix.md) - Compact public crate promise matrix
 - [workflow-support.md](workflow-support.md) - User workflow to claim, support tier, proof, receipt, and boundary map
