@@ -9,9 +9,9 @@ Installed CLI bundle path:
 
 ```bash
 uselesskey bundle --profile oidc --out target/oidc-fixtures
-uselesskey verify-bundle --path target/oidc-fixtures
-uselesskey inspect-bundle --path target/oidc-fixtures
-uselesskey audit-bundle --path target/oidc-fixtures --ci --out target/oidc-fixtures-audit
+uselesskey verify-bundle target/oidc-fixtures
+uselesskey inspect-bundle target/oidc-fixtures
+uselesskey audit-bundle target/oidc-fixtures --ci --out target/oidc-fixtures-audit
 ```
 
 Rust test dependency path:
@@ -103,8 +103,8 @@ broader JWT/token taxonomy.
 Installed CLI verification:
 
 ```bash
-uselesskey verify-bundle --path target/oidc-fixtures
-uselesskey inspect-bundle --path target/oidc-fixtures
+uselesskey verify-bundle target/oidc-fixtures
+uselesskey inspect-bundle target/oidc-fixtures
 ```
 
 Clean-project Rust example proof from the repo:
@@ -124,7 +124,7 @@ cargo xtask bundle-proof --profile oidc --out target/release-evidence/oidc
 Write metadata-only audit receipts:
 
 ```bash
-uselesskey audit-bundle --path target/oidc-fixtures --ci --out target/oidc-fixtures-audit
+uselesskey audit-bundle target/oidc-fixtures --ci --out target/oidc-fixtures-audit
 ```
 
 Attach:

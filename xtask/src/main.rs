@@ -4431,7 +4431,6 @@ fn scanner_safe_reference_check() -> Result<()> {
         "uselesskey-cli",
         "--",
         "verify-bundle",
-        "--path",
         &bundle_dir.display().to_string(),
     ]))?;
 
@@ -4442,7 +4441,6 @@ fn scanner_safe_reference_check() -> Result<()> {
         "uselesskey-cli",
         "--",
         "inspect-bundle",
-        "--path",
         &bundle_dir.display().to_string(),
         "--out",
         &inspect_summary_path.display().to_string(),
@@ -4892,14 +4890,9 @@ fn main() {
             "--out",
             &cli_bundle.display().to_string(),
         ]))?;
-        run(Command::new(&cli_bin).args([
-            "verify-bundle",
-            "--path",
-            &cli_bundle.display().to_string(),
-        ]))?;
+        run(Command::new(&cli_bin).args(["verify-bundle", &cli_bundle.display().to_string()]))?;
         run(Command::new(&cli_bin).args([
             "inspect-bundle",
-            "--path",
             &cli_bundle.display().to_string(),
             "--out",
             &inspect_txt.display().to_string(),

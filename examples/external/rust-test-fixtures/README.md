@@ -83,7 +83,7 @@ This Rust crate example does not write bundle payloads by itself. For generated
 CLI bundles, use:
 
 ```bash
-uselesskey audit-bundle --path target/oidc-fixtures --out target/oidc-fixtures-audit
+uselesskey audit-bundle target/oidc-fixtures --out target/oidc-fixtures-audit
 ```
 
 The installed audit output is metadata-only. It records paths, counts, profile

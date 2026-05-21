@@ -29,9 +29,9 @@ wrong-secret, and tampered-body cases distinctly.
 
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
+uselesskey verify-bundle target/uselesskey-webhook
 uselesskey audit-bundle \
-  --path target/uselesskey-webhook \
+  target/uselesskey-webhook \
   --ci \
   --expect-profile webhook \
   --policy strict \

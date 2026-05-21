@@ -69,8 +69,8 @@ For generated CLI bundles, use:
 
 ```bash
 uselesskey bundle --profile tls --out target/uselesskey-tls
-uselesskey verify-bundle --path target/uselesskey-tls
-uselesskey audit-bundle --path target/uselesskey-tls --out target/uselesskey-tls-audit
+uselesskey verify-bundle target/uselesskey-tls
+uselesskey audit-bundle target/uselesskey-tls --out target/uselesskey-tls-audit
 ```
 
 The installed audit output is metadata-only. It records paths, counts, profile

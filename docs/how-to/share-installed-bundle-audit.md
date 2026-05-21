@@ -13,8 +13,8 @@ evidence, provider compatibility proof, or production security assurance.
 ```bash
 cargo install uselesskey-cli --version 0.9.1
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
-uselesskey inspect-bundle --path target/uselesskey-webhook
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
 ```
 
 Keep generated payloads under `target/` or another ignored build directory.
@@ -22,7 +22,7 @@ Keep generated payloads under `target/` or another ignored build directory.
 ## Audit the Bundle
 
 ```bash
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
 ```
 
 Attach these files:
@@ -53,7 +53,7 @@ For CI jobs, prefer the strict policy preset:
 
 ```bash
 uselesskey audit-bundle \
-  --path target/uselesskey-webhook \
+  target/uselesskey-webhook \
   --ci \
   --expect-profile webhook \
   --policy strict
@@ -65,7 +65,7 @@ For the full downstream policy preset list, see
 ## JSON for CI
 
 ```bash
-uselesskey audit-bundle --path target/uselesskey-webhook --format json
+uselesskey audit-bundle target/uselesskey-webhook --format json
 ```
 
 The JSON receipt reports:

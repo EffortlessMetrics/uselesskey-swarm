@@ -14,9 +14,9 @@ For copyable workflow and regression snippets, see
 steps:
   - run: cargo install uselesskey-cli --version 0.9.1 --locked
   - run: uselesskey bundle --profile webhook --out target/uselesskey-webhook
-  - run: uselesskey verify-bundle --path target/uselesskey-webhook
-  - run: uselesskey inspect-bundle --path target/uselesskey-webhook
-  - run: uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci --expect-profile webhook --policy strict
+  - run: uselesskey verify-bundle target/uselesskey-webhook
+  - run: uselesskey inspect-bundle target/uselesskey-webhook
+  - run: uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci --expect-profile webhook --policy strict
 ```
 
 Switch `webhook` to `tls`, `oidc`, or `scanner-safe` when that is the bundle
@@ -70,8 +70,8 @@ To run the installed CLI path locally:
 
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
-uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook --policy strict
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict
 ```
 
 Repo-local proof for the documented downstream path:

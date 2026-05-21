@@ -12,9 +12,9 @@ approval.
 
 | Preset | Use it when | Copy this |
 | --- | --- | --- |
-| `default` | you want local audit JSON without stricter CI expectations | `uselesskey audit-bundle --path target/uselesskey-webhook --ci` |
-| `strict` | CI should fail on audit drift for one expected profile | `uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook --policy strict` |
-| `reviewer` | you need files to attach to a security or platform review | `uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit` |
+| `default` | you want local audit JSON without stricter CI expectations | `uselesskey audit-bundle target/uselesskey-webhook --ci` |
+| `strict` | CI should fail on audit drift for one expected profile | `uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict` |
+| `reviewer` | you need files to attach to a security or platform review | `uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit` |
 
 ## Copyable Recipe Pack
 
@@ -37,10 +37,10 @@ Generate, verify, inspect, and audit one profile per output directory:
 ```bash
 cargo install uselesskey-cli --version 0.9.1 --locked
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
-uselesskey inspect-bundle --path target/uselesskey-webhook
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
 uselesskey audit-bundle \
-  --path target/uselesskey-webhook \
+  target/uselesskey-webhook \
   --ci \
   --expect-profile webhook \
   --policy strict
@@ -61,7 +61,7 @@ For a reviewer handoff, write metadata-only receipts:
 
 ```bash
 uselesskey audit-bundle \
-  --path target/uselesskey-webhook \
+  target/uselesskey-webhook \
   --ci \
   --out target/uselesskey-webhook-audit
 ```

@@ -34,8 +34,8 @@ For file-based tests, use the installed CLI OIDC profile:
 
 ```bash
 uselesskey bundle --profile oidc --out target/oidc-fixtures
-uselesskey verify-bundle --path target/oidc-fixtures
-uselesskey audit-bundle --path target/oidc-fixtures --summary
+uselesskey verify-bundle target/oidc-fixtures
+uselesskey audit-bundle target/oidc-fixtures --summary
 ```
 
 ## What you get
@@ -96,8 +96,8 @@ cargo test --manifest-path examples/external/rust-test-fixtures/Cargo.toml
 For the installed bundle path:
 
 ```bash
-uselesskey verify-bundle --path target/oidc-fixtures
-uselesskey inspect-bundle --path target/oidc-fixtures
+uselesskey verify-bundle target/oidc-fixtures
+uselesskey inspect-bundle target/oidc-fixtures
 ```
 
 Repo-local proof for this task-doc path:
@@ -114,7 +114,7 @@ For bundle users, write a metadata-only audit packet:
 
 ```bash
 uselesskey audit-bundle \
-  --path target/oidc-fixtures \
+  target/oidc-fixtures \
   --out target/oidc-fixtures-audit \
   --ci
 ```

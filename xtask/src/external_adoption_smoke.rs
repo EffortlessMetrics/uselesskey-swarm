@@ -408,7 +408,7 @@ fn run_cli_profile(
 
     let mut verify = Command::new(cli_bin);
     verify
-        .args(["verify-bundle", "--path"])
+        .arg("verify-bundle")
         .arg(&bundle_dir)
         .current_dir(&project_dir);
     run_command_step(
@@ -422,7 +422,7 @@ fn run_cli_profile(
 
     let mut audit = Command::new(cli_bin);
     audit
-        .args(["audit-bundle", "--path"])
+        .arg("audit-bundle")
         .arg(&bundle_dir)
         .args(["--out"])
         .arg(&audit_dir)
@@ -443,7 +443,7 @@ fn run_cli_profile(
 
     let mut inspect = Command::new(cli_bin);
     inspect
-        .args(["inspect-bundle", "--path"])
+        .arg("inspect-bundle")
         .arg(&bundle_dir)
         .args(["--out"])
         .arg(&inspect_out)
@@ -514,7 +514,7 @@ fn run_ci_recipe_profile(
 
     let mut verify = Command::new(cli_bin);
     verify
-        .args(["verify-bundle", "--path"])
+        .arg("verify-bundle")
         .arg(&bundle_dir)
         .current_dir(&project_dir);
     run_command_step(
@@ -528,7 +528,7 @@ fn run_ci_recipe_profile(
 
     let mut audit = Command::new(cli_bin);
     audit
-        .args(["audit-bundle", "--path"])
+        .arg("audit-bundle")
         .arg(&bundle_dir)
         .args(["--out"])
         .arg(&audit_dir)

@@ -7,9 +7,9 @@ reviewer packet that contains only metadata.
 
 ```bash
 uselesskey bundle --profile scanner-safe --out target/uselesskey-scanner-safe
-uselesskey verify-bundle --path target/uselesskey-scanner-safe
+uselesskey verify-bundle target/uselesskey-scanner-safe
 uselesskey audit-bundle \
-  --path target/uselesskey-scanner-safe \
+  target/uselesskey-scanner-safe \
   --ci \
   --expect-profile scanner-safe \
   --policy strict \
