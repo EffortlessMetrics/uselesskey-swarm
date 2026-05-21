@@ -33,7 +33,7 @@ For file-based CI fixtures:
 ```bash
 uselesskey bundle --profile webhook --out target/webhook-fixtures
 uselesskey verify-bundle --path target/webhook-fixtures
-uselesskey audit-bundle --path target/webhook-fixtures --summary
+uselesskey audit-bundle --path target/webhook-fixtures --ci --out target/webhook-fixtures-audit
 ```
 
 ## What you get
@@ -50,7 +50,7 @@ The installed CLI bundle writes:
 
 | File | Stable class | Intended failure |
 | --- | --- | --- |
-| `requests/valid.json` | positive control | verifier accepts the provider base string and HMAC |
+| `requests/valid.json` | valid request accepted | verifier accepts the provider base string and HMAC |
 | `requests/negative-tampered-body.json` | `webhook_tampered_body` | verifier rejects a body that no longer matches signed bytes |
 | `requests/negative-wrong-secret.json` | `webhook_wrong_secret` | verifier rejects a signature made with another secret |
 | `requests/negative-stale-timestamp.json` | `webhook_stale_timestamp` | verifier rejects a timestamp outside tolerance |
@@ -60,7 +60,7 @@ The installed CLI bundle writes:
 The bundle also writes `manifest.json`, `evidence/webhook-profile.md`, and
 metadata receipts under `receipts/`.
 
-## Positive path
+## Positive path: valid request accepted
 
 A positive webhook test reconstructs the provider base string, recomputes
 HMAC-SHA256 with the fixture secret, and compares it with the fixture header.
@@ -80,11 +80,13 @@ crate.
 Use the near-miss constructors when a Rust test should assert a specific
 verifier rejection:
 
-| Constructor | Stable class | Expected downstream rejection |
+| Fixture or constructor | Stable class | Expected downstream rejection |
 | --- | --- | --- |
 | `near_miss_stale_timestamp(300)` | `webhook_stale_timestamp` | freshness window rejects before signature acceptance |
 | `near_miss_wrong_secret()` | `webhook_wrong_secret` | signature compare rejects unknown secret |
 | `near_miss_tampered_payload()` | `webhook_tampered_body` | signature compare rejects changed body bytes |
+| `requests/negative-missing-signature.json` | `webhook_missing_signature` | verifier rejects a request without the signature credential |
+| `requests/negative-malformed-signature.json` | `webhook_malformed_signature` | parser or verifier rejects invalid signature encoding |
 
 Use the installed bundle when the test needs JSON request fixtures and
 metadata-only audit receipts.
