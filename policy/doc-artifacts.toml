@@ -470,3 +470,48 @@ linked_specs = [
   "USELESSKEY-SPEC-0002",
   "USELESSKEY-SPEC-0023",
 ]
+
+[[artifact]]
+id = "USELESSKEY-STATUS-public-claims"
+kind = "status"
+path = "docs/status/PUBLIC_CLAIMS.md"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0002",
+  "USELESSKEY-SPEC-0023",
+]
+
+[[artifact]]
+id = "USELESSKEY-STATUS-negative-fixture-matrix"
+kind = "status"
+path = "docs/status/negative-fixture-matrix.md"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0016",
+  "USELESSKEY-SPEC-0023",
+]
+
+[[artifact]]
+id = "USELESSKEY-STATUS-public-surface-matrix"
+kind = "status"
+path = "docs/status/public-surface-matrix.md"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0019",
+  "USELESSKEY-SPEC-0023",
+]
+
+[[artifact]]
+id = "USELESSKEY-STATUS-workflow-support"
+kind = "status"
+path = "docs/status/workflow-support.md"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0015",
+  "USELESSKEY-SPEC-0022",
+  "USELESSKEY-SPEC-0023",
+]

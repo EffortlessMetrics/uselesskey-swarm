@@ -1,5 +1,7 @@
 # Public Claims
 
+Source-of-truth artifact id: `USELESSKEY-STATUS-public-claims`
+
 This page summarizes public `uselesskey` claims and points to the command-backed
 ledger in [`policy/claim-ledger.toml`](../../policy/claim-ledger.toml).
 

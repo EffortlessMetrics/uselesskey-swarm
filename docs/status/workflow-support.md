@@ -1,5 +1,7 @@
 # Workflow Support
 
+Source-of-truth artifact id: `USELESSKEY-STATUS-workflow-support`
+
 This page maps task-first workflows to public claims, support tiers, proof
 commands, receipts, and boundaries. It is the handoff between
 [`PUBLIC_CLAIMS.md`](PUBLIC_CLAIMS.md), the generated

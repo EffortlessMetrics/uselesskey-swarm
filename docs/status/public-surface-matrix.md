@@ -1,5 +1,7 @@
 # Public Surface Matrix
 
+Source-of-truth artifact id: `USELESSKEY-STATUS-public-surface-matrix`
+
 This page is the compact status view for public crate promises. The architecture
 policy lives in [`docs/architecture/public-surface.md`](../architecture/public-surface.md),
 and the generated support table lives in
