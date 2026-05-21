@@ -1,174 +1,190 @@
-id = "uselesskey-usability-polish"
-title = "Usability polish"
-status = "archived"
-owner = "EffortlessMetrics"
-created = "2026-05-18"
+schema_version = "1.0"
+
+id = "source-of-truth-control-plane"
+title = "Source-of-truth control plane"
+status = "active"
+owner = "codex"
+created = "2026-05-21"
 
 objective = """
-Make uselesskey feel obvious, installable, and usable outside the repo.
-Downstream users should be able to understand the product in one screen,
-install or depend on it, run a self-check, generate and audit fixtures, wire
-the audit into CI, use the Rust facade in a clean test project, and explain the
-metadata-only receipt to a reviewer without learning xtask, claim ledgers,
-release evidence, or repo internals.
+Make proposals, specs, ADRs, plans, active goals, support tiers, policy ledgers,
+proof commands, PR bodies, and closeouts linked enough for humans and agents to
+work from the repo instead of chat history.
 """
 
 end_state = [
-  "The front door explains the core user jobs and product boundary in one screen.",
-  "Install and dependency paths are explicit without starting release prep.",
-  "Installed CLI help and self-check behavior are audited and improved where needed.",
-  "Rust facade examples show clean-project adoption without crate archaeology.",
-  "External smoke covers the facade examples when bounded.",
-  "Downstream policy guidance uses presets and reviewer checklists, not a broad DSL.",
-  "Tiny audit-bundle policy controls exist only if they stay simple and stable.",
-  "The lane closes without version bump, tag, publish, release prep, new contract pack, provider/security overclaims, scanner-policy approval language, shipper work, broad dependency churn, or installed CLI execution of xtask/claim-ledger commands.",
+  "Accepted specs link to proposals or standalone reasons.",
+  "Active work items link to plans and proof commands.",
+  "Public claims map to support-tier proof.",
+  "Policy ledgers identify governed state and claim boundaries.",
+  "Codex can choose the next ready work item without chat history.",
+  "Closeouts record what changed, what proof ran, and what remains.",
 ]
 
 [[work_item]]
-id = "lane-open"
+id = "doc-artifact-ledger"
 status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0005"
-plan = "plans/usability-polish/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
-  "cargo xtask spec-check --strict",
+  "python -c \"import pathlib,tomllib; tomllib.loads(pathlib.Path('policy/doc-artifacts.toml').read_text()); print('doc artifact ledger parses')\"",
   "cargo xtask docs-sync --check",
-  "cargo xtask typos",
   "git diff --check",
 ]
 
 [[work_item]]
-id = "install-distribution-polish-spec"
+id = "doc-artifact-checker"
 status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0018"
-plan = "plans/usability-polish/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
-  "cargo xtask spec-check --strict",
+  "cargo test -p xtask doc_artifacts",
+  "cargo xtask check-doc-artifacts",
   "cargo xtask docs-sync --check",
-  "cargo xtask typos",
   "git diff --check",
 ]
 
 [[work_item]]
-id = "readme-front-door"
+id = "claim-ledger-payload"
 status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0018"
-plan = "plans/usability-polish/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0002"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
-  "cargo xtask docs-sync --check",
-  "cargo xtask typos",
-  "cargo xtask external-adoption-smoke --path .",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "cli-help-self-check-audit"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0018"
-plan = "plans/usability-polish/implementation-plan.md"
-commands = [
-  "cargo test -p uselesskey-cli --all-features doctor",
-  "cargo run -p uselesskey-cli -- --help",
-  "cargo run -p uselesskey-cli -- doctor --format json",
-  "cargo +nightly xtask pr-lite",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "library-facade-polish-spec"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0019"
-plan = "plans/usability-polish/implementation-plan.md"
-commands = [
-  "cargo xtask spec-check --strict",
-  "cargo xtask docs-sync --check",
-  "cargo xtask typos",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "facade-first-external-examples"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0019"
-plan = "plans/usability-polish/implementation-plan.md"
-commands = [
-  "cargo xtask external-adoption-smoke --path .",
-  "cargo test -p xtask external_adoption_smoke",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "external-library-smoke"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0019"
-plan = "plans/usability-polish/implementation-plan.md"
-commands = [
-  "cargo test -p xtask external_adoption_smoke",
-  "cargo xtask external-adoption-smoke --path . --library-examples",
-  "cargo xtask external-adoption-smoke --path .",
-  "cargo xtask adoption-regression --external",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "downstream-policy-pack-spec"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0020"
-plan = "plans/usability-polish/implementation-plan.md"
-commands = [
-  "cargo xtask spec-check --strict",
-  "cargo xtask docs-sync --check",
-  "cargo xtask typos",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "audit-bundle-policy-controls"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0020"
-plan = "plans/usability-polish/implementation-plan.md"
-commands = [
-  "cargo test -p uselesskey-cli --all-features audit_bundle",
-  "cargo xtask external-adoption-smoke --path .",
-  "cargo +nightly xtask pr-lite",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "downstream-policy-docs"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0020"
-plan = "plans/usability-polish/implementation-plan.md"
-commands = [
-  "cargo xtask docs-sync --check",
-  "cargo xtask typos",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "lane-closeout"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0005"
-plan = "plans/usability-polish/closeout.md"
-commands = [
-  "cargo xtask external-adoption-smoke --path . --format json",
-  "cargo xtask adoption-regression --external",
+  "python -c \"import pathlib,tomllib; tomllib.loads(pathlib.Path('policy/claim-ledger.toml').read_text()); print('claim ledger parses')\"",
   "cargo xtask claim-report --check-public-claims",
-  "cargo xtask contract-packs --check",
-  "cargo xtask check-no-panic-family",
+  "cargo xtask spec-check --strict",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "support-tier-map"
+status = "done"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0002"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "cargo xtask check-doc-artifacts",
+  "cargo xtask spec-check --strict",
   "cargo xtask docs-sync --check",
-  "cargo xtask typos",
-  "cargo +nightly xtask pr-lite",
-  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "support-tier-checker"
+status = "done"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "cargo test -p xtask support_tiers",
+  "cargo xtask check-support-tiers",
+  "cargo xtask check-doc-artifacts",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "control-plane-implementation-plan"
+status = "done"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "cargo xtask check-doc-artifacts",
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "active-goal-manifest"
+status = "done"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "python -c \"import pathlib,tomllib; tomllib.loads(pathlib.Path('.uselesskey/goals/active.toml').read_text()); print('active goal parses')\"",
+  "cargo xtask spec-check --strict",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "goal-manifest-checker"
+status = "ready"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "cargo test -p xtask goals",
+  "cargo xtask check-goals",
+  "cargo xtask check-doc-artifacts",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "agent-operating-contract"
+status = "planned"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "cargo xtask docs-sync --check",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "github-pr-and-issue-templates"
+status = "planned"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "git diff --check",
+]
+
+[[work_item]]
+id = "advisory-source-of-truth-ci"
+status = "planned"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "git diff --check",
+]
+
+[[work_item]]
+id = "repo-contract-report"
+status = "planned"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "cargo test -p xtask repo_contract_report",
+  "cargo xtask repo-contract-report",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "pr-body-generator"
+status = "planned"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "cargo test -p xtask pr_body",
+  "cargo xtask pr-body --work-item goal-manifest-checker",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "closeout-generator"
+status = "planned"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = [
+  "cargo test -p xtask closeout",
   "git diff --check",
 ]
