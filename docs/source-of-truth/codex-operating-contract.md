@@ -8,18 +8,28 @@ into the default way to work in `uselesskey-swarm`.
 
 For repo work, start from committed source-of-truth artifacts in this order:
 
-1. Read `.uselesskey/goals/active.toml`.
-2. Select the next `ready` work item unless the user explicitly names another
-   item.
-3. Read the work item's linked implementation plan.
-4. Read the linked spec for behavior, proof, and non-goals.
-5. Read linked ADRs only when the change depends on a durable decision.
-6. Read the linked proposal only for why and context.
-7. Verify the current branch, worktree status, relevant diffs, and open PR
+1. Read `.rails/index.toml`.
+2. If `active_lane` is set, read that Rails lane and select the next `ready`
+   work item unless the user explicitly names another item.
+3. If `active_lane` is empty, read `last_closed_lane` and
+   `.rails/migration-status.md`.
+4. Read `.uselesskey/goals/active.toml` when present. Select a `ready` work item
+   only when the manifest status is `active`; `archived` means there is no
+   current uselesskey goal.
+5. Read the work item's linked implementation plan.
+6. Read the linked spec for behavior, proof, and non-goals.
+7. Read linked ADRs only when the change depends on a durable decision.
+8. Read the linked proposal only for why and context.
+9. Verify the current branch, worktree status, relevant diffs, and open PR
    state before changing files.
 
 When the active goal and the latest user instruction conflict, stop and report
 the conflict. Do not silently choose chat history over committed repo state.
+
+When no active Rails lane or active uselesskey goal exists, use the latest user
+instruction plus committed source-of-truth surfaces to make one narrow aligned
+improvement. Open a new repo-native goal only when the work should span multiple
+PRs.
 
 ## PR Contract
 
@@ -28,7 +38,8 @@ reviewer can connect it to one work item, one proof set, and one rollback path.
 
 For each PR:
 
-1. Use the active goal work item as the execution source.
+1. Use the active Rails lane or active goal work item as the execution source
+   when one exists.
 2. Make the scoped change described by the linked plan and spec.
 3. Update only affected ledgers, status files, goals, templates, or docs.
 4. Run the commands listed on the work item first.

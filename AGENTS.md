@@ -21,10 +21,16 @@ separate required checks.
 ## Source-of-truth control plane
 
 For repo-native control-plane work, start from
-`.uselesskey/goals/active.toml`. Select the next `ready` work item unless the
-user explicitly names another item, then read its linked implementation plan and
-spec before editing. Use the proposal only for why/context, and read ADRs only
-when a durable decision affects the slice.
+`.rails/index.toml`. If `active_lane` is set, read the linked Rails lane and
+select the next `ready` work item unless the user explicitly names another item.
+If no Rails lane is active, read `.rails/migration-status.md` and
+`.uselesskey/goals/active.toml` when present. Treat an archived goal manifest as
+no current goal.
+
+For an active work item, read its linked implementation plan and spec before
+editing. Use the proposal only for why/context, and read ADRs only when a
+durable decision affects the slice. If no active lane or goal exists, choose the
+smallest aligned improvement from committed repo truth and current PR state.
 
 Make one semantic PR-sized change, run the proof commands listed on the work
 item first, and update only affected ledgers, goals, plans, templates, or docs.
