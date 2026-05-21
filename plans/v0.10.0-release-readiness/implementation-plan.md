@@ -67,7 +67,7 @@ release, or moving source-sync authority.
 | Installed CLI release smoke | Done | Prove `doctor`, `bundle`, `verify-bundle`, `inspect-bundle`, and strict CI audit from checkout. |
 | Facade release smoke | Done | Prove external library examples against the release-candidate checkout. |
 | Package dry-run | Done | Validate package contents, README render inputs, docs/schemas inclusion, and absence of target receipts. |
-| Release readiness record | Ready | Record proof, hosted CI, known non-blockers, publish order, rollback, and claim boundaries. |
+| Release readiness record | Done | Record proof, hosted CI, known non-blockers, publish order, rollback, and claim boundaries. |
 
 ## Per-PR Proof Commands
 
