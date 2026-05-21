@@ -260,6 +260,31 @@ fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
         }
     }
 
+    let policies = ledger
+        .claim_proof
+        .iter()
+        .map(|policy| (policy.claim.as_str(), policy))
+        .collect::<BTreeMap<_, _>>();
+    for claim in ledger.claim.iter().filter(|claim| claim.status == "stable") {
+        let Some(policy) = policies.get(claim.id.as_str()) else {
+            bail!("stable claim `{}` has no claim-proof policy", claim.id);
+        };
+        if policy.status != CLAIM_PROOF_POLICY_IMPLEMENTED {
+            bail!(
+                "stable claim `{}` has claim-proof policy status `{}`, expected `{}`",
+                claim.id,
+                policy.status,
+                CLAIM_PROOF_POLICY_IMPLEMENTED
+            );
+        }
+        if !policy.include_in_all_stable {
+            bail!(
+                "stable claim `{}` has claim-proof policy excluded from --all-stable",
+                claim.id
+            );
+        }
+    }
+
     Ok(())
 }
 
@@ -617,6 +642,69 @@ mod tests {
         assert!(
             err.to_string()
                 .contains("claim-proof policy `future-contract-pack` points to an unknown claim"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_stable_claim_without_policy() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim.push(ClaimEntry {
+            id: "generated-badge-endpoints".to_string(),
+            title: "Generated badges".to_string(),
+            status: "stable".to_string(),
+            boundary: "Boundary.".to_string(),
+            artifacts: Vec::new(),
+        });
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string()
+                .contains("stable claim `generated-badge-endpoints` has no claim-proof policy"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_stable_claim_planned_policy() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].status = "planned".to_string();
+        ledger.claim_proof[0].include_in_all_stable = false;
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains(
+                "stable claim `scanner-safe-fixtures` has claim-proof policy status `planned`, expected `implemented`"
+            ),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_stable_claim_excluded_from_all_stable() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].include_in_all_stable = false;
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains(
+                "stable claim `scanner-safe-fixtures` has claim-proof policy excluded from --all-stable"
+            ),
             "unexpected error: {err}"
         );
         Ok(())
