@@ -359,6 +359,24 @@ linked_adrs = [
 ]
 
 [[artifact]]
+id = "USELESSKEY-PLAN-0027"
+kind = "plan"
+path = "plans/source-of-truth-control-plane/implementation-plan.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0002"
+linked_specs = [
+  "USELESSKEY-SPEC-0002",
+  "USELESSKEY-SPEC-0016",
+  "USELESSKEY-SPEC-0017",
+  "USELESSKEY-SPEC-0023",
+]
+linked_adrs = [
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+]
+
+[[artifact]]
 id = "USELESSKEY-POLICY-claim-ledger"
 kind = "policy"
 path = "policy/claim-ledger.toml"
