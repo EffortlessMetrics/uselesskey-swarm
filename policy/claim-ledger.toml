@@ -79,6 +79,7 @@ artifacts = [
 docs = [
   "docs/VERIFICATION.md",
   "docs/how-to/downstream-fixture-policy.md",
+  "docs/how-to/export-vault-kv-fixtures.md",
   "docs/how-to/generate-scanner-safe-k8s-secret.md",
 ]
 release_lanes = ["pr", "patch", "minor"]
