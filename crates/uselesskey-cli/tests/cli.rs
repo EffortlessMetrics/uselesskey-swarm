@@ -76,11 +76,11 @@ fn profile_command_summary_has_copyable_webhook_paths() -> TestResult<()> {
             "Generate: uselesskey bundle --profile webhook --out target/uselesskey-webhook"
         )
     );
-    assert!(out.contains("Verify: uselesskey verify-bundle --path target/uselesskey-webhook"));
+    assert!(out.contains("Verify: uselesskey verify-bundle target/uselesskey-webhook"));
     assert!(out.contains(
-        "Audit: uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit"
+        "Audit: uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit"
     ));
-    assert!(out.contains("Inspect: uselesskey inspect-bundle --path target/uselesskey-webhook"));
+    assert!(out.contains("Inspect: uselesskey inspect-bundle target/uselesskey-webhook"));
     assert!(
         out.contains("Proof/check path: cargo xtask claim-proof --claim webhook-contract-pack")
     );
@@ -106,7 +106,7 @@ fn bundle_explain_has_copyable_webhook_paths_without_writing_bundle() -> TestRes
             "Generate: uselesskey bundle --profile webhook --out target/uselesskey-webhook"
         )
     );
-    assert!(out.contains("Audit: uselesskey audit-bundle --path target/uselesskey-webhook"));
+    assert!(out.contains("Audit: uselesskey audit-bundle target/uselesskey-webhook"));
     assert!(out.contains("Does not prove"));
     assert!(out.contains("provider compatibility"));
     assert!(!bundle_dir.exists());
@@ -121,7 +121,7 @@ fn top_level_help_routes_installed_users_to_self_check_and_audit() -> TestResult
     assert!(out.contains("Start here:"));
     assert!(out.contains("uselesskey doctor"));
     assert!(out.contains("uselesskey profiles"));
-    assert!(out.contains("uselesskey audit-bundle --path target/uselesskey-webhook --ci"));
+    assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --ci"));
     assert!(out.contains("Generate a deterministic fixture bundle"));
     assert!(out.contains("Check installed CLI readiness"));
     assert!(out.contains("Repo public-claim proof is separate from installed CLI setup."));
@@ -134,9 +134,9 @@ fn bundle_help_shows_installed_generate_verify_inspect_audit_loop() -> TestResul
 
     assert!(out.contains("Generate a deterministic fixture bundle"));
     assert!(out.contains("uselesskey bundle --profile webhook --out target/uselesskey-webhook"));
-    assert!(out.contains("uselesskey verify-bundle --path target/uselesskey-webhook"));
-    assert!(out.contains("uselesskey inspect-bundle --path target/uselesskey-webhook"));
-    assert!(out.contains("uselesskey audit-bundle --path target/uselesskey-webhook --ci"));
+    assert!(out.contains("uselesskey verify-bundle target/uselesskey-webhook"));
+    assert!(out.contains("uselesskey inspect-bundle target/uselesskey-webhook"));
+    assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --ci"));
     assert!(out.contains("keep generated payloads under target/"));
     assert!(out.contains("Explain the profile"));
     Ok(())
@@ -148,8 +148,8 @@ fn audit_bundle_help_explains_ci_receipts_and_boundaries() -> TestResult<()> {
 
     assert!(out.contains("Emit metadata-only bundle audit receipts"));
     assert!(out.contains("--path <BUNDLE_DIR>"));
-    assert!(out.contains("uselesskey audit-bundle --path target/uselesskey-webhook --out"));
-    assert!(out.contains("uselesskey audit-bundle --path target/uselesskey-webhook --ci"));
+    assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --out"));
+    assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --ci"));
     assert!(out.contains("--expect-profile <PROFILE>"));
     assert!(out.contains("--policy <POLICY>"));
     assert!(out.contains("Emit CI-oriented JSON"));
@@ -193,7 +193,7 @@ fn doctor_text_reports_installed_cli_checks_only() -> TestResult<()> {
     assert!(report.contains("Next steps:"));
     assert!(report.contains("uselesskey profiles"));
     assert!(report.contains("uselesskey bundle --profile webhook --out target/uselesskey-webhook"));
-    assert!(report.contains("uselesskey audit-bundle --path target/uselesskey-webhook --ci"));
+    assert!(report.contains("uselesskey audit-bundle target/uselesskey-webhook --ci"));
     assert!(report.contains("installed CLI concerns only"));
     assert!(report.contains("repo-local workflows"));
     assert!(!report.contains("cargo xtask"));
@@ -249,7 +249,7 @@ fn doctor_json_reports_known_profiles_and_boundaries() -> TestResult<()> {
     for step in [
         "uselesskey profiles",
         "uselesskey bundle --profile webhook --out target/uselesskey-webhook",
-        "uselesskey audit-bundle --path target/uselesskey-webhook --ci",
+        "uselesskey audit-bundle target/uselesskey-webhook --ci",
     ] {
         assert!(
             next_steps.iter().any(|value| value.as_str() == Some(step)),
@@ -804,6 +804,64 @@ fn bundle_profile_oidc_writes_contract_pack() -> TestResult<()> {
 }
 
 #[test]
+fn bundle_read_commands_accept_positional_bundle_dir_and_keep_flag_forms() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("bundle");
+    let bundle_dir = bundle_dir.to_str().test_context("utf-8")?;
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args(["bundle", "--profile", "scanner-safe", "--out", bundle_dir]);
+    bundle.assert().success();
+
+    let mut verify_positional = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    verify_positional.args(["verify-bundle", bundle_dir]);
+    verify_positional
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"status\": \"ok\""));
+
+    let mut inspect_positional = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    inspect_positional.args(["inspect-bundle", bundle_dir]);
+    inspect_positional
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Bundle profile: scanner-safe"));
+
+    let mut audit_positional = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit_positional.args(["audit-bundle", bundle_dir, "--summary"]);
+    audit_positional
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Bundle audit: pass"));
+
+    let mut verify_flag = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    verify_flag.args(["verify-bundle", "--path", bundle_dir]);
+    verify_flag
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("\"status\": \"ok\""));
+
+    let mut inspect_alias = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    inspect_alias.args(["inspect-bundle", "--bundle-dir", bundle_dir]);
+    inspect_alias
+        .assert()
+        .success()
+        .stdout(predicate::str::contains("Bundle profile: scanner-safe"));
+
+    Ok(())
+}
+
+#[test]
+fn bundle_read_commands_reject_duplicate_bundle_dir_inputs() -> TestResult<()> {
+    let mut cmd = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    cmd.args(["verify-bundle", "target/one", "--path", "target/two"]);
+    cmd.assert().failure().stderr(predicate::str::contains(
+        "the argument '[BUNDLE_DIR]' cannot be used with '--path <BUNDLE_DIR>'",
+    ));
+    Ok(())
+}
+
+#[test]
 fn inspect_bundle_summarizes_verified_scanner_safe_receipts() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("bundle");
@@ -842,7 +900,7 @@ fn inspect_bundle_summarizes_verified_scanner_safe_receipts() -> TestResult<()> 
             "Receipts: materialization, audit-surface, bundle-verification, scanner-safety, negative-coverage",
         ))
         .stdout(predicate::str::contains(
-            "Durable audit receipt: uselesskey audit-bundle --path <bundle-dir> --out <audit-dir>",
+            "Durable audit receipt: uselesskey audit-bundle <bundle-dir> --out <audit-dir>",
         ))
         .stdout(predicate::str::contains(
             "Proof/check path: cargo xtask claim-proof --claim scanner-safe-fixtures",
@@ -890,13 +948,13 @@ fn inspect_bundle_reports_runtime_material_without_printing_payloads() -> TestRe
     assert!(summary.contains("Symmetric secret material: yes"));
     assert!(summary.contains("Runtime material artifacts: 5"));
     assert!(summary.contains("Verification: ok"));
-    assert!(summary.contains(
-        "Durable audit receipt: uselesskey audit-bundle --path <bundle-dir> --out <audit-dir>"
-    ));
     assert!(
         summary.contains(
-            "Proof/check path: uselesskey verify-bundle --path target/uselesskey-runtime"
+            "Durable audit receipt: uselesskey audit-bundle <bundle-dir> --out <audit-dir>"
         )
+    );
+    assert!(
+        summary.contains("Proof/check path: uselesskey verify-bundle target/uselesskey-runtime")
     );
     assert!(summary.contains("Generated files:"));
     assert!(summary.contains("Artifact posture:"));
@@ -964,7 +1022,7 @@ fn audit_bundle_writes_metadata_only_reviewer_receipts() -> TestResult<()> {
         fs::read_to_string(audit_dir.join("bundle-audit.md")).test_context("audit markdown")?;
     assert!(audit_md.contains("Bundle Audit"));
     assert!(audit_md.contains("durable metadata-only reviewer/CI receipt"));
-    assert!(audit_md.contains("Quick summary: uselesskey inspect-bundle --path <bundle-dir>"));
+    assert!(audit_md.contains("Quick summary: uselesskey inspect-bundle <bundle-dir>"));
     assert!(audit_md.contains("raw generated fixture payloads are not copied"));
     assert!(audit_md.contains("requests/negative-wrong-secret.json"));
     assert!(
