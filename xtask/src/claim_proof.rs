@@ -29,6 +29,7 @@ struct ClaimEntry {
 #[derive(Debug, Deserialize)]
 struct ClaimProofPolicy {
     claim: String,
+    status: String,
     #[serde(default)]
     include_in_all_stable: bool,
     #[serde(default)]
@@ -65,6 +66,8 @@ struct HandlerSpec {
     argv: Vec<&'static str>,
     artifacts: Vec<&'static str>,
 }
+
+const CLAIM_PROOF_POLICY_IMPLEMENTED: &str = "implemented";
 
 pub(crate) fn run(root: &Path, claim: Option<&str>, all_stable: bool) -> Result<()> {
     if claim.is_some() == all_stable {
@@ -111,6 +114,7 @@ fn run_claim(root: &Path, ledger: &ClaimLedger, claim_id: &str) -> Result<ClaimP
     if policy.requires_explicit_version {
         bail!("claim `{claim_id}` requires an explicit version and is not supported yet");
     }
+    require_implemented_policy(policy, "claim")?;
     if policy.handlers.is_empty() {
         bail!("claim `{claim_id}` has no claim-proof handlers");
     }
@@ -205,6 +209,7 @@ fn stable_claims_with_policy(ledger: &ClaimLedger) -> Result<Vec<String>> {
             bail!("stable claim `{}` has no claim-proof policy", claim.id);
         };
         if policy.include_in_all_stable {
+            require_implemented_policy(policy, "stable claim")?;
             selected.push(claim.id.clone());
         }
     }
@@ -222,6 +227,18 @@ fn policy_for_claim<'a>(ledger: &'a ClaimLedger, claim_id: &str) -> Result<&'a C
         .iter()
         .find(|policy| policy.claim == claim_id)
         .with_context(|| format!("claim `{claim_id}` has no claim-proof policy"))
+}
+
+fn require_implemented_policy(policy: &ClaimProofPolicy, label: &str) -> Result<()> {
+    if policy.status != CLAIM_PROOF_POLICY_IMPLEMENTED {
+        bail!(
+            "{label} `{}` has claim-proof policy status `{}`, expected `{}`",
+            policy.claim,
+            policy.status,
+            CLAIM_PROOF_POLICY_IMPLEMENTED
+        );
+    }
+    Ok(())
 }
 
 fn handler_spec(handler: &str) -> Result<HandlerSpec> {
@@ -429,6 +446,44 @@ mod tests {
     }
 
     #[test]
+    fn stable_claim_selection_rejects_planned_policy() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].status = "planned".to_string();
+
+        let err = match stable_claims_with_policy(&ledger) {
+            Ok(selected) => bail!("unexpected stable claim selection: {selected:?}"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains(
+                "stable claim `scanner-safe-fixtures` has claim-proof policy status `planned`, expected `implemented`"
+            ),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn run_claim_rejects_planned_policy_before_handlers() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].status = "planned".to_string();
+
+        let err = match run_claim(Path::new("."), &ledger, "scanner-safe-fixtures") {
+            Ok(receipt) => bail!("unexpected claim proof receipt: {receipt:?}"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains(
+                "claim `scanner-safe-fixtures` has claim-proof policy status `planned`, expected `implemented`"
+            ),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn handler_specs_construct_argv_without_shell() -> Result<()> {
         let spec = handler_spec("scanner_safe_reference_check")?;
 
@@ -563,18 +618,21 @@ mod tests {
             claim_proof: vec![
                 ClaimProofPolicy {
                     claim: "scanner-safe-fixtures".to_string(),
+                    status: "implemented".to_string(),
                     include_in_all_stable: true,
                     requires_explicit_version: false,
                     handlers: vec!["no_blob".to_string()],
                 },
                 ClaimProofPolicy {
                     claim: "tls-contract-pack".to_string(),
+                    status: "implemented".to_string(),
                     include_in_all_stable: true,
                     requires_explicit_version: false,
                     handlers: vec!["bundle_proof_tls".to_string()],
                 },
                 ClaimProofPolicy {
                     claim: "external-cratesio-install-smoke".to_string(),
+                    status: "planned".to_string(),
                     include_in_all_stable: false,
                     requires_explicit_version: true,
                     handlers: vec!["cratesio_smoke_version".to_string()],
