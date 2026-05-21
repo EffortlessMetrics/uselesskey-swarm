@@ -1,0 +1,320 @@
+created = "2026-05-21"
+end_state = [
+    "Accepted specs link to proposals or standalone reasons.",
+    "Active work items link to plans and proof commands.",
+    "Public claims map to support-tier proof.",
+    "Policy ledgers identify governed state and claim boundaries.",
+    "Codex can choose the next ready work item without chat history.",
+    "Closeouts record what changed, what proof ran, and what remains.",
+]
+id = "source-of-truth-control-plane"
+objective = """
+Make proposals, specs, ADRs, plans, active goals, support tiers, policy ledgers,
+proof commands, PR bodies, and closeouts linked enough for humans and agents to
+work from the repo instead of chat history.
+"""
+owner = "codex"
+schema_version = "1.0"
+status = "archived"
+title = "Source-of-truth control plane"
+
+[[work_item]]
+commands = [
+    """python -c "import pathlib,tomllib; tomllib.loads(pathlib.Path('policy/doc-artifacts.toml').read_text()); print('doc artifact ledger parses')"""",
+    "cargo xtask docs-sync --check",
+    "git diff --check",
+]
+id = "doc-artifact-ledger"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo test -p xtask doc_artifacts",
+    "cargo xtask check-doc-artifacts",
+    "cargo xtask docs-sync --check",
+    "git diff --check",
+]
+id = "doc-artifact-checker"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    """python -c "import pathlib,tomllib; tomllib.loads(pathlib.Path('policy/claim-ledger.toml').read_text()); print('claim ledger parses')"""",
+    "cargo xtask claim-report --check-public-claims",
+    "cargo xtask spec-check --strict",
+    "git diff --check",
+]
+id = "claim-ledger-payload"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0002"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-doc-artifacts",
+    "cargo xtask spec-check --strict",
+    "cargo xtask docs-sync --check",
+    "git diff --check",
+]
+id = "support-tier-map"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0002"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo test -p xtask support_tiers",
+    "cargo xtask check-support-tiers",
+    "cargo xtask check-doc-artifacts",
+    "git diff --check",
+]
+id = "support-tier-checker"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-doc-artifacts",
+    "cargo xtask spec-check --strict",
+    "cargo xtask docs-sync --check",
+    "git diff --check",
+]
+id = "control-plane-implementation-plan"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    """python -c "import pathlib,tomllib; tomllib.loads(pathlib.Path('.uselesskey/goals/active.toml').read_text()); print('active goal parses')"""",
+    "cargo xtask spec-check --strict",
+    "git diff --check",
+]
+id = "active-goal-manifest"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo test -p xtask goals",
+    "cargo xtask check-goals",
+    "cargo xtask check-doc-artifacts",
+    "git diff --check",
+]
+id = "goal-manifest-checker"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask check-goals",
+    "git diff --check",
+]
+id = "agent-operating-contract"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-goals",
+    "cargo xtask typos",
+    "git diff --check",
+]
+id = "github-pr-and-issue-templates"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    """python -c "import yaml, pathlib; yaml.safe_load(pathlib.Path('.github/workflows/source-of-truth.yml').read_text()); print('source-of-truth workflow parses')"""",
+    "cargo xtask check-doc-artifacts",
+    "cargo xtask check-goals",
+    "cargo xtask check-support-tiers",
+    "cargo xtask check-negative-fixtures",
+    "git diff --check",
+]
+id = "advisory-source-of-truth-ci"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo fmt --check -p xtask",
+    "cargo test -p xtask repo_contract_report",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask repo-contract-report",
+    "cargo xtask check-goals",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "repo-contract-report"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo fmt --check -p xtask",
+    "cargo test -p xtask pr_body",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr-body --work-item goal-manifest-checker",
+    "cargo xtask check-goals",
+    "cargo xtask check-doc-artifacts",
+    "cargo xtask docs-sync --check",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "pr-body-generator"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo fmt --check -p xtask",
+    "cargo test -p xtask closeout",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask check-goals",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "closeout-generator"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0023"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo test -p uselesskey-jwk --all-features",
+    "cargo test -p uselesskey-cli --all-features bundle",
+    "cargo xtask check-negative-fixtures",
+    "cargo xtask check-support-tiers",
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "oidc-jwks-contract-pack"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0017"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo test -p uselesskey-token --all-features",
+    "cargo xtask check-negative-fixtures",
+    "cargo xtask check-support-tiers",
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "jwt-token-negative-contract"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0016"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo test -p uselesskey-cli --all-features webhook",
+    "cargo xtask no-blob",
+    "cargo xtask check-negative-fixtures",
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "webhook-contract-pack"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0011"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo test -p uselesskey-x509 --all-features",
+    "cargo test -p uselesskey-cli --all-features tls",
+    "cargo xtask check-negative-fixtures",
+    "cargo xtask check-support-tiers",
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "tls-x509-contract-pack"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0016"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask check-goals",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "first-five-minutes-path"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0022"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask check-goals",
+    "cargo xtask external-adoption-smoke --path .",
+    "cargo xtask external-adoption-smoke --path . --library-examples",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "downstream-ci-recipes"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0020"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask check-goals",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "release-handoff-packet"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0002"
+spec = "USELESSKEY-SPEC-0006"
+status = "done"
