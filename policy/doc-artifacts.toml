@@ -273,6 +273,30 @@ linked_adrs = [
 ]
 
 [[artifact]]
+id = "USELESSKEY-SPEC-0024"
+kind = "spec"
+path = "docs/specs/USELESSKEY-SPEC-0024-v0.10.0-release-readiness.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = [
+  "USELESSKEY-SPEC-0002",
+  "USELESSKEY-SPEC-0006",
+  "USELESSKEY-SPEC-0013",
+  "USELESSKEY-SPEC-0014",
+  "USELESSKEY-SPEC-0017",
+  "USELESSKEY-SPEC-0020",
+  "USELESSKEY-SPEC-0022",
+  "USELESSKEY-SPEC-0023",
+]
+linked_adrs = [
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+  "USELESSKEY-ADR-0004",
+]
+linked_plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+
+[[artifact]]
 id = "USELESSKEY-ADR-0001"
 kind = "adr"
 path = "docs/adr/USELESSKEY-ADR-0001-contract-packs-are-proof-backed-fixture-profiles.md"
@@ -396,6 +420,28 @@ linked_specs = [
 linked_adrs = [
   "USELESSKEY-ADR-0002",
   "USELESSKEY-ADR-0003",
+]
+
+[[artifact]]
+id = "USELESSKEY-PLAN-0029"
+kind = "plan"
+path = "plans/v0.10.0-release-readiness/implementation-plan.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = [
+  "USELESSKEY-SPEC-0002",
+  "USELESSKEY-SPEC-0006",
+  "USELESSKEY-SPEC-0013",
+  "USELESSKEY-SPEC-0014",
+  "USELESSKEY-SPEC-0017",
+  "USELESSKEY-SPEC-0020",
+  "USELESSKEY-SPEC-0024",
+]
+linked_adrs = [
+  "USELESSKEY-ADR-0002",
+  "USELESSKEY-ADR-0003",
+  "USELESSKEY-ADR-0004",
 ]
 
 [[artifact]]

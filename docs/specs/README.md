@@ -58,3 +58,4 @@ public crate-surface cleanup.
 - [USELESSKEY-SPEC-0021: Material classification](USELESSKEY-SPEC-0021-material-classification.md)
 - [USELESSKEY-SPEC-0022: Task-first workflow docs](USELESSKEY-SPEC-0022-task-first-docs.md)
 - [USELESSKEY-SPEC-0023: Source-of-truth enforcement](USELESSKEY-SPEC-0023-source-of-truth-enforcement.md)
+- [USELESSKEY-SPEC-0024: v0.10.0 release readiness](USELESSKEY-SPEC-0024-v0.10.0-release-readiness.md)
