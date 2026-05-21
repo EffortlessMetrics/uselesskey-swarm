@@ -1,5 +1,7 @@
 # Negative Fixture Matrix
 
+Source-of-truth artifact id: `USELESSKEY-STATUS-negative-fixture-matrix`
+
 This page is the human mirror of
 [`policy/negative-fixtures.toml`](../../policy/negative-fixtures.toml). It
 answers whether a taxonomy class is available product behavior, accepted but
