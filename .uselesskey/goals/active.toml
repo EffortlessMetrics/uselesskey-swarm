@@ -63,19 +63,22 @@ commands = [
 
 [[work_item]]
 id = "installed-cli-release-smoke"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
 commands = [
-  "cargo test -p uselesskey-cli --all-features bundle verify_bundle audit_bundle",
+  "cargo test -p xtask external_adoption",
+  "cargo test -p uselesskey-cli --all-features audit_bundle",
   "cargo xtask external-adoption-smoke --path .",
+  "cargo xtask docs-sync --check",
+  "cargo xtask check-goals",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "facade-release-smoke"
-status = "planned"
+status = "ready"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
