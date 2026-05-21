@@ -70,10 +70,16 @@ Use taxonomy-backed `NegativeToken` variants for realistic failure modes:
 | --- | --- | --- |
 | `NegativeToken::MalformedJwtSegmentCount` | `jwt_bad_segment_count` | parser rejects the wrong number of JWT segments |
 | `NegativeToken::BadBase64UrlSegment` | `jwt_malformed_base64url` | parser rejects an invalid base64url segment |
+| `NegativeToken::InvalidJwtHeaderShape` | `jwt_invalid_header_shape` | parser or validator rejects a decoded header that is not an object |
+| `NegativeToken::MissingAlg` | `jwt_missing_alg` | policy cannot select an allowed algorithm |
 | `NegativeToken::AlgNone` | `jwt_alg_none` | policy rejects `alg: none` |
+| `NegativeToken::MissingKid` | `jwt_missing_kid` | key selection cannot identify the verification key |
+| `NegativeToken::MismatchedKid` | `jwt_mismatched_kid` | key-selection or policy logic rejects inconsistent key identity |
 | `NegativeToken::BadAudience` | `jwt_bad_audience` | claim validation rejects the wrong audience |
+| `NegativeToken::BadIssuer` | `jwt_bad_issuer` | claim validation rejects the wrong issuer |
 | `NegativeToken::ExpiredClaims` | `jwt_expired` | claim validation rejects an expired token |
 | `NegativeToken::NotYetValidClaims` | `jwt_not_yet_valid` | claim validation rejects a future `nbf` window |
+| `NegativeToken::MalformedBearer` | `token_malformed_bearer` | bearer parser rejects malformed authorization syntax |
 | `NegativeToken::NearMissApiKey` | `token_near_miss` | API-key parser rejects a scanner-safe near miss |
 
 Keep the test assertion specific. A useful test distinguishes "rejected because
