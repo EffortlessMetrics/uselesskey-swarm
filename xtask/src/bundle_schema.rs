@@ -920,6 +920,163 @@ fn validate_audit_manifest_link(
             audit.get("receipt_count")
         ));
     }
+
+    validate_audit_artifact_links(manifest, audit, errors);
+    validate_audit_receipt_links(manifest, audit, errors);
+}
+
+fn validate_audit_artifact_links(manifest: &Value, audit: &Value, errors: &mut Vec<String>) {
+    let manifest_artifacts = path_map(
+        manifest.get("artifacts").and_then(Value::as_array),
+        "manifest.json.artifacts",
+        errors,
+    );
+    let audit_artifacts = path_map(
+        audit.get("artifacts").and_then(Value::as_array),
+        "bundle-audit.json.artifacts",
+        errors,
+    );
+
+    for (artifact_path, manifest_artifact) in &manifest_artifacts {
+        let Some(audit_artifact) = audit_artifacts.get(artifact_path) else {
+            errors.push(format!(
+                "bundle-audit.json.artifacts: missing manifest artifact `{artifact_path}`"
+            ));
+            continue;
+        };
+        compare_optional_string(
+            audit_artifact.get("kind").and_then(Value::as_str),
+            manifest_artifact.get("kind").and_then(Value::as_str),
+            &format!("bundle-audit.json.artifacts[{artifact_path}].kind"),
+            artifact_path,
+            "manifest.json.artifacts[].kind",
+            errors,
+        );
+        compare_optional_string(
+            audit_artifact.get("format").and_then(Value::as_str),
+            manifest_artifact.get("format").and_then(Value::as_str),
+            &format!("bundle-audit.json.artifacts[{artifact_path}].format"),
+            artifact_path,
+            "manifest.json.artifacts[].format",
+            errors,
+        );
+        compare_optional_bool_with_source(
+            audit_artifact.get("scanner_safe").and_then(Value::as_bool),
+            manifest_artifact
+                .get("scanner_safe")
+                .and_then(Value::as_bool),
+            &format!("bundle-audit.json.artifacts[{artifact_path}].scanner_safe"),
+            artifact_path,
+            "manifest.json.artifacts[].scanner_safe",
+            errors,
+        );
+        let manifest_runtime_material = manifest_artifact
+            .get("runtime_material")
+            .and_then(Value::as_bool)
+            .or_else(|| {
+                manifest_artifact
+                    .get("scanner_safe")
+                    .and_then(Value::as_bool)
+                    .map(|scanner_safe| !scanner_safe)
+            });
+        compare_optional_bool_with_source(
+            audit_artifact
+                .get("runtime_material")
+                .and_then(Value::as_bool),
+            manifest_runtime_material,
+            &format!("bundle-audit.json.artifacts[{artifact_path}].runtime_material"),
+            artifact_path,
+            "manifest.json.artifacts[] runtime classification",
+            errors,
+        );
+        compare_optional_string(
+            audit_artifact.get("description").and_then(Value::as_str),
+            manifest_artifact.get("description").and_then(Value::as_str),
+            &format!("bundle-audit.json.artifacts[{artifact_path}].description"),
+            artifact_path,
+            "manifest.json.artifacts[].description",
+            errors,
+        );
+    }
+
+    for artifact_path in audit_artifacts.keys() {
+        if !manifest_artifacts.contains_key(artifact_path) {
+            errors.push(format!(
+                "bundle-audit.json.artifacts: `{artifact_path}` is not listed in manifest.json.artifacts"
+            ));
+        }
+    }
+}
+
+fn validate_audit_receipt_links(manifest: &Value, audit: &Value, errors: &mut Vec<String>) {
+    let manifest_receipts = path_map(
+        manifest.get("receipts").and_then(Value::as_array),
+        "manifest.json.receipts",
+        errors,
+    );
+    let audit_receipts = path_map(
+        audit.get("receipts").and_then(Value::as_array),
+        "bundle-audit.json.receipts",
+        errors,
+    );
+
+    for (receipt_path, manifest_receipt) in &manifest_receipts {
+        let Some(audit_receipt) = audit_receipts.get(receipt_path) else {
+            errors.push(format!(
+                "bundle-audit.json.receipts: missing manifest receipt `{receipt_path}`"
+            ));
+            continue;
+        };
+        compare_optional_string(
+            audit_receipt.get("kind").and_then(Value::as_str),
+            manifest_receipt.get("kind").and_then(Value::as_str),
+            &format!("bundle-audit.json.receipts[{receipt_path}].kind"),
+            receipt_path,
+            "manifest.json.receipts[].kind",
+            errors,
+        );
+        compare_optional_string(
+            audit_receipt.get("profile").and_then(Value::as_str),
+            manifest_receipt.get("profile").and_then(Value::as_str),
+            &format!("bundle-audit.json.receipts[{receipt_path}].profile"),
+            receipt_path,
+            "manifest.json.receipts[].profile",
+            errors,
+        );
+        compare_optional_string(
+            audit_receipt.get("description").and_then(Value::as_str),
+            manifest_receipt.get("description").and_then(Value::as_str),
+            &format!("bundle-audit.json.receipts[{receipt_path}].description"),
+            receipt_path,
+            "manifest.json.receipts[].description",
+            errors,
+        );
+    }
+
+    for receipt_path in audit_receipts.keys() {
+        if !manifest_receipts.contains_key(receipt_path) {
+            errors.push(format!(
+                "bundle-audit.json.receipts: `{receipt_path}` is not listed in manifest.json.receipts"
+            ));
+        }
+    }
+}
+
+fn path_map<'a>(
+    values: Option<&'a Vec<Value>>,
+    section: &str,
+    errors: &mut Vec<String>,
+) -> BTreeMap<&'a str, &'a Value> {
+    let mut paths = BTreeMap::new();
+    for (idx, value) in values.into_iter().flatten().enumerate() {
+        let Some(path) = value.get("path").and_then(Value::as_str) else {
+            continue;
+        };
+        if paths.insert(path, value).is_some() {
+            errors.push(format!("{section}[{idx}].path: duplicate path `{path}`"));
+        }
+    }
+    paths
 }
 
 fn validate_required_fields(
@@ -1469,6 +1626,128 @@ mod tests {
                 .any(|error| error.contains("runtime_material")),
             "{errors:?}"
         );
+    }
+
+    #[test]
+    fn audit_manifest_link_accepts_matching_artifacts_and_receipts() {
+        let manifest = json!({
+            "profile": "scanner-safe",
+            "artifacts": [{
+                "path": "token.json",
+                "kind": "token",
+                "format": "json",
+                "scanner_safe": true,
+                "description": "scanner-safe token"
+            }],
+            "receipts": [{
+                "path": "receipts/negative-coverage.json",
+                "kind": "negative-coverage",
+                "profile": "scanner-safe",
+                "description": "negative coverage"
+            }]
+        });
+        let audit = json!({
+            "profile": "scanner-safe",
+            "artifact_count": 1,
+            "receipt_count": 1,
+            "artifacts": [{
+                "path": "token.json",
+                "kind": "token",
+                "format": "json",
+                "scanner_safe": true,
+                "runtime_material": false,
+                "description": "scanner-safe token"
+            }],
+            "receipts": [{
+                "path": "receipts/negative-coverage.json",
+                "kind": "negative-coverage",
+                "profile": "scanner-safe",
+                "description": "negative coverage"
+            }]
+        });
+
+        let mut errors = Vec::new();
+        validate_audit_manifest_link("scanner-safe", &manifest, &audit, &mut errors);
+
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
+    fn audit_manifest_link_rejects_metadata_drift() {
+        let manifest = json!({
+            "profile": "scanner-safe",
+            "artifacts": [{
+                "path": "token.json",
+                "kind": "token",
+                "format": "json",
+                "scanner_safe": true,
+                "description": "scanner-safe token"
+            }],
+            "receipts": [{
+                "path": "receipts/negative-coverage.json",
+                "kind": "negative-coverage",
+                "profile": "scanner-safe",
+                "description": "negative coverage"
+            }]
+        });
+        let audit = json!({
+            "profile": "scanner-safe",
+            "artifact_count": 2,
+            "receipt_count": 2,
+            "artifacts": [
+                {
+                    "path": "token.json",
+                    "kind": "jwt",
+                    "format": "pem",
+                    "scanner_safe": false,
+                    "runtime_material": true,
+                    "description": "drifted token"
+                },
+                {
+                    "path": "extra.json",
+                    "kind": "token",
+                    "format": "json",
+                    "scanner_safe": true,
+                    "runtime_material": false,
+                    "description": "extra token"
+                }
+            ],
+            "receipts": [
+                {
+                    "path": "receipts/negative-coverage.json",
+                    "kind": "scanner-safety",
+                    "profile": "runtime",
+                    "description": "wrong receipt"
+                },
+                {
+                    "path": "receipts/extra.json",
+                    "kind": "scanner-safety",
+                    "profile": "scanner-safe",
+                    "description": "extra receipt"
+                }
+            ]
+        });
+
+        let mut errors = Vec::new();
+        validate_audit_manifest_link("scanner-safe", &manifest, &audit, &mut errors);
+
+        for expected in [
+            "artifact_count",
+            "receipt_count",
+            "kind",
+            "format",
+            "scanner_safe",
+            "runtime_material",
+            "description",
+            "extra.json",
+            "profile",
+            "receipts/extra.json",
+        ] {
+            assert!(
+                errors.iter().any(|error| error.contains(expected)),
+                "missing `{expected}` in {errors:?}"
+            );
+        }
     }
 
     #[test]
