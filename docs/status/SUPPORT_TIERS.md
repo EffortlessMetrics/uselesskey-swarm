@@ -21,6 +21,12 @@ covers claim and workflow support.
 | Advisory | Evidence or reviewer signal. Useful for decisions, but not a user-facing guarantee by itself. |
 | Not supported | Explicitly outside the `uselesskey` promise. Do not advertise as a claim or branch downstream CI on it. |
 
+Support tier is a workflow posture, not the same field as claim status in
+[`PUBLIC_CLAIMS.md`](PUBLIC_CLAIMS.md) or `policy/claim-ledger.toml`. A workflow
+can be stabilizing while the linked public claim remains advisory. In that case,
+README, release, and handoff wording must use the stricter public-claim
+boundary.
+
 ## Claim Support Map
 
 | Surface | Tier | Claim | Proof command | Docs | Boundary | Release lane |
