@@ -1,0 +1,7 @@
+schema_version = "1.0"
+
+id = "<policy-reference-id>"
+name = "<Policy reference name>"
+owner = "<owner>"
+source_path = "<existing-policy-file>"
+notes = "References live policy source without duplication."
