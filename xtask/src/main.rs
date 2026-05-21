@@ -401,9 +401,11 @@ enum Cmd {
     },
     /// Check the non-Rust file allowlist.
     CheckFilePolicy,
+    /// Check the negative-fixture taxonomy ledger/status/schema contract.
+    CheckNegativeFixtures,
     /// Check the lint-policy invariants (MSRV, [lints] inheritance, debt expiry).
     CheckLintPolicy,
-    /// Aggregate policy report across no-panic, file-policy, and lint-policy.
+    /// Aggregate policy report across no-panic, file-policy, negative-fixtures, and lint-policy.
     PolicyReport,
 }
 
@@ -756,6 +758,7 @@ fn main() -> Result<()> {
             NoPanicCmd::Baseline { reset } => policy::no_panic_baseline(reset),
         },
         Cmd::CheckFilePolicy => policy::check_file_policy(),
+        Cmd::CheckNegativeFixtures => policy::check_negative_fixtures(),
         Cmd::CheckLintPolicy => policy::check_lint_policy(),
         Cmd::PolicyReport => policy::policy_report(),
         Cmd::PrBundles { command } => match command {
@@ -3110,6 +3113,16 @@ fn run_pr_lite_steps(
         &["cargo", "xtask", "check-file-policy"],
         &["target/file-policy.json", "target/file-policy.md"],
         policy::check_file_policy,
+    )?;
+    pr_lite_run_step(
+        receipt,
+        "check-negative-fixtures",
+        &["cargo", "xtask", "check-negative-fixtures"],
+        &[
+            "target/negative-fixtures.json",
+            "target/negative-fixtures.md",
+        ],
+        policy::check_negative_fixtures,
     )?;
     pr_lite_run_step(
         receipt,

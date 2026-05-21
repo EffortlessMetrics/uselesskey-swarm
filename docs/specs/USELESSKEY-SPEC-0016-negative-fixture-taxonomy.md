@@ -346,6 +346,7 @@ Docs-only changes to this spec should run:
 ```bash
 cargo xtask spec-check --strict
 cargo xtask docs-sync --check
+cargo xtask check-negative-fixtures
 cargo xtask typos
 git diff --check
 ```
@@ -358,6 +359,7 @@ cargo test -p uselesskey-jwk --all-features
 cargo test -p uselesskey-token --all-features
 cargo test -p uselesskey-jsonwebtoken --all-features
 cargo test -p uselesskey-cli --all-features bundle verify_bundle audit_bundle
+cargo xtask check-negative-fixtures
 cargo xtask no-blob
 cargo +nightly xtask pr-lite
 git diff --check
@@ -397,6 +399,7 @@ Taxonomy proof maps to:
   failures;
 - webhook profile tests for request path and rejection-class coverage;
 - TLS/X.509 profile tests for certificate failure classes and evidence docs;
+- `cargo xtask check-negative-fixtures` for ledger/status/schema drift;
 - `cargo xtask external-adoption-smoke --path .` when copyable examples or
   installed CLI paths change;
 - `cargo xtask no-blob` whenever generated material or scanner-safe posture

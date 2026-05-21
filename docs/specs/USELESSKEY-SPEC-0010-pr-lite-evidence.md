@@ -56,6 +56,7 @@ The initial PR-lite check set should prefer cheap, deterministic checks:
 spec-check --strict
 docs-sync --check
 check-file-policy
+check-negative-fixtures
 no-blob
 public-surface
 publish-check
@@ -209,6 +210,8 @@ PR-lite maps to:
 - `cargo xtask spec-check --strict` for source-of-truth drift;
 - `cargo xtask docs-sync --check` for docs and generated-snippet drift;
 - `cargo xtask check-file-policy` for file-surface policy;
+- `cargo xtask check-negative-fixtures` for negative-fixture ledger,
+  matrix, and schema drift;
 - `cargo xtask no-blob` for scanner-safe fixture policy;
 - `cargo xtask public-surface` for public API surface checks;
 - `cargo xtask publish-check` for package-shape confidence;
