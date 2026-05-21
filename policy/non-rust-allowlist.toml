@@ -46,6 +46,15 @@ reason = "GitHub repo metadata: settings, dependabot, funding, release notes."
 covered_by = ["GitHub schema validation"]
 
 [[allow]]
+glob = ".github/ci/*.Dockerfile"
+kind = "ci_runner_image"
+owner = "release/ci"
+surface = "ci"
+classification = "config"
+reason = "Self-hosted routed CI image definitions used by trusted same-repo development checks."
+covered_by = ["EM CI Routed Rust", "cargo xtask check-file-policy"]
+
+[[allow]]
 glob = "codecov.yml"
 kind = "ci_coverage_policy"
 owner = "release/ci"
