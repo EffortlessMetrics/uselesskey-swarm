@@ -2,6 +2,8 @@ schema_version = "1.0"
 owner = "EffortlessMetrics"
 updated = "2026-05-21"
 
+# Source-of-truth artifact id: USELESSKEY-POLICY-doc-artifacts
+
 [[artifact]]
 id = "USELESSKEY-PROP-0001"
 kind = "proposal"
@@ -443,6 +445,14 @@ linked_adrs = [
   "USELESSKEY-ADR-0003",
   "USELESSKEY-ADR-0004",
 ]
+
+[[artifact]]
+id = "USELESSKEY-POLICY-doc-artifacts"
+kind = "policy"
+path = "policy/doc-artifacts.toml"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = ["USELESSKEY-SPEC-0023"]
 
 [[artifact]]
 id = "USELESSKEY-POLICY-claim-ledger"
