@@ -16,6 +16,7 @@ on:
         type: choice
         options:
           - auto
+          - cpx42
           - cx43
           - cx53
           - github
@@ -81,7 +82,7 @@ jobs:
 
           case "${FORCE_TARGET}" in
             auto|"") ;;
-            cx43|cx53|github)
+            cpx42|cx43|cx53|github)
               emit "${FORCE_TARGET}" "forced_${FORCE_TARGET}" "false"
               exit 0
               ;;
@@ -92,7 +93,7 @@ jobs:
           esac
 
           if [ "${IS_FORK_PR}" = "true" ]; then
-            emit "github" "fork_pr_hosted" "false"
+            emit "github" "fork_pr" "false"
             exit 0
           fi
 
@@ -179,7 +180,7 @@ jobs:
           fi
 
           if [ -z "${RUNNER_READ_TOKEN:-}" ]; then
-            emit "github" "token_missing" "true"
+            emit "github" "runner_token_missing" "true"
             exit 0
           fi
 
@@ -189,12 +190,19 @@ jobs:
               "orgs/${ORG}/actions/runners?per_page=100" 2>/tmp/gh.err)"; then
             echo "runner API request failed:" >&2
             cat /tmp/gh.err >&2 || true
-            emit "github" "runner_api_failed" "true"
+            if rg -q "401|Bad credentials" /tmp/gh.err; then
+              emit "github" "runner_token_unauthorized" "true"
+            elif rg -q "403|Resource not accessible" /tmp/gh.err; then
+              emit "github" "runner_token_forbidden" "true"
+            else
+              emit "github" "runner_api_failed" "true"
+            fi
             exit 0
           fi
 
           idle_runner_count() {
             local runner_label="$1"
+            local runner_size_label="$2"
             printf '%s' "$runners_json" | jq --arg runner_label "$runner_label" '
               [ .runners[]?
                 | select(.status == "online")
@@ -203,37 +211,104 @@ jobs:
                 | select(
                     ($have | index("em-ci")) and
                     ($have | index($runner_label)) and
-                    ($have | index("rust-small")) and
+                    ($have | index($runner_size_label)) and
                     ($have | index("trusted-pr"))
                   )
               ] | length
             '
           }
 
-          if ! idle_cx43="$(idle_runner_count "cx43" 2>/tmp/jq.err)"; then
+          if ! idle_cpx42="$(idle_runner_count "cpx42" "rust-medium" 2>/tmp/jq.err)"; then
             echo "runner API parse failed:" >&2
             cat /tmp/jq.err >&2 || true
             emit "github" "parse_failed" "true"
             exit 0
           fi
 
-          if ! idle_cx53="$(idle_runner_count "cx53" 2>/tmp/jq.err)"; then
+          if ! idle_cx43="$(idle_runner_count "cx43" "rust-small" 2>/tmp/jq.err)"; then
             echo "runner API parse failed:" >&2
             cat /tmp/jq.err >&2 || true
             emit "github" "parse_failed" "true"
             exit 0
           fi
 
+          if ! idle_cx53="$(idle_runner_count "cx53" "rust-small" 2>/tmp/jq.err)"; then
+            echo "runner API parse failed:" >&2
+            cat /tmp/jq.err >&2 || true
+            emit "github" "parse_failed" "true"
+            exit 0
+          fi
+
+          echo "idle_cpx42=${idle_cpx42:-0}"
           echo "idle_cx43=${idle_cx43:-0}"
           echo "idle_cx53=${idle_cx53:-0}"
 
-          if [ "${idle_cx43:-0}" -gt 0 ]; then
+          if [ "${idle_cpx42:-0}" -gt 0 ]; then
+            emit "cpx42" "cpx42_idle" "false"
+          elif [ "${idle_cx43:-0}" -gt 0 ]; then
             emit "cx43" "cx43_idle" "false"
           elif [ "${idle_cx53:-0}" -gt 0 ]; then
             emit "cx53" "cx53_idle" "false"
           else
             emit "github" "no_idle_runner" "false"
           fi
+
+  uselesskey-rust-small-cpx42:
+    name: Uselesskey Rust Small on CPX42
+    needs: route-uselesskey-rust-small
+    if: needs.route-uselesskey-rust-small.outputs.target == 'cpx42'
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]
+    timeout-minutes: 90
+    env:
+      CARGO_BUILD_JOBS: "7"
+      CARGO_INCREMENTAL: "0"
+      TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+      CARGO_TARGET_DIR: /mnt/ci-scratch/uselesskey/${{ github.run_id }}-${{ github.run_attempt }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+
+      - name: Prepare CPX42 scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 45
+          ci-disk-guard /mnt/ci-cache 10
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR"
+
+      - uses: dtolnay/rust-toolchain@v1
+        with:
+          toolchain: 1.95.0
+          components: rustfmt, clippy
+
+      - name: Preflight disk and toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h /mnt/ci-scratch /mnt/ci-cache || true
+          rustc --version
+          cargo --version
+          if command -v python3 >/dev/null 2>&1; then python3 --version; fi
+          if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi
+
+      - name: Run Rust small gate
+        shell: bash
+        run: |
+          set -euo pipefail
+          cargo run -p xtask -- gate --check
+
+      - name: Cleanup and final stats
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          if command -v sccache >/dev/null 2>&1; then sccache --show-stats || true; fi
+          rm -rf "$TMPDIR" "$CARGO_TARGET_DIR"
+          df -h /mnt/ci-scratch /mnt/ci-cache || true
 
   uselesskey-rust-small-cx43:
     name: Uselesskey Rust Small on CX43
@@ -648,6 +723,7 @@ jobs:
     name: Uselesskey Rust Small Result
     needs:
       - route-uselesskey-rust-small
+      - uselesskey-rust-small-cpx42
       - uselesskey-rust-small-cx43
       - uselesskey-rust-small-cx53
       - uselesskey-rust-small-github
@@ -661,6 +737,7 @@ jobs:
         env:
           TARGET: ${{ needs.route-uselesskey-rust-small.outputs.target }}
           ROUTER_RESULT: ${{ needs.route-uselesskey-rust-small.result }}
+          CPX42_RESULT: ${{ needs.uselesskey-rust-small-cpx42.result }}
           CX43_RESULT: ${{ needs.uselesskey-rust-small-cx43.result }}
           CX53_RESULT: ${{ needs.uselesskey-rust-small-cx53.result }}
           GITHUB_RESULT: ${{ needs.uselesskey-rust-small-github.result }}
@@ -669,6 +746,7 @@ jobs:
           set -eu
           echo "router_target=${TARGET:-<empty>}"
           echo "router_result=${ROUTER_RESULT:-<empty>}"
+          echo "cpx42_result=${CPX42_RESULT:-<empty>}"
           echo "cx43_result=${CX43_RESULT:-<empty>}"
           echo "cx53_result=${CX53_RESULT:-<empty>}"
           echo "github_result=${GITHUB_RESULT:-<empty>}"
@@ -680,6 +758,12 @@ jobs:
           fi
 
           case "${TARGET}" in
+            cpx42)
+              if [ "${CPX42_RESULT}" != "success" ]; then
+                echo "selected target cpx42 but result was ${CPX42_RESULT}" >&2
+                exit 1
+              fi
+              ;;
             cx43)
               if [ "${CX43_RESULT}" != "success" ]; then
                 echo "selected target cx43 but result was ${CX43_RESULT}" >&2
