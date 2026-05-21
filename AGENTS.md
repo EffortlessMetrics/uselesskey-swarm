@@ -18,6 +18,22 @@ For swarm PRs, wait for the normalized `Uselesskey Rust Small Result` check.
 Conditional runner jobs are routing plumbing and should not be treated as
 separate required checks.
 
+## Source-of-truth control plane
+
+For repo-native control-plane work, start from
+`.uselesskey/goals/active.toml`. Select the next `ready` work item unless the
+user explicitly names another item, then read its linked implementation plan and
+spec before editing. Use the proposal only for why/context, and read ADRs only
+when a durable decision affects the slice.
+
+Make one semantic PR-sized change, run the proof commands listed on the work
+item first, and update only affected ledgers, goals, plans, templates, or docs.
+Do not invent commands, policies, lints, workflow names, or merge rules; verify
+paths and commands before relying on them.
+
+The detailed Codex contract lives in
+`docs/source-of-truth/codex-operating-contract.md`.
+
 ## Project Overview
 
 **uselesskey** is a Rust test utility library that generates deterministic and random cryptographic key fixtures for testing. It prevents committing secret-shaped blobs (PEM, DER, tokens) into version control while allowing tests to work with realistic key formats.

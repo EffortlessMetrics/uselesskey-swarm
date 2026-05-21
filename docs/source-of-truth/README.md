@@ -45,6 +45,8 @@ instructions when the active goal and linked plan disagree.
   other.
 - [agent-operating-model.md](agent-operating-model.md) defines the cold-start
   workflow for Codex and other repo agents.
+- [codex-operating-contract.md](codex-operating-contract.md) defines the
+  Codex-specific PR, proof, ledger, and merge rules for this repo.
 
 ## Boundaries
 
