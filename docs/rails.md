@@ -12,6 +12,13 @@ The index points to the active lane, portable templates, Rails-owned
 directories, and existing source-of-truth artifacts that remain authoritative
 while migration is staged.
 
+For the current authority and migration state of existing uselesskey artifacts,
+read:
+
+```text
+.rails/migration-status.md
+```
+
 ## Ownership Model
 
 - `.rails/proposals/` owns why a lane exists.

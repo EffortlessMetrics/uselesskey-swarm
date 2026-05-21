@@ -6,6 +6,8 @@ Open `.rails/index.toml` first. It tells humans and agents which lane is active,
 where the portable templates live, and which existing repo artifacts still own
 truth while the Rails footprint is introduced.
 
+For current migration state, read `.rails/migration-status.md`.
+
 ## Artifact Jobs
 
 Each artifact owns one kind of truth:
