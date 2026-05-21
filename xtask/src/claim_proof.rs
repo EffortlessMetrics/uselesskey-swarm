@@ -248,6 +248,16 @@ fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
                 CLAIM_PROOF_POLICY_IMPLEMENTED
             );
         }
+        if policy.status == CLAIM_PROOF_POLICY_IMPLEMENTED && policy.handlers.is_empty() {
+            bail!(
+                "implemented claim-proof policy `{}` has no handlers",
+                policy.claim
+            );
+        }
+        for handler in &policy.handlers {
+            validate_handler_id(handler)
+                .with_context(|| format!("claim-proof policy `{}`", policy.claim))?;
+        }
     }
 
     Ok(())
@@ -296,6 +306,13 @@ fn require_implemented_policy(policy: &ClaimProofPolicy, label: &str) -> Result<
         );
     }
     Ok(())
+}
+
+fn validate_handler_id(handler: &str) -> Result<()> {
+    if handler == "cratesio_smoke_version" {
+        return Ok(());
+    }
+    handler_spec(handler).map(|_| ())
 }
 
 fn handler_spec(handler: &str) -> Result<HandlerSpec> {
@@ -618,6 +635,44 @@ mod tests {
         assert!(
             err.to_string().contains(
                 "claim-proof policy `scanner-safe-fixtures` sets include_in_all_stable with status `planned`, expected `implemented`"
+            ),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_implemented_policy_without_handlers() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].handlers.clear();
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string()
+                .contains("implemented claim-proof policy `scanner-safe-fixtures` has no handlers"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_unknown_handler_id() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].handlers = vec!["cargo xtask no-blob".to_string()];
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        let error_chain = format!("{err:#}");
+        assert!(
+            error_chain.contains(
+                "claim-proof policy `scanner-safe-fixtures`: unknown claim-proof handler `cargo xtask no-blob`"
             ),
             "unexpected error: {err}"
         );
