@@ -50,7 +50,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const BOUNDARIES: &[&str] = &[
-    "external-adoption-smoke proves clean-project user paths, not release readiness",
+    "external-adoption-smoke proves clean-project user paths; it does not publish or approve a release",
     "published-version mode is audit/reference evidence, not a release trigger",
     "installed-style CLI smoke does not claim provider compatibility",
     "repo-local claim-proof and verification-pack remain separate proof surfaces",
@@ -331,6 +331,20 @@ fn run_cli_discovery(
     fs::create_dir_all(project_dir.join("target"))
         .with_context(|| format!("failed to create {}", project_dir.display()))?;
 
+    let mut doctor = Command::new(cli_bin);
+    doctor
+        .args(["doctor", "--format", "json"])
+        .current_dir(&project_dir);
+    let doctor_stdout = run_command_step(
+        receipt,
+        "cli-doctor-json",
+        doctor,
+        &project_dir,
+        log_dir,
+        &[],
+    )?;
+    verify_doctor_json(&doctor_stdout)?;
+
     let mut profiles = Command::new(cli_bin);
     profiles.arg("profiles").current_dir(&project_dir);
     run_command_step(
@@ -412,8 +426,11 @@ fn run_cli_profile(
         .arg(&bundle_dir)
         .args(["--out"])
         .arg(&audit_dir)
+        .arg("--ci")
+        .args(["--expect-profile", profile])
+        .args(["--policy", "strict"])
         .current_dir(&project_dir);
-    run_command_step(
+    let audit_stdout = run_command_step(
         receipt,
         &format!("cli-audit-{profile}"),
         audit,
@@ -421,6 +438,8 @@ fn run_cli_profile(
         log_dir,
         &[bundle_artifact.as_str(), audit_artifact.as_str()],
     )?;
+    verify_ci_audit_json(&audit_stdout, profile, "CLI release audit")?;
+    verify_ci_audit_receipt(&audit_dir, profile)?;
 
     let mut inspect = Command::new(cli_bin);
     inspect
@@ -538,19 +557,62 @@ fn run_ci_recipe_profile(
 
 fn verify_ci_audit_receipt(audit_dir: &Path, expected_profile: &str) -> Result<()> {
     let receipt_path = audit_dir.join("bundle-audit.json");
-    let audit = read_json(&receipt_path)?;
+    verify_ci_audit_json(&receipt_path, expected_profile, "CI recipe audit")
+}
+
+fn verify_ci_audit_json(audit_path: &Path, expected_profile: &str, label: &str) -> Result<()> {
+    let audit = read_json(audit_path)?;
     if audit["status"].as_str() != Some("pass") {
         bail!(
-            "CI recipe audit status mismatch for {}: {:?}",
-            audit_dir.display(),
+            "{label} status mismatch for {}: {:?}",
+            audit_path.display(),
             audit["status"]
         );
     }
     if audit["profile"].as_str() != Some(expected_profile) {
         bail!(
-            "CI recipe audit profile mismatch for {}: expected {expected_profile}, got {:?}",
-            audit_dir.display(),
+            "{label} profile mismatch for {}: expected {expected_profile}, got {:?}",
+            audit_path.display(),
             audit["profile"]
+        );
+    }
+    Ok(())
+}
+
+fn verify_doctor_json(stdout_path: &Path) -> Result<()> {
+    let doctor = read_json(stdout_path)?;
+    if doctor["status"].as_str() != Some("pass") {
+        bail!(
+            "doctor status mismatch for {}: {:?}",
+            stdout_path.display(),
+            doctor["status"]
+        );
+    }
+    let checks = doctor["checks"]
+        .as_array()
+        .context("doctor checks is not an array")?;
+    if checks.is_empty() {
+        bail!("doctor checks are empty for {}", stdout_path.display());
+    }
+    for check in checks {
+        if check["status"].as_str() != Some("pass") {
+            bail!(
+                "doctor check did not pass for {}: {:?}",
+                stdout_path.display(),
+                check
+            );
+        }
+    }
+    let profiles = doctor["known_profiles"]
+        .as_array()
+        .context("doctor known_profiles is not an array")?;
+    if !profiles
+        .iter()
+        .any(|profile| profile.as_str() == Some("oidc"))
+    {
+        bail!(
+            "doctor known_profiles missing oidc in {}",
+            stdout_path.display()
         );
     }
     Ok(())
@@ -811,7 +873,7 @@ fn run_command_step(
     cwd: &Path,
     log_dir: &Path,
     artifacts: &[&str],
-) -> Result<()> {
+) -> Result<PathBuf> {
     eprintln!("==> {name}");
     cmd.stdin(Stdio::null());
     let command = command_to_vec(&cmd);
@@ -845,7 +907,7 @@ fn run_command_step(
                 .map(|artifact| (*artifact).to_string())
                 .collect(),
         });
-        Ok(())
+        Ok(stdout_path)
     } else {
         let details = format!("command failed with {}", output.status);
         eprintln!("==> {name} [FAILED]");
@@ -1201,5 +1263,47 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         assert!(markdown.contains("installed-style CLI smoke does not claim provider"));
         assert!(markdown.contains("cli-bundle-webhook"));
         assert!(markdown.contains("target/audit-webhook"));
+    }
+
+    #[test]
+    fn external_adoption_verifies_doctor_json() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("doctor.json");
+        fs::write(
+            &path,
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "checks": [
+                    {"name": "cli-version", "status": "pass"},
+                    {"name": "known-profiles", "status": "pass"}
+                ],
+                "known_profiles": ["scanner-safe", "tls", "oidc", "webhook", "runtime"]
+            }))?,
+        )?;
+
+        verify_doctor_json(&path)
+    }
+
+    #[test]
+    fn external_adoption_rejects_failing_doctor_json() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("doctor.json");
+        fs::write(
+            &path,
+            serde_json::to_vec(&serde_json::json!({
+                "status": "fail",
+                "checks": [
+                    {"name": "cli-version", "status": "pass"}
+                ],
+                "known_profiles": ["oidc"]
+            }))?,
+        )?;
+
+        let err = match verify_doctor_json(&path) {
+            Ok(()) => bail!("failing doctor json was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("doctor status mismatch"));
+        Ok(())
     }
 }
