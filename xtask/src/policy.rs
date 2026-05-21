@@ -1283,9 +1283,14 @@ pub fn check_negative_fixtures() -> Result<()> {
     let policy: NegativeFixturePolicy = read_toml(NEGATIVE_FIXTURES_TOML)?;
     let matrix_raw = fs::read_to_string(NEGATIVE_FIXTURE_MATRIX_MD)
         .with_context(|| format!("read {NEGATIVE_FIXTURE_MATRIX_MD}"))?;
-    let matrix_rows = parse_negative_fixture_matrix(&matrix_raw);
+    let (matrix_rows, duplicate_matrix_ids) = parse_negative_fixture_matrix(&matrix_raw);
 
     let mut errors = validate_negative_fixture_policy(&policy, &matrix_rows);
+    for stable_id in duplicate_matrix_ids {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURE_MATRIX_MD}: duplicate row for `{stable_id}`"
+        ));
+    }
     validate_negative_fixture_matrix(&policy, &matrix_rows, &mut errors);
 
     let schemas_checked = vec![
@@ -1604,8 +1609,11 @@ fn validate_json_schema_file(path: &str, errors: &mut Vec<String>) {
     }
 }
 
-fn parse_negative_fixture_matrix(raw: &str) -> BTreeMap<String, NegativeFixtureMatrixRow> {
+fn parse_negative_fixture_matrix(
+    raw: &str,
+) -> (BTreeMap<String, NegativeFixtureMatrixRow>, Vec<String>) {
     let mut rows = BTreeMap::new();
+    let mut duplicate_ids = Vec::new();
     for line in raw.lines() {
         let line = line.trim();
         if !line.starts_with('|') || !line.contains('`') {
@@ -1628,17 +1636,17 @@ fn parse_negative_fixture_matrix(raw: &str) -> BTreeMap<String, NegativeFixtureM
         let public_surface = first_markdown_code(columns[2]).unwrap_or_else(|| columns[2].into());
         let bundle_exposed = first_markdown_code(columns[3]).unwrap_or_else(|| columns[3].into());
         let proof = first_markdown_code(columns[4]).unwrap_or_else(|| columns[4].into());
-        rows.insert(
-            stable_id,
-            NegativeFixtureMatrixRow {
-                status,
-                public_surface,
-                bundle_exposed,
-                proof,
-            },
-        );
+        let row = NegativeFixtureMatrixRow {
+            status,
+            public_surface,
+            bundle_exposed,
+            proof,
+        };
+        if rows.insert(stable_id.clone(), row).is_some() {
+            duplicate_ids.push(stable_id);
+        }
     }
-    rows
+    (rows, duplicate_ids)
 }
 
 fn first_markdown_code(cell: &str) -> Option<String> {
@@ -2376,11 +2384,12 @@ mod tests {
 
     #[test]
     fn negative_fixture_matrix_parser_reads_contract_rows() -> Result<()> {
-        let rows = parse_negative_fixture_matrix(
+        let (rows, duplicate_ids) = parse_negative_fixture_matrix(
             "| Stable ID | Status | Public surface | Bundle exposed | Proof |\n\
              | --- | --- | --- | --- | --- |\n\
              | `jwt_missing_kid` | `implemented` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n",
         );
+        assert!(duplicate_ids.is_empty());
         let row = rows
             .get("jwt_missing_kid")
             .ok_or_else(|| anyhow::anyhow!("matrix row"))?;
@@ -2389,6 +2398,17 @@ mod tests {
         assert_eq!(row.bundle_exposed, "no");
         assert_eq!(row.proof, "cargo test -p uselesskey-token --all-features");
         Ok(())
+    }
+
+    #[test]
+    fn negative_fixture_matrix_parser_reports_duplicate_rows() {
+        let (_rows, duplicate_ids) = parse_negative_fixture_matrix(
+            "| Stable ID | Status | Public surface | Bundle exposed | Proof |\n\
+             | --- | --- | --- | --- | --- |\n\
+             | `jwt_missing_kid` | `implemented` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n\
+             | `jwt_missing_kid` | `implemented` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n",
+        );
+        assert_eq!(duplicate_ids, vec!["jwt_missing_kid"]);
     }
 
     #[test]
