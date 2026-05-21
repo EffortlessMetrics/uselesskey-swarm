@@ -64,7 +64,7 @@ Kubernetes Secret, Vault payload, or certificate private-key files.
 - It does not prove production security.
 - It does not prove provider compatibility.
 - It does not prove downstream verifier correctness.
-- It does not prove release readiness or repo public claims.
+- It does not prove release readiness or broader repo public claims by itself.
 - It does not make generated runtime material safe to commit.
 
 Repo public claims are proven from a checkout with:

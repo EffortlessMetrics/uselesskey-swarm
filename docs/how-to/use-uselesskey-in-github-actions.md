@@ -146,7 +146,7 @@ These recipes do not prove:
 - production key management;
 - provider compatibility;
 - scanner evasion;
-- repo public claims;
+- broader repo public claims by itself;
 - release readiness;
 - downstream verifier correctness.
 
