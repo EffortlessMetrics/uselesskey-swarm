@@ -218,7 +218,11 @@ family = "jwt_token"
 status = "implemented"
 owner_crate = "uselesskey-token"
 public_surface = "NegativeToken::AlgNone"
-docs = ["docs/reference/failure-atlas.md", "docs/how-to/test-jwt-negative-validation.md"]
+docs = [
+  "docs/reference/failure-atlas.md",
+  "docs/how-to/test-jwt-negative-validation.md",
+  "docs/how-to/test-oidc-jwks-validation.md",
+]
 tests = [
   "cargo test -p uselesskey-token --all-features",
   "cargo test -p uselesskey-cli --all-features bundle",
@@ -306,7 +310,11 @@ family = "jwt_token"
 status = "implemented"
 owner_crate = "uselesskey-token"
 public_surface = "NegativeToken::BadAudience"
-docs = ["docs/reference/failure-atlas.md", "docs/how-to/test-jwt-negative-validation.md"]
+docs = [
+  "docs/reference/failure-atlas.md",
+  "docs/how-to/test-jwt-negative-validation.md",
+  "docs/how-to/test-oidc-jwks-validation.md",
+]
 tests = [
   "cargo test -p uselesskey-token --all-features",
   "cargo test -p uselesskey-cli --all-features bundle",
