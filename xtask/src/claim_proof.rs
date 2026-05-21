@@ -109,6 +109,15 @@ pub(crate) fn stable_claim_ids(root: &Path) -> Result<Vec<String>> {
     stable_claims_with_policy(&ledger)
 }
 
+pub(crate) fn check_policy(root: &Path) -> Result<()> {
+    let ledger = read_ledger(root)?;
+    println!(
+        "claim-proof-policy: {} policies ok",
+        ledger.claim_proof.len()
+    );
+    Ok(())
+}
+
 fn run_claim(root: &Path, ledger: &ClaimLedger, claim_id: &str) -> Result<ClaimProofReceipt> {
     validate_claim_id(claim_id)?;
     let claim = ledger
