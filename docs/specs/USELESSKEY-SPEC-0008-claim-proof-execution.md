@@ -52,6 +52,9 @@ The claim-proof policy ledger must be validated before handler execution:
 - each claim may have at most one `claim_proof` row;
 - `claim_proof.status` must be `implemented` or `planned`;
 - `include_in_all_stable = true` requires `status = "implemented"`.
+- implemented policy rows must list at least one handler;
+- each handler id must resolve to a known symbolic handler, including
+  explicit-version-only handlers such as `cratesio_smoke_version`.
 
 The same validation must be available through:
 
@@ -200,6 +203,8 @@ Claim-proof implementation tests must cover:
 - `--all-stable` selection;
 - claim-proof policy ledger validation;
 - planned claim-proof policy rejection;
+- unknown handler-id rejection;
+- implemented policy rows with no handlers;
 - unknown claim rejection;
 - release-proof claim rejection without explicit version;
 - receipt JSON and Markdown shape;
