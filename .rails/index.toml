@@ -6,6 +6,7 @@ framework = "rails"
 root = ".rails"
 status = "introduced"
 active_lane = "RAILS-LANE-0001"
+migration_status = ".rails/migration-status.md"
 
 [conventions]
 proposal_prefix = "RAILS-PROP"
@@ -43,6 +44,11 @@ owns = "portable artifact scaffolds"
 kind = "closeout"
 path = ".rails/closeouts"
 owns = "landed work, proof, remaining work, and handoff"
+
+[[directory]]
+kind = "migration-status"
+path = ".rails/migration-status.md"
+owns = "current authority, migration state, and proof rules for source-of-truth artifacts"
 
 [[legacy_source]]
 kind = "proposal"

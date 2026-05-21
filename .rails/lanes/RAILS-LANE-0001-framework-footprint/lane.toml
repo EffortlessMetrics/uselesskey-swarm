@@ -21,38 +21,40 @@ non_goals = [
 
 [[work_item]]
 id = "framework-footprint"
-status = "ready"
+status = "done"
 scope = "Land `.rails/` root, owned directories, index, and portable templates."
 proof = [
   "cargo xtask docs-sync --check",
   "cargo xtask typos",
   "git diff --check",
 ]
+evidence = "Merged in PR #64."
 
 [[work_item]]
 id = "supersede-uselesskey-spec-namespace"
-status = "planned"
+status = "done"
 scope = "Close or supersede the older `.uselesskey-spec/` namespace proposal so `.rails/` is the single durable namespace."
 proof = [
   "git diff --check",
 ]
+evidence = "Closed PR #56 after PR #64 introduced `.rails/`."
 
 [[work_item]]
 id = "migration-status-map"
-status = "planned"
+status = "done"
 scope = "Map current source-of-truth artifacts that remain in place versus later Rails migration or mirroring."
 proof = [
   "cargo xtask docs-sync --check",
   "cargo xtask typos",
   "git diff --check",
 ]
+evidence = "Added `.rails/migration-status.md`."
 
 [[work_item]]
 id = "rails-handoff"
-status = "planned"
+status = "ready"
 scope = "Record what `.rails/` owns now, what remains legacy, and the next migration lane."
 proof = [
   "cargo xtask docs-sync --check",
   "git diff --check",
 ]
-
