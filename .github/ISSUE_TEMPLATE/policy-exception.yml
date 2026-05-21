@@ -1,0 +1,64 @@
+name: Policy exception
+description: Request a governed exception or policy-ledger update.
+title: "policy: "
+labels:
+  - policy
+body:
+  - type: input
+    id: policy_area
+    attributes:
+      label: Policy area
+      description: Which ledger, status file, or policy family is affected?
+      placeholder: policy/doc-artifacts.toml
+    validations:
+      required: true
+  - type: input
+    id: linked_artifacts
+    attributes:
+      label: Linked artifacts
+      description: Proposal, spec, ADR, plan, claim, or existing policy entry.
+      placeholder: USELESSKEY-SPEC-0000
+    validations:
+      required: true
+  - type: textarea
+    id: requested_exception
+    attributes:
+      label: Requested exception
+      description: What exception or policy state should be recorded?
+    validations:
+      required: true
+  - type: textarea
+    id: boundary
+    attributes:
+      label: Boundary
+      description: What the exception does not allow or prove.
+    validations:
+      required: true
+  - type: input
+    id: owner
+    attributes:
+      label: Owner
+      placeholder: repo-infra
+    validations:
+      required: true
+  - type: input
+    id: review_or_expiry
+    attributes:
+      label: Review or expiry
+      description: Date, release lane, or condition that revisits the exception.
+      placeholder: 2026-06-30
+    validations:
+      required: true
+  - type: textarea
+    id: proof_commands
+    attributes:
+      label: Proof commands
+      description: Commands or checks that keep the exception honest.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback
+      description: How to remove or supersede the exception.

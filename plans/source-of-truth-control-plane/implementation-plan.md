@@ -72,7 +72,7 @@ what should happen next from repository artifacts instead of chat history.
 | Active goal manifest | Done | Replace archived lane with source-of-truth control-plane active goal. |
 | Check active goals | Done | Add `cargo xtask check-goals`. |
 | Agent operating contract | Done | Root `AGENTS.md` and Codex operating contract doc updates. |
-| PR and issue templates | Ready | GitHub PR and issue templates. |
+| PR and issue templates | Done | GitHub PR and issue templates. |
 | Advisory CI | Ready | Source-of-truth checks beside the normalized routed result. |
 | Report and generators | Ready | Repo contract report, PR body generator, closeout generator. |
 | Product surface application | Ready | OIDC/JWKS, JWT, webhook, TLS, first-five-minutes docs, CI recipes, release handoff. |

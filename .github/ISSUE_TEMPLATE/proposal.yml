@@ -1,0 +1,72 @@
+name: Proposal
+description: Propose why a source-of-truth lane or product change should exist.
+title: "proposal: "
+labels:
+  - proposal
+body:
+  - type: input
+    id: linked_artifacts
+    attributes:
+      label: Existing artifacts
+      description: Link any existing proposal, spec, ADR, plan, issue, or PR.
+      placeholder: USELESSKEY-SPEC-0000, USELESSKEY-ADR-0000
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: What problem should the repo solve?
+    validations:
+      required: true
+  - type: textarea
+    id: users_and_surfaces
+    attributes:
+      label: Users and surfaces
+      description: Who depends on this, and which repo or product surfaces change?
+    validations:
+      required: true
+  - type: textarea
+    id: success_criteria
+    attributes:
+      label: Success criteria
+      description: What answers, behaviors, or artifacts prove the proposal worked?
+    validations:
+      required: true
+  - type: textarea
+    id: proposed_stack
+    attributes:
+      label: Proposed stack
+      description: Which proposal, spec, ADR, plan, goal, policy, proof, and closeout artifacts are expected?
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: What did you reject, and why?
+  - type: textarea
+    id: specs_to_create_or_update
+    attributes:
+      label: Specs to create or update
+      description: List expected spec IDs or paths.
+      placeholder: USELESSKEY-SPEC-0000
+  - type: textarea
+    id: evidence_plan
+    attributes:
+      label: Evidence plan
+      description: Commands, receipts, generated artifacts, or hosted checks expected to validate the work.
+      render: bash
+  - type: textarea
+    id: risks
+    attributes:
+      label: Risks
+      description: Known drift, false-positive, compatibility, security, or release-boundary risks.
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: What must remain out of scope?
+  - type: textarea
+    id: exit_criteria
+    attributes:
+      label: Exit criteria
+      description: What must be true before this proposal is done?
+    validations:
+      required: true

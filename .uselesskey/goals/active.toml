@@ -138,17 +138,19 @@ commands = [
 
 [[work_item]]
 id = "github-pr-and-issue-templates"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
+  "cargo xtask check-goals",
+  "cargo xtask typos",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "advisory-source-of-truth-ci"
-status = "planned"
+status = "ready"
 proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"

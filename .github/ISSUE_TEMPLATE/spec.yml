@@ -1,0 +1,59 @@
+name: Spec
+description: Define behavior, proof, and boundaries for a source-of-truth contract.
+title: "spec: "
+labels:
+  - spec
+body:
+  - type: input
+    id: linked_proposal
+    attributes:
+      label: Linked proposal
+      description: Proposal ID or path that explains why this spec exists.
+      placeholder: USELESSKEY-PROP-0000
+    validations:
+      required: true
+  - type: input
+    id: linked_adrs
+    attributes:
+      label: Linked ADRs
+      description: Durable decisions that govern this spec, or "none".
+      placeholder: USELESSKEY-ADR-0000, none
+  - type: textarea
+    id: behavior_contract
+    attributes:
+      label: Behavior contract
+      description: What behavior must hold?
+    validations:
+      required: true
+  - type: textarea
+    id: required_evidence
+    attributes:
+      label: Required evidence
+      description: Commands, receipts, generated artifacts, and hosted checks that validate the behavior.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: What is explicitly out of scope?
+  - type: textarea
+    id: claim_boundary
+    attributes:
+      label: Claim boundary
+      description: What may be claimed, and what does this not prove?
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: What makes the spec accepted and implemented?
+    validations:
+      required: true
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback
+      description: How can this contract be reverted, superseded, or made advisory?
