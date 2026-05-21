@@ -1,0 +1,120 @@
+created = "2026-05-21"
+end_state = [
+    "Release-facing user commands and snippets are inventoried with proof owners.",
+    "Version snippets are reconciled for current stable versus release-candidate wording.",
+    "Installed CLI bundle, verify, inspect, and audit paths are proven for the release candidate.",
+    "Facade examples are proven against the release candidate checkout.",
+    "Package contents are dry-run validated without generated payloads or target receipts.",
+    "A release readiness record states proof, hosted CI, non-blockers, rollback, and claim boundaries.",
+]
+id = "v0.10.0-release-readiness"
+objective = """
+Prove that the v0.10.0 release candidate matches the documented user path
+without publishing, tagging, signing, pushing to crates.io, creating a GitHub
+release, or moving source-sync authority out of EffortlessMetrics/uselesskey.
+"""
+owner = "codex"
+schema_version = "1.0"
+status = "archived"
+title = "v0.10.0 release readiness"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-doc-artifacts",
+    "cargo xtask check-goals",
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "open-release-readiness-goal"
+plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "cargo xtask check-goals",
+    "git diff --check",
+]
+id = "release-surface-inventory"
+plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask docs-sync --check",
+    "cargo xtask typos",
+    "git diff --check",
+]
+id = "version-snippet-reconciliation"
+plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo test -p xtask external_adoption",
+    "cargo test -p uselesskey-cli --all-features audit_bundle",
+    "cargo xtask external-adoption-smoke --path .",
+    "cargo xtask docs-sync --check",
+    "cargo xtask check-goals",
+    "git diff --check",
+]
+id = "installed-cli-release-smoke"
+plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask external-adoption-smoke --path . --library-examples",
+    "cargo xtask docs-sync --check",
+    "cargo xtask check-goals",
+    "git diff --check",
+]
+id = "facade-release-smoke"
+plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask publish-preflight",
+    "cargo xtask publish-check",
+    "cargo xtask no-blob",
+    "cargo test -p uselesskey-rsa --all-features",
+    "cargo test -p uselesskey-ecdsa --all-features",
+    "cargo test -p uselesskey-ed25519 --all-features",
+    "cargo xtask lint-fix --check --no-clippy",
+    "cargo xtask docs-sync --check",
+    "cargo xtask check-goals",
+    "git diff --check",
+]
+id = "package-dry-run"
+plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask docs-sync --check",
+    "cargo xtask check-support-tiers",
+    "cargo xtask check-doc-artifacts",
+    "cargo xtask check-goals",
+    "git diff --check",
+]
+id = "release-readiness-record"
+plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+status = "done"
