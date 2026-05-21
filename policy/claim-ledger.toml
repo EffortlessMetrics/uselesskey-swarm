@@ -114,7 +114,7 @@ boundary = "ripr+ is a repo-scoped static evidence and test-efficiency inbox-zer
 id = "tls-contract-pack"
 title = "TLS contract pack"
 status = "stable"
-spec = "USELESSKEY-SPEC-0002"
+spec = "USELESSKEY-SPEC-0016"
 surfaces = [
   "README",
   "docs/how-to/test-tls-chain-validation.md",
