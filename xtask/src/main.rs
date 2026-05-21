@@ -33,6 +33,7 @@ mod policy;
 mod pr_bundles;
 mod public_surface;
 mod receipt;
+mod repo_contract_report;
 mod spec_check;
 mod support_tiers;
 mod test_efficiency;
@@ -271,6 +272,8 @@ enum Cmd {
     CheckSupportTiers,
     /// Validate active and archived source-of-truth goal manifests.
     CheckGoals,
+    /// Generate the repo-native source-of-truth graph report.
+    RepoContractReport,
     /// Index public claim-ledger entries and proof commands for users and reviewers.
     ClaimReport {
         /// Output format.
@@ -726,6 +729,7 @@ fn main() -> Result<()> {
         Cmd::CheckDocArtifacts => doc_artifacts::run(&workspace_root_path()),
         Cmd::CheckSupportTiers => support_tiers::run(&workspace_root_path()),
         Cmd::CheckGoals => goals::run(&workspace_root_path()),
+        Cmd::RepoContractReport => repo_contract_report::run(&workspace_root_path()),
         Cmd::ClaimReport {
             format,
             claim,
