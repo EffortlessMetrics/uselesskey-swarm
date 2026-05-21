@@ -31,6 +31,10 @@ What is out of scope?
 
 What proof is required?
 
+## Claim Boundary
+
+What this behavior proves, and what it does not prove.
+
 ## Acceptance
 
 Concrete acceptance criteria.
@@ -46,6 +50,10 @@ Which tests, fixtures, proofs, or receipts cover this?
 ## Implementation Mapping
 
 Which crates, modules, docs, or policies own this?
+
+## Rollback
+
+How to back out or supersede this contract safely.
 
 ## CI Proof
 

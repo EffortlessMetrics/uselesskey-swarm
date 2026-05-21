@@ -1,0 +1,62 @@
+schema_version = "1.0"
+
+id = "source-of-truth-control-plane"
+kind = "active_goal"
+title = "Source-of-truth control plane"
+status = "active"
+owner = "codex"
+created = "YYYY-MM-DD"
+
+linked_proposal = "USELESSKEY-PROP-0000"
+linked_specs = ["USELESSKEY-SPEC-0000"]
+linked_adrs = []
+linked_plan = "plans/example/implementation-plan.md"
+support_tier_impact = []
+policy_impact = []
+
+objective = """
+Describe the active lane in one durable paragraph.
+"""
+
+end_state = [
+  "Concrete end-state item.",
+  "Another concrete end-state item.",
+]
+
+required_evidence = [
+  "cargo xtask docs-sync --check",
+  "git diff --check",
+]
+
+non_goals = [
+  "No release, publish, signing, crates.io, GitHub release, or source-sync changes.",
+]
+
+claim_boundary = [
+  "What this goal supports.",
+  "What this goal does not prove.",
+]
+
+rollback = "Archive or supersede this manifest and restore the previous active goal when needed."
+
+[[work_item]]
+id = "first-work-item"
+status = "ready"
+proposal = "USELESSKEY-PROP-0000"
+spec = "USELESSKEY-SPEC-0000"
+plan = "plans/example/implementation-plan.md"
+support_tier_impact = []
+policy_impact = []
+commands = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "git diff --check",
+]
+non_goals = [
+  "Keep the PR scoped to one semantic change.",
+]
+claim_boundary = [
+  "What this item proves.",
+  "What this item does not prove.",
+]
+rollback = "Revert the PR and mark this item blocked or ready again."

@@ -9,6 +9,8 @@ milestone = "v0.0.0"
 linked_specs = []
 linked_adrs = []
 linked_plan = "plans/example/implementation-plan.md"
+support_tier_impact = []
+policy_impact = []
 +++
 
 # USELESSKEY-PROP-0000: Short Proposal Title
@@ -49,6 +51,11 @@ PR-sized phases.
 
 Proof commands, fixtures, support-tier updates, CI lanes, and release receipts.
 
+## Claim Boundary
+
+What public claims may this lane eventually support, and what must it not
+claim?
+
 ## Risks
 
 What can go wrong?
@@ -56,6 +63,10 @@ What can go wrong?
 ## Non-goals
 
 What is explicitly out of scope?
+
+## Rollback
+
+How can the proposal be withdrawn, superseded, or narrowed safely?
 
 ## Exit Criteria
 

@@ -22,6 +22,7 @@ agent state do not drift into one document.
 - [proposals](proposals/README.md) - Why a lane exists, who benefits, and what alternatives were considered
 - [specs](specs/README.md) - What behavior is promised, not promised, and how it is proven
 - [source-of-truth](source-of-truth/README.md) - Artifact roles, linking rules, and agent operating model
+- [templates](templates/) - Starting shapes for source-of-truth artifacts and review packets
 - [status](status/README.md) - Public claim, support tier, and proof mapping indexes
 - [handoffs](handoffs/README.md) - Closeout notes and operator handoffs after a lane changes state
 - [learnings](learnings/README.md) - Durable lessons from releases, incidents, and proof lanes
