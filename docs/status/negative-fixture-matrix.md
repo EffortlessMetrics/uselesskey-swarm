@@ -41,18 +41,18 @@ has an explicit public-claim or support boundary owner.
 
 | Stable ID | Status | Claim | Public surface | Bundle exposed | Proof |
 | --- | --- | --- | --- | --- | --- |
-| `jwt_bad_segment_count` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::MalformedJwtSegmentCount` | no | `cargo test -p uselesskey-token --all-features` |
-| `jwt_malformed_base64url` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::BadBase64UrlSegment` | no | `cargo test -p uselesskey-token --all-features` |
-| `jwt_invalid_header_shape` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::InvalidJwtHeaderShape` | no | `cargo test -p uselesskey-token --all-features` |
-| `jwt_missing_alg` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::MissingAlg` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_bad_segment_count` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::MalformedJwtSegmentCount` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_malformed_base64url` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::BadBase64UrlSegment` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_invalid_header_shape` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::InvalidJwtHeaderShape` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_missing_alg` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::MissingAlg` | no | `cargo test -p uselesskey-token --all-features` |
 | `jwt_alg_none` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::AlgNone` | `oidc` | `cargo test -p uselesskey-cli --all-features bundle` |
-| `jwt_missing_kid` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |
-| `jwt_mismatched_kid` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::MismatchedKid` | no | `cargo test -p uselesskey-token --all-features` |
-| `jwt_expired` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::ExpiredClaims` | no | `cargo test -p uselesskey-token --all-features` |
-| `jwt_not_yet_valid` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::NotYetValidClaims` | no | `cargo test -p uselesskey-token --all-features` |
-| `jwt_bad_issuer` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::BadIssuer` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_missing_kid` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_mismatched_kid` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::MismatchedKid` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_expired` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::ExpiredClaims` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_not_yet_valid` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::NotYetValidClaims` | no | `cargo test -p uselesskey-token --all-features` |
+| `jwt_bad_issuer` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::BadIssuer` | no | `cargo test -p uselesskey-token --all-features` |
 | `jwt_bad_audience` | `implemented` | `oidc-jwks-contract-pack` | `NegativeToken::BadAudience` | `oidc` | `cargo test -p uselesskey-cli --all-features bundle` |
-| `token_malformed_bearer` | `implemented` | `scanner-safe-fixtures` | `NegativeToken::MalformedBearer` | no | `cargo test -p uselesskey-token --all-features` |
+| `token_malformed_bearer` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::MalformedBearer` | no | `cargo test -p uselesskey-token --all-features` |
 | `token_near_miss` | `implemented` | `scanner-safe-fixtures` | `NegativeToken::NearMissApiKey` | `scanner-safe` | `cargo test -p uselesskey-cli --all-features bundle` |
 
 ## Webhook
