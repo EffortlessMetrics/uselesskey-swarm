@@ -65,8 +65,8 @@ release, or moving source-sync authority.
 | Release surface inventory | Done | Matrix of surface, user command/snippet, proof, release risk, and owner. |
 | Version/snippet reconciliation | Done | Decide every `0.9.1` snippet as current stable, v0.10.0 candidate, or post-publish update. |
 | Installed CLI release smoke | Done | Prove `doctor`, `bundle`, `verify-bundle`, `inspect-bundle`, and strict CI audit from checkout. |
-| Facade release smoke | Ready | Prove external library examples against the release-candidate checkout. |
-| Package dry-run | Planned | Validate package contents, README render inputs, docs/schemas inclusion, and absence of target receipts. |
+| Facade release smoke | Done | Prove external library examples against the release-candidate checkout. |
+| Package dry-run | Ready | Validate package contents, README render inputs, docs/schemas inclusion, and absence of target receipts. |
 | Release readiness record | Planned | Record proof, hosted CI, known non-blockers, publish order, rollback, and claim boundaries. |
 
 ## Per-PR Proof Commands

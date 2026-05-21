@@ -78,18 +78,20 @@ commands = [
 
 [[work_item]]
 id = "facade-release-smoke"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
 commands = [
   "cargo xtask external-adoption-smoke --path . --library-examples",
+  "cargo xtask docs-sync --check",
+  "cargo xtask check-goals",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "package-dry-run"
-status = "planned"
+status = "ready"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
