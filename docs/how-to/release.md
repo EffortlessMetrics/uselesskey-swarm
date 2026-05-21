@@ -4,6 +4,12 @@
 
 Use this document for the steady-state crates.io release flow.
 
+Normal development happens in `EffortlessMetrics/uselesskey-swarm`, but
+`EffortlessMetrics/uselesskey` remains the release, publish, signing, tag, and
+public-source boundary until a separate release-authority lane moves it. Before
+starting release prep from swarm work, read
+[`docs/release/source-release-handoff.md`](../release/source-release-handoff.md).
+
 Release readiness is gated by:
 
 - `cargo xtask spec-check --strict`
