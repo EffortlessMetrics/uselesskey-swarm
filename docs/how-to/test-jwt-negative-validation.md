@@ -1,36 +1,12 @@
 # Test JWT Negative Validation
 
 Use this guide when a downstream token parser or validator needs
-JWT-shaped negative inputs that are realistic enough to reach policy checks.
+JWT-shaped valid and invalid inputs that are realistic enough to reach claim or
+header policy checks.
 
-## Generate bundle files
+## Copy this
 
-For file-based tests, use the OIDC contract pack:
-
-```bash
-cargo run -p uselesskey-cli -- bundle \
-  --profile oidc \
-  --out target/oidc-fixtures
-
-cargo run -p uselesskey-cli -- verify-bundle \
-  --path target/oidc-fixtures
-```
-
-Use these token files:
-
-| File | Intended failure |
-| --- | --- |
-| `tokens/valid-rs256.json` | positive parser control |
-| `tokens/negative-alg-none.json` | reject insecure `alg: none` policy |
-| `tokens/negative-bad-audience.json` | reject wrong audience |
-
-Each file is JSON with metadata and a `value` field containing the token-shaped
-string. Load the value in the downstream test and assert the validator's policy
-failure.
-
-## Generate in Rust tests
-
-For runtime test generation:
+For a clean Rust test project:
 
 ```toml
 [dev-dependencies]
@@ -41,48 +17,118 @@ uselesskey = { version = "0.9.1", default-features = false, features = ["token"]
 use uselesskey::{Factory, NegativeToken, TokenFactoryExt, TokenSpec};
 
 let fx = Factory::deterministic_from_str("jwt-negative");
-let token = fx.token("api", TokenSpec::oauth_access_token());
+let token = fx.token("issuer", TokenSpec::oauth_access_token());
 
+let valid = token.value();
 let alg_none = token.negative_value(NegativeToken::AlgNone);
-assert!(validator_rejects_alg_none(&alg_none));
-
 let bad_audience = token.negative_value(NegativeToken::BadAudience);
-assert!(validator_rejects_bad_audience(&bad_audience));
+
+assert_eq!(NegativeToken::AlgNone.stable_id(), "jwt_alg_none");
+assert_eq!(NegativeToken::BadAudience.stable_id(), "jwt_bad_audience");
+assert!(valid.split('.').count() == 3);
+assert!(alg_none.split('.').count() == 3);
+assert!(bad_audience.split('.').count() == 3);
 ```
+
+For file-based tests, use the installed CLI OIDC profile:
+
+```bash
+uselesskey bundle --profile oidc --out target/oidc-fixtures
+uselesskey verify-bundle --path target/oidc-fixtures
+uselesskey audit-bundle --path target/oidc-fixtures --summary
+```
+
+## What you get
+
+The Rust path gives deterministic values from the facade crate without writing
+payloads to the repository.
+
+The bundle path writes token-shaped files under the selected output directory:
+
+| File | Stable class | Intended failure |
+| --- | --- | --- |
+| `tokens/valid-rs256.json` | positive control | parser accepts JWT shape and expected metadata |
+| `tokens/negative-alg-none.json` | `jwt_alg_none` | validator rejects unsigned-token policy |
+| `tokens/negative-bad-audience.json` | `jwt_bad_audience` | validator rejects the wrong `aud` claim |
+
+Each file is JSON with metadata and a `value` field containing the token-shaped
+string. Load `value` in the downstream test and assert the specific policy
+failure.
+
+## Positive path
+
+Use `TokenSpec::oauth_access_token()` or `tokens/valid-rs256.json` as the
+positive parser control. It is JWT-shaped and deterministic, so tests can check
+that the validator reaches the intended claim/header path before adding negative
+fixtures.
+
+## Negative path
+
+Use taxonomy-backed `NegativeToken` variants for realistic failure modes:
+
+| Variant | Stable class | Expected downstream rejection |
+| --- | --- | --- |
+| `NegativeToken::MalformedJwtSegmentCount` | `jwt_bad_segment_count` | parser rejects the wrong number of JWT segments |
+| `NegativeToken::BadBase64UrlSegment` | `jwt_malformed_base64url` | parser rejects an invalid base64url segment |
+| `NegativeToken::AlgNone` | `jwt_alg_none` | policy rejects `alg: none` |
+| `NegativeToken::BadAudience` | `jwt_bad_audience` | claim validation rejects the wrong audience |
+| `NegativeToken::ExpiredClaims` | `jwt_expired` | claim validation rejects an expired token |
+| `NegativeToken::NotYetValidClaims` | `jwt_not_yet_valid` | claim validation rejects a future `nbf` window |
+| `NegativeToken::NearMissApiKey` | `token_near_miss` | API-key parser rejects a scanner-safe near miss |
 
 Keep the test assertion specific. A useful test distinguishes "rejected because
 the algorithm is forbidden" from "failed to parse any token at all."
 
-## Near-miss API keys
+## Verify
 
-Use `NegativeToken::NearMissApiKey` for parser or scanner-safety tests where the
-input should look close to an API key but must not be a usable `uk_test_` token:
+For the clean-project facade example:
 
-```rust
-let api_key = fx.token("billing", TokenSpec::api_key());
-let near_miss = api_key.negative_value(NegativeToken::NearMissApiKey);
-
-assert!(!near_miss.starts_with("uk_test_"));
-assert!(api_key_parser_rejects(&near_miss));
+```bash
+cargo test --manifest-path examples/external/rust-test-fixtures/Cargo.toml
 ```
 
-## Scanner-safety note
+For the installed bundle path:
 
-Token negatives are scanner-safe fixture shapes. They are for parser and
-validator tests, not for production authorization decisions.
+```bash
+uselesskey verify-bundle --path target/oidc-fixtures
+uselesskey inspect-bundle --path target/oidc-fixtures
+```
+
+Repo-local proof for this task-doc path:
+
+```bash
+cargo xtask external-adoption-smoke --path . --library-examples
+cargo xtask external-adoption-smoke --path .
+cargo xtask check-negative-fixtures
+```
+
+## Audit / receipt
+
+For bundle users, write a metadata-only audit packet:
+
+```bash
+uselesskey audit-bundle \
+  --path target/oidc-fixtures \
+  --out target/oidc-fixtures-audit \
+  --ci
+```
+
+Attach:
+
+```text
+target/oidc-fixtures-audit/bundle-audit.json
+target/oidc-fixtures-audit/bundle-audit.md
+```
+
+The audit receipt records paths, counts, profile metadata, stable failure
+classes, and boundaries. It must not copy token values into reviewer packets.
 
 ## What this does not prove
 
-- It does not prove signature validation by itself.
-- It does not prove production issuer or audience configuration.
+- It does not prove production signature validation by itself.
+- It does not prove production issuer, audience, clock, or key-selection
+  configuration.
+- It does not prove provider compatibility.
 - It does not prove cryptographic assurance.
 - It does not replace adapter-specific tests such as `uselesskey-jsonwebtoken`
   when native downstream types matter.
-
-## Evidence
-
-```bash
-cargo test -p uselesskey-token --all-features
-cargo xtask bundle-proof --profile oidc --out target/release-evidence/oidc
-cargo xtask no-blob
-```
