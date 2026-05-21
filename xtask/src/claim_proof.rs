@@ -765,9 +765,8 @@ mod tests {
         };
 
         assert!(
-            err.to_string().contains(
-                "claim-proof policy `scanner-safe-fixtures` repeats handler `no_blob`"
-            ),
+            err.to_string()
+                .contains("claim-proof policy `scanner-safe-fixtures` repeats handler `no_blob`"),
             "unexpected error: {err}"
         );
         Ok(())
