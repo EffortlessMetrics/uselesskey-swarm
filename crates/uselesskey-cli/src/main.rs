@@ -156,7 +156,8 @@ struct InspectBundleArgs {
 
 Boundary:
   audit-bundle checks local bundle consistency and metadata labels. It does
-  not prove production security, provider compatibility, or repo public claims.
+  not prove production security, provider compatibility, or broader repo public
+  claims by itself.
 
 CI:
   --ci emits stable audit failure classes in JSON for downstream policy checks.")]
@@ -1292,7 +1293,7 @@ fn validate_audit_surface_receipt(bundle_dir: &Path, manifest: &BundleManifest) 
 fn bundle_audit_boundaries(info: &ProfileInfo) -> Vec<String> {
     vec![
         "audit-bundle proves local bundle consistency and metadata classification".to_string(),
-        "audit-bundle does not prove repo public claims; use cargo xtask claim-proof from a repo checkout".to_string(),
+        "audit-bundle is not standalone proof for broader repo public claims; use cargo xtask claim-proof from a repo checkout".to_string(),
         "audit-bundle does not prove release readiness; use release-evidence for release proof".to_string(),
         format!("profile proof/check path: {}", info.proof_command),
         "audit receipts contain metadata only and do not copy generated fixture payloads".to_string(),
@@ -1520,7 +1521,7 @@ fn bundle_audit_failure_json(
             "audit receipts contain metadata only and do not copy generated fixture payloads",
         ],
         "does_not_prove": [
-            "repo public claims",
+            "broader repo public claims by itself",
             "release readiness",
             "provider compatibility",
             "production security",
