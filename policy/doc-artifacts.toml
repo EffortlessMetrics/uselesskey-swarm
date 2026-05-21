@@ -471,6 +471,17 @@ owner = "repo-infra"
 linked_specs = ["USELESSKEY-SPEC-0016"]
 
 [[artifact]]
+id = "USELESSKEY-POLICY-contract-packs"
+kind = "policy"
+path = "policy/contract-packs.toml"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0003",
+  "USELESSKEY-SPEC-0011",
+]
+
+[[artifact]]
 id = "USELESSKEY-STATUS-support-tiers"
 kind = "status"
 path = "docs/status/SUPPORT_TIERS.md"

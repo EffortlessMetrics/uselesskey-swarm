@@ -1,6 +1,8 @@
 schema_version = 1
 owner = "EffortlessMetrics"
-updated = "2026-05-13"
+updated = "2026-05-21"
+
+# Source-of-truth artifact id: USELESSKEY-POLICY-contract-packs
 
 [[pack]]
 id = "tls"
