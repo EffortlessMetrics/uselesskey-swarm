@@ -5,8 +5,8 @@ metadata-only packet for a security or platform reviewer.
 
 The installed audit path explains the local bundle and binds to the advisory
 `metadata-only-audit-packets` claim. A downstream receipt is still local
-evidence; it is not proof of every repo public claim, release evidence, provider
-compatibility proof, or production security assurance.
+evidence; it is not standalone proof for broader repo public claims, release
+evidence, provider compatibility proof, or production security assurance.
 
 ## Generate a Bundle
 
@@ -92,14 +92,14 @@ The JSON receipt reports:
 
 `audit-bundle` does not prove:
 
-- every repo public claim;
+- broader repo public claims by itself;
 - release readiness;
 - provider compatibility;
 - production key management or production security;
 - scanner evasion;
 - downstream verifier correctness.
 
-For repo public-claim proof, use a repo checkout:
+For broader repo public-claim proof, use a repo checkout:
 
 ```bash
 cargo xtask verification-pack --out target/uselesskey-verification
