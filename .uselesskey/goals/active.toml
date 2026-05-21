@@ -310,11 +310,14 @@ commands = [
 
 [[work_item]]
 id = "release-handoff-packet"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0006"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
   "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "cargo xtask check-goals",
+  "cargo xtask pr",
   "git diff --check",
 ]
