@@ -156,7 +156,7 @@ fn audit_bundle_help_explains_ci_receipts_and_boundaries() -> TestResult<()> {
     assert!(out.contains("stable audit failure classes"));
     assert!(out.contains("not prove production security"));
     assert!(out.contains("provider compatibility"));
-    assert!(out.contains("repo public claims"));
+    assert!(out.contains("broader repo public"));
     Ok(())
 }
 
@@ -967,7 +967,9 @@ fn audit_bundle_writes_metadata_only_reviewer_receipts() -> TestResult<()> {
     assert!(audit_md.contains("Quick summary: uselesskey inspect-bundle --path <bundle-dir>"));
     assert!(audit_md.contains("raw generated fixture payloads are not copied"));
     assert!(audit_md.contains("requests/negative-wrong-secret.json"));
-    assert!(audit_md.contains("audit-bundle does not prove repo public claims"));
+    assert!(audit_md.contains(
+        "audit-bundle is not standalone proof for broader repo public claims"
+    ));
     assert!(audit_md.contains("provider compatibility"));
     assert!(!audit_md.contains("whsec_"));
     assert!(!audit_md.contains("BEGIN PRIVATE KEY"));
