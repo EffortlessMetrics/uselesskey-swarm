@@ -119,7 +119,7 @@ Boundary:
 ```text
 This proves deterministic test-fixture behavior for the downstream test. It does
 not prove production key management, production crypto safety, provider
-compatibility, scanner evasion, or repo public claims.
+compatibility, scanner evasion, or broader repo public claims by itself.
 ```
 
 ### CI / Platform Path
@@ -166,9 +166,9 @@ Boundary:
 
 ```text
 Installed bundle audit proves local bundle consistency and metadata
-classification. It does not prove release readiness, repo public claims,
-provider compatibility, production security, scanner evasion, or downstream
-verifier correctness.
+classification. It does not prove release readiness, broader repo public claims
+by itself, provider compatibility, production security, scanner evasion, or
+downstream verifier correctness.
 ```
 
 ### Materialization Path
