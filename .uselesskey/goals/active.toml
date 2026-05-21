@@ -294,19 +294,23 @@ commands = [
 
 [[work_item]]
 id = "downstream-ci-recipes"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0020"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "cargo xtask check-goals",
   "cargo xtask external-adoption-smoke --path .",
   "cargo xtask external-adoption-smoke --path . --library-examples",
+  "cargo xtask pr",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "release-handoff-packet"
-status = "planned"
+status = "ready"
 proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0006"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
