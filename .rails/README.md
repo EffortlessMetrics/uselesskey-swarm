@@ -6,6 +6,9 @@ Open `.rails/index.toml` first. It tells humans and agents which lane is active,
 where the portable templates live, and which existing repo artifacts still own
 truth while the Rails footprint is introduced.
 
+If `active_lane` is empty, Rails has no current lane and the most recent lane
+closeout is listed as `last_closed_lane`.
+
 For current migration state, read `.rails/migration-status.md`.
 
 ## Artifact Jobs

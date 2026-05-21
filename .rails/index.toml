@@ -5,7 +5,8 @@ repo = "uselesskey"
 framework = "rails"
 root = ".rails"
 status = "introduced"
-active_lane = "RAILS-LANE-0001"
+active_lane = ""
+last_closed_lane = "RAILS-LANE-0001"
 migration_status = ".rails/migration-status.md"
 
 [conventions]
@@ -94,7 +95,7 @@ notes = "Policy ledgers remain the governed state source."
 
 [[lane]]
 id = "RAILS-LANE-0001"
-status = "active"
+status = "closed"
 path = ".rails/lanes/RAILS-LANE-0001-framework-footprint/lane.toml"
 title = "Rails framework footprint"
 
