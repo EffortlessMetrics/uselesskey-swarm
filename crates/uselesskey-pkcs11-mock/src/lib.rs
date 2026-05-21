@@ -464,7 +464,10 @@ mod tests {
         let copied = original; // Copy, not move
         // Exercising the explicit Clone impl is the point of this test, so
         // suppress the Copy-friendly suggestion.
-        #[allow(clippy::clone_on_copy)]
+        #[allow(
+            clippy::clone_on_copy,
+            reason = "test intentionally exercises explicit Clone behavior for a Copy handle"
+        )]
         let cloned = original.clone();
 
         // Copy semantics: original is still usable after the copy/clone.
