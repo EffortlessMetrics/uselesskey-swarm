@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Stdio};
@@ -88,6 +88,12 @@ pub(crate) fn check(out: &Path) -> Result<()> {
         );
         validate_bundle_audit(&audit_schema, &audit, &mut errors);
         validate_manifest_receipt_link(profile, &manifest, &negative_coverage, &mut errors);
+        validate_negative_coverage_manifest_link(
+            profile,
+            &manifest,
+            &negative_coverage,
+            &mut errors,
+        );
         validate_audit_manifest_link(profile, &manifest, &audit, &mut errors);
 
         profile_reports.push(BundleSchemaProfileReport {
@@ -469,6 +475,42 @@ fn compare_optional_bool(
     }
 }
 
+fn compare_optional_bool_with_source(
+    left_value: Option<bool>,
+    right_value: Option<bool>,
+    path: &str,
+    subject: &str,
+    right_source: &str,
+    errors: &mut Vec<String>,
+) {
+    let (Some(left_value), Some(right_value)) = (left_value, right_value) else {
+        return;
+    };
+    if left_value != right_value {
+        errors.push(format!(
+            "{path}: `{subject}` value `{left_value}` does not match {right_source} `{right_value}`"
+        ));
+    }
+}
+
+fn compare_optional_string(
+    left_value: Option<&str>,
+    right_value: Option<&str>,
+    path: &str,
+    subject: &str,
+    right_source: &str,
+    errors: &mut Vec<String>,
+) {
+    let (Some(left_value), Some(right_value)) = (left_value, right_value) else {
+        return;
+    };
+    if left_value != right_value {
+        errors.push(format!(
+            "{path}: `{subject}` value `{left_value}` does not match {right_source} `{right_value}`"
+        ));
+    }
+}
+
 fn validate_bundle_audit(schema: &Value, audit: &Value, errors: &mut Vec<String>) {
     validate_required_fields(schema, "", audit, "bundle-audit.json", errors);
     validate_object_type(audit, "bundle-audit.json", errors);
@@ -703,6 +745,85 @@ fn validate_manifest_receipt_link(
     if !has_negative_coverage {
         errors.push(
             "manifest.json.receipts: missing receipts/negative-coverage.json linkage".to_string(),
+        );
+    }
+}
+
+fn validate_negative_coverage_manifest_link(
+    expected_profile: &str,
+    manifest: &Value,
+    negative_coverage: &Value,
+    errors: &mut Vec<String>,
+) {
+    let files = manifest
+        .get("files")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(Value::as_str)
+        .collect::<BTreeSet<_>>();
+    let artifacts = manifest
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .into_iter()
+        .flatten()
+        .filter_map(|artifact| {
+            artifact
+                .get("path")
+                .and_then(Value::as_str)
+                .map(|path| (path, artifact))
+        })
+        .collect::<BTreeMap<_, _>>();
+
+    let coverage = negative_coverage
+        .get("coverage")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    for (idx, entry) in coverage.iter().enumerate() {
+        let path = format!("negative-coverage.json.coverage[{idx}]");
+        let Some(coverage_path) = entry.get("path").and_then(Value::as_str) else {
+            continue;
+        };
+        if !files.contains(coverage_path) {
+            errors.push(format!(
+                "{path}.path: `{coverage_path}` is not listed in manifest.json.files"
+            ));
+        }
+        let Some(artifact) = artifacts.get(coverage_path) else {
+            errors.push(format!(
+                "{path}.path: `{coverage_path}` is not listed in manifest.json.artifacts"
+            ));
+            continue;
+        };
+        if artifact.get("profile").and_then(Value::as_str) != Some(expected_profile) {
+            errors.push(format!(
+                "{path}.path: `{coverage_path}` manifest artifact profile is not `{expected_profile}`"
+            ));
+        }
+        compare_optional_string(
+            entry.get("kind").and_then(Value::as_str),
+            artifact.get("kind").and_then(Value::as_str),
+            &format!("{path}.kind"),
+            coverage_path,
+            "manifest.json.artifacts[].kind",
+            errors,
+        );
+        compare_optional_bool_with_source(
+            entry.get("scanner_safe").and_then(Value::as_bool),
+            artifact.get("scanner_safe").and_then(Value::as_bool),
+            &format!("{path}.scanner_safe"),
+            coverage_path,
+            "manifest.json.artifacts[].scanner_safe",
+            errors,
+        );
+        compare_optional_bool_with_source(
+            entry.get("runtime_material").and_then(Value::as_bool),
+            artifact.get("runtime_material").and_then(Value::as_bool),
+            &format!("{path}.runtime_material"),
+            coverage_path,
+            "manifest.json.artifacts[].runtime_material",
+            errors,
         );
     }
 }
@@ -1093,6 +1214,102 @@ mod tests {
             errors
                 .iter()
                 .any(|error| error.contains("missing_from_policy")),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn negative_coverage_manifest_link_accepts_manifest_declared_artifact() {
+        let manifest = json!({
+            "profile": "scanner-safe",
+            "files": ["token.json"],
+            "artifacts": [{
+                "path": "token.json",
+                "kind": "token",
+                "profile": "scanner-safe",
+                "scanner_safe": true,
+                "runtime_material": false
+            }]
+        });
+        let receipt = json!({
+            "coverage": [{
+                "path": "token.json",
+                "kind": "token",
+                "failure_class": "token_near_miss",
+                "scanner_safe": true,
+                "runtime_material": false
+            }]
+        });
+
+        let mut errors = Vec::new();
+        validate_negative_coverage_manifest_link("scanner-safe", &manifest, &receipt, &mut errors);
+
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
+    fn negative_coverage_manifest_link_rejects_missing_or_misaligned_artifacts() {
+        let manifest = json!({
+            "profile": "scanner-safe",
+            "files": ["token.json"],
+            "artifacts": [{
+                "path": "token.json",
+                "kind": "jwt",
+                "profile": "oidc",
+                "scanner_safe": false,
+                "runtime_material": true
+            }]
+        });
+        let receipt = json!({
+            "coverage": [
+                {
+                    "path": "token.json",
+                    "kind": "token",
+                    "failure_class": "token_near_miss",
+                    "scanner_safe": true,
+                    "runtime_material": false
+                },
+                {
+                    "path": "missing.json",
+                    "kind": "token",
+                    "failure_class": "token_missing",
+                    "scanner_safe": true,
+                    "runtime_material": false
+                }
+            ]
+        });
+
+        let mut errors = Vec::new();
+        validate_negative_coverage_manifest_link("scanner-safe", &manifest, &receipt, &mut errors);
+
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("manifest.json.files")),
+            "{errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("manifest.json.artifacts")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| error.contains("profile")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| error.contains("kind")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| error.contains("scanner_safe")),
+            "{errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("runtime_material")),
             "{errors:?}"
         );
     }
