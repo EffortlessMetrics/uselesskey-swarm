@@ -21,6 +21,7 @@ mod bundle_proof;
 mod bundle_schema;
 mod claim_proof;
 mod claim_report;
+mod closeout;
 mod contract_packs;
 mod doc_artifacts;
 mod docs_sync;
@@ -280,6 +281,12 @@ enum Cmd {
         /// Work item id from .uselesskey/goals/active.toml.
         #[arg(long = "work-item")]
         work_item: String,
+    },
+    /// Generate a closeout packet and archived manifest for an active source-of-truth goal.
+    Closeout {
+        /// Active goal id from .uselesskey/goals/active.toml.
+        #[arg(long)]
+        goal: String,
     },
     /// Index public claim-ledger entries and proof commands for users and reviewers.
     ClaimReport {
@@ -738,6 +745,7 @@ fn main() -> Result<()> {
         Cmd::CheckGoals => goals::run(&workspace_root_path()),
         Cmd::RepoContractReport => repo_contract_report::run(&workspace_root_path()),
         Cmd::PrBody { work_item } => pr_body::run(&workspace_root_path(), &work_item),
+        Cmd::Closeout { goal } => closeout::run(&workspace_root_path(), &goal),
         Cmd::ClaimReport {
             format,
             claim,

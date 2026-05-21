@@ -74,8 +74,8 @@ what should happen next from repository artifacts instead of chat history.
 | Agent operating contract | Done | Root `AGENTS.md` and Codex operating contract doc updates. |
 | PR and issue templates | Done | GitHub PR and issue templates. |
 | Advisory CI | Done | Source-of-truth checks beside the normalized routed result. |
-| Report and generators | Active | Repo contract report and PR body generator done; closeout generator remains. |
-| Product surface application | Ready | OIDC/JWKS, JWT, webhook, TLS, first-five-minutes docs, CI recipes, release handoff. |
+| Report and generators | Done | Repo contract report, PR body generator, and closeout generator implemented. |
+| Product surface application | Ready | Active goal exposes OIDC/JWKS as the next ready contract-pack slice. |
 
 ## Per-PR Proof Commands
 
