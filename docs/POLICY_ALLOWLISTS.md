@@ -13,6 +13,7 @@ in `uselesskey`. The principle is constant:
 | `policy/clippy-debt.toml`             | Receipted Clippy warn-stage debt with expiry       | `cargo xtask check-lint-policy`        |
 | `policy/no-panic-allowlist.toml`      | Receipted panic-family call sites                  | `cargo xtask check-no-panic-family`    |
 | `policy/non-rust-allowlist.toml`      | Receipted non-Rust tracked files                   | `cargo xtask check-file-policy`        |
+| `policy/negative-fixtures.toml`       | Negative-fixture taxonomy implementation state     | `cargo xtask check-negative-fixtures`  |
 | `policy/mutation-survivors.toml`      | Reviewed mutation survivors and expiries           | `cargo xtask mutants-nightly --dry-run` |
 
 ## Common rules
@@ -34,18 +35,21 @@ Each checker writes both human-readable and machine-readable artifacts:
 ```
 target/no-panic.md            target/no-panic.json
 target/file-policy.md         target/file-policy.json
+target/negative-fixtures.md   target/negative-fixtures.json
 target/lint-policy.md         target/lint-policy.json
 target/policy-report.md       target/policy-report.json
 target/mutation/survivors.md  target/mutation/survivors.json
 target/mutation/nightly-receipt.md target/mutation/nightly-receipt.json
 ```
 
-`cargo xtask policy-report` aggregates all four into a single review surface.
+`cargo xtask policy-report` aggregates the no-panic, file-policy,
+negative-fixture, and lint-policy checks into a single review surface.
 
 ## Process
 
 ```
-1. Run `cargo xtask check-no-panic-family` and `check-file-policy`.
+1. Run `cargo xtask check-no-panic-family`, `check-file-policy`, and
+   `check-negative-fixtures`.
 2. If new findings exist:
    a. Run `cargo xtask no-panic propose` to write a candidate allowlist
       under target/policy-proposed/.

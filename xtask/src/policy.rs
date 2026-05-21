@@ -3,7 +3,7 @@
 //! See `docs/CLIPPY_POLICY.md`, `docs/NO_PANIC_POLICY.md`, `docs/FILE_POLICY.md`,
 //! and `docs/POLICY_ALLOWLISTS.md`.
 
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
 use std::path::Path;
 use std::process::Command;
@@ -18,6 +18,10 @@ const NO_PANIC_BASELINE_TOML: &str = "policy/no-panic-baseline.toml";
 const NON_RUST_TOML: &str = "policy/non-rust-allowlist.toml";
 const CLIPPY_LINTS_TOML: &str = "policy/clippy-lints.toml";
 const CLIPPY_DEBT_TOML: &str = "policy/clippy-debt.toml";
+const NEGATIVE_FIXTURES_TOML: &str = "policy/negative-fixtures.toml";
+const NEGATIVE_FIXTURE_MATRIX_MD: &str = "docs/status/negative-fixture-matrix.md";
+const BUNDLE_MANIFEST_SCHEMA_JSON: &str = "docs/schemas/bundle-manifest.schema.json";
+const NEGATIVE_COVERAGE_SCHEMA_JSON: &str = "docs/schemas/negative-coverage.schema.json";
 
 const TARGET_DIR: &str = "target";
 const PROPOSED_DIR: &str = "target/policy-proposed";
@@ -1209,6 +1213,507 @@ fn render_file_policy_md(
 }
 
 // =============================================================================
+// negative fixture taxonomy policy
+// =============================================================================
+
+#[derive(Debug, Deserialize)]
+struct NegativeFixturePolicy {
+    schema_version: String,
+    owner: String,
+    updated: String,
+    #[serde(default)]
+    negative: Vec<NegativeFixtureEntry>,
+}
+
+#[derive(Debug, Default, Deserialize)]
+struct NegativeFixtureEntry {
+    stable_id: String,
+    family: String,
+    status: String,
+    #[serde(default)]
+    owner_crate: Option<String>,
+    #[serde(default)]
+    public_surface: Option<String>,
+    #[serde(default)]
+    aliases: Vec<String>,
+    #[serde(default)]
+    docs: Vec<String>,
+    #[serde(default)]
+    tests: Vec<String>,
+    #[serde(default)]
+    scanner_safe: Option<bool>,
+    #[serde(default)]
+    runtime_material: Option<bool>,
+    #[serde(default)]
+    bundle_exposed: Option<bool>,
+    #[serde(default)]
+    bundle_profiles: Vec<String>,
+    #[serde(default)]
+    claim: Option<String>,
+    #[serde(default)]
+    does_not_prove: Vec<String>,
+    #[serde(default)]
+    reason: Option<String>,
+}
+
+#[derive(Debug)]
+struct NegativeFixtureMatrixRow {
+    status: String,
+    public_surface: String,
+    bundle_exposed: String,
+    proof: String,
+}
+
+#[derive(Debug, Serialize)]
+struct NegativeFixturePolicyReport {
+    schema_version: String,
+    owner: String,
+    updated: String,
+    total_entries: usize,
+    implemented: usize,
+    accepted_planned: usize,
+    deferred: usize,
+    out_of_scope: usize,
+    matrix_rows: usize,
+    schemas_checked: Vec<String>,
+    errors: Vec<String>,
+}
+
+pub fn check_negative_fixtures() -> Result<()> {
+    let policy: NegativeFixturePolicy = read_toml(NEGATIVE_FIXTURES_TOML)?;
+    let matrix_raw = fs::read_to_string(NEGATIVE_FIXTURE_MATRIX_MD)
+        .with_context(|| format!("read {NEGATIVE_FIXTURE_MATRIX_MD}"))?;
+    let matrix_rows = parse_negative_fixture_matrix(&matrix_raw);
+
+    let mut errors = validate_negative_fixture_policy(&policy, &matrix_rows);
+    validate_negative_fixture_matrix(&policy, &matrix_rows, &mut errors);
+
+    let schemas_checked = vec![
+        BUNDLE_MANIFEST_SCHEMA_JSON.to_string(),
+        NEGATIVE_COVERAGE_SCHEMA_JSON.to_string(),
+    ];
+    for schema_path in &schemas_checked {
+        validate_json_schema_file(schema_path, &mut errors);
+    }
+
+    let report = NegativeFixturePolicyReport {
+        schema_version: policy.schema_version.clone(),
+        owner: policy.owner.clone(),
+        updated: policy.updated.clone(),
+        total_entries: policy.negative.len(),
+        implemented: count_negative_fixture_status(&policy, "implemented"),
+        accepted_planned: count_negative_fixture_status(&policy, "accepted_planned"),
+        deferred: count_negative_fixture_status(&policy, "deferred"),
+        out_of_scope: count_negative_fixture_status(&policy, "out_of_scope"),
+        matrix_rows: matrix_rows.len(),
+        schemas_checked,
+        errors,
+    };
+
+    let md = render_negative_fixture_policy_md(&report);
+    write_outputs("negative-fixtures", &serde_json::to_value(&report)?, &md)?;
+
+    eprintln!(
+        "negative-fixtures: {} entries; {} implemented; {} matrix rows; {} errors",
+        report.total_entries,
+        report.implemented,
+        report.matrix_rows,
+        report.errors.len()
+    );
+
+    if !report.errors.is_empty() {
+        for error in report.errors.iter().take(20) {
+            eprintln!("  negative-fixtures error: {error}");
+        }
+        bail!(
+            "negative-fixtures: {} contract drift error(s)",
+            report.errors.len()
+        );
+    }
+
+    Ok(())
+}
+
+fn validate_negative_fixture_policy(
+    policy: &NegativeFixturePolicy,
+    matrix_rows: &BTreeMap<String, NegativeFixtureMatrixRow>,
+) -> Vec<String> {
+    let mut errors = Vec::new();
+    if policy.schema_version != "1.0" {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: schema_version must be `1.0`, got `{}`",
+            policy.schema_version
+        ));
+    }
+    if policy.owner.trim().is_empty() {
+        errors.push(format!("{NEGATIVE_FIXTURES_TOML}: owner is required"));
+    }
+    if NaiveDate::parse_from_str(&policy.updated, "%Y-%m-%d").is_err() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: updated must be ISO date YYYY-MM-DD, got `{}`",
+            policy.updated
+        ));
+    }
+    if policy.negative.is_empty() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: at least one [[negative]] entry is required"
+        ));
+    }
+
+    let mut seen = BTreeSet::new();
+    for entry in &policy.negative {
+        validate_negative_fixture_entry(entry, &mut errors);
+        if !seen.insert(entry.stable_id.clone()) {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: duplicate stable_id `{}`",
+                entry.stable_id
+            ));
+        }
+        if !matrix_rows.contains_key(&entry.stable_id) {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURE_MATRIX_MD}: missing row for `{}`",
+                entry.stable_id
+            ));
+        }
+    }
+
+    errors
+}
+
+fn validate_negative_fixture_entry(entry: &NegativeFixtureEntry, errors: &mut Vec<String>) {
+    if !is_valid_negative_stable_id(&entry.stable_id) {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: stable_id `{}` must be lower snake_case and start with a letter",
+            entry.stable_id
+        ));
+    }
+    if entry.family.trim().is_empty() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` family is required",
+            entry.stable_id
+        ));
+    }
+    if !is_valid_negative_status(&entry.status) {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` has invalid status `{}`",
+            entry.stable_id, entry.status
+        ));
+    }
+    for alias in &entry.aliases {
+        if alias.trim().is_empty() {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` has an empty alias",
+                entry.stable_id
+            ));
+        }
+    }
+    if let Some(claim) = &entry.claim
+        && claim.trim().is_empty()
+    {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` claim must not be empty when present",
+            entry.stable_id
+        ));
+    }
+    if entry.scanner_safe.is_none() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` scanner_safe is required",
+            entry.stable_id
+        ));
+    }
+    if entry.runtime_material.is_none() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` runtime_material is required",
+            entry.stable_id
+        ));
+    }
+    if entry.bundle_exposed.is_none() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` bundle_exposed is required",
+            entry.stable_id
+        ));
+    }
+    if entry.bundle_exposed == Some(true) && entry.bundle_profiles.is_empty() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` bundle_profiles is required when bundle_exposed=true",
+            entry.stable_id
+        ));
+    }
+
+    if entry.status == "implemented" {
+        validate_required_text(
+            entry.owner_crate.as_deref(),
+            &entry.stable_id,
+            "owner_crate",
+            errors,
+        );
+        validate_required_text(
+            entry.public_surface.as_deref(),
+            &entry.stable_id,
+            "public_surface",
+            errors,
+        );
+        validate_required_vec(&entry.docs, &entry.stable_id, "docs", errors);
+        validate_required_vec(&entry.tests, &entry.stable_id, "tests", errors);
+        validate_required_vec(
+            &entry.does_not_prove,
+            &entry.stable_id,
+            "does_not_prove",
+            errors,
+        );
+        for doc in &entry.docs {
+            if !Path::new(doc).exists() {
+                errors.push(format!(
+                    "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` does not exist",
+                    entry.stable_id
+                ));
+            }
+        }
+        for command in &entry.tests {
+            if !(command.starts_with("cargo test ") || command.starts_with("cargo xtask ")) {
+                errors.push(format!(
+                    "{NEGATIVE_FIXTURES_TOML}: `{}` test command `{command}` must start with `cargo test` or `cargo xtask`",
+                    entry.stable_id
+                ));
+            }
+        }
+    } else {
+        validate_required_text(entry.reason.as_deref(), &entry.stable_id, "reason", errors);
+    }
+}
+
+fn validate_required_text(
+    value: Option<&str>,
+    stable_id: &str,
+    field: &str,
+    errors: &mut Vec<String>,
+) {
+    if value.is_none_or(|value| value.trim().is_empty()) {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{stable_id}` {field} is required"
+        ));
+    }
+}
+
+fn validate_required_vec(
+    values: &[String],
+    stable_id: &str,
+    field: &str,
+    errors: &mut Vec<String>,
+) {
+    if values.is_empty() || values.iter().any(|value| value.trim().is_empty()) {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{stable_id}` {field} must contain at least one non-empty value"
+        ));
+    }
+}
+
+fn validate_negative_fixture_matrix(
+    policy: &NegativeFixturePolicy,
+    matrix_rows: &BTreeMap<String, NegativeFixtureMatrixRow>,
+    errors: &mut Vec<String>,
+) {
+    let ledger_ids = policy
+        .negative
+        .iter()
+        .map(|entry| entry.stable_id.as_str())
+        .collect::<BTreeSet<_>>();
+
+    for matrix_id in matrix_rows.keys() {
+        if !ledger_ids.contains(matrix_id.as_str()) {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURE_MATRIX_MD}: row `{matrix_id}` is not present in {NEGATIVE_FIXTURES_TOML}"
+            ));
+        }
+    }
+
+    for entry in &policy.negative {
+        let Some(row) = matrix_rows.get(&entry.stable_id) else {
+            continue;
+        };
+        if row.status != entry.status {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURE_MATRIX_MD}: `{}` status `{}` does not match ledger `{}`",
+                entry.stable_id, row.status, entry.status
+            ));
+        }
+        let expected_bundle = expected_negative_fixture_bundle_cell(entry);
+        if row.bundle_exposed != expected_bundle {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURE_MATRIX_MD}: `{}` bundle cell `{}` does not match ledger `{}`",
+                entry.stable_id, row.bundle_exposed, expected_bundle
+            ));
+        }
+        if entry.status == "implemented" {
+            let surface = entry.public_surface.as_deref().unwrap_or_default();
+            if row.public_surface != surface {
+                errors.push(format!(
+                    "{NEGATIVE_FIXTURE_MATRIX_MD}: `{}` public surface `{}` does not match ledger `{}`",
+                    entry.stable_id, row.public_surface, surface
+                ));
+            }
+            if !entry.tests.contains(&row.proof) {
+                errors.push(format!(
+                    "{NEGATIVE_FIXTURE_MATRIX_MD}: `{}` proof `{}` is not one of the ledger tests",
+                    entry.stable_id, row.proof
+                ));
+            }
+        }
+    }
+}
+
+fn expected_negative_fixture_bundle_cell(entry: &NegativeFixtureEntry) -> String {
+    if entry.bundle_exposed == Some(true) {
+        entry.bundle_profiles.join(", ")
+    } else {
+        "no".to_string()
+    }
+}
+
+fn validate_json_schema_file(path: &str, errors: &mut Vec<String>) {
+    let raw = match fs::read_to_string(path) {
+        Ok(raw) => raw,
+        Err(error) => {
+            errors.push(format!("{path}: failed to read schema: {error}"));
+            return;
+        }
+    };
+    let parsed: serde_json::Value = match serde_json::from_str(&raw) {
+        Ok(parsed) => parsed,
+        Err(error) => {
+            errors.push(format!("{path}: failed to parse JSON schema: {error}"));
+            return;
+        }
+    };
+    if parsed
+        .get("$schema")
+        .and_then(|value| value.as_str())
+        .is_none()
+    {
+        errors.push(format!("{path}: `$schema` is required"));
+    }
+    if parsed
+        .get("title")
+        .and_then(|value| value.as_str())
+        .is_none()
+    {
+        errors.push(format!("{path}: `title` is required"));
+    }
+    if parsed.get("type").and_then(|value| value.as_str()) != Some("object") {
+        errors.push(format!("{path}: root `type` must be `object`"));
+    }
+}
+
+fn parse_negative_fixture_matrix(raw: &str) -> BTreeMap<String, NegativeFixtureMatrixRow> {
+    let mut rows = BTreeMap::new();
+    for line in raw.lines() {
+        let line = line.trim();
+        if !line.starts_with('|') || !line.contains('`') {
+            continue;
+        }
+        let columns = line
+            .trim_matches('|')
+            .split('|')
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        if columns.len() < 5 {
+            continue;
+        }
+        let Some(stable_id) = first_markdown_code(columns[0]) else {
+            continue;
+        };
+        let Some(status) = first_markdown_code(columns[1]) else {
+            continue;
+        };
+        let public_surface = first_markdown_code(columns[2]).unwrap_or_else(|| columns[2].into());
+        let bundle_exposed = first_markdown_code(columns[3]).unwrap_or_else(|| columns[3].into());
+        let proof = first_markdown_code(columns[4]).unwrap_or_else(|| columns[4].into());
+        rows.insert(
+            stable_id,
+            NegativeFixtureMatrixRow {
+                status,
+                public_surface,
+                bundle_exposed,
+                proof,
+            },
+        );
+    }
+    rows
+}
+
+fn first_markdown_code(cell: &str) -> Option<String> {
+    let start = cell.find('`')?;
+    let rest = &cell[start + 1..];
+    let end = rest.find('`')?;
+    Some(rest[..end].to_string())
+}
+
+fn is_valid_negative_stable_id(stable_id: &str) -> bool {
+    let mut chars = stable_id.chars();
+    let Some(first) = chars.next() else {
+        return false;
+    };
+    if !first.is_ascii_lowercase() {
+        return false;
+    }
+    let mut previous_underscore = false;
+    for ch in chars {
+        match ch {
+            'a'..='z' | '0'..='9' => previous_underscore = false,
+            '_' if !previous_underscore => previous_underscore = true,
+            _ => return false,
+        }
+    }
+    !previous_underscore
+}
+
+fn is_valid_negative_status(status: &str) -> bool {
+    matches!(
+        status,
+        "implemented" | "accepted_planned" | "deferred" | "out_of_scope"
+    )
+}
+
+fn count_negative_fixture_status(policy: &NegativeFixturePolicy, status: &str) -> usize {
+    policy
+        .negative
+        .iter()
+        .filter(|entry| entry.status == status)
+        .count()
+}
+
+fn render_negative_fixture_policy_md(report: &NegativeFixturePolicyReport) -> String {
+    let mut s = String::new();
+    s.push_str("# Negative fixture policy report\n\n");
+    s.push_str(&format!("- Schema version: `{}`\n", report.schema_version));
+    s.push_str(&format!("- Owner: `{}`\n", report.owner));
+    s.push_str(&format!("- Updated: `{}`\n", report.updated));
+    s.push_str(&format!("- Entries: {}\n", report.total_entries));
+    s.push_str(&format!("- Implemented: {}\n", report.implemented));
+    s.push_str(&format!(
+        "- Accepted/planned: {}\n",
+        report.accepted_planned
+    ));
+    s.push_str(&format!("- Deferred: {}\n", report.deferred));
+    s.push_str(&format!("- Out of scope: {}\n", report.out_of_scope));
+    s.push_str(&format!("- Matrix rows: {}\n", report.matrix_rows));
+    s.push_str(&format!("- Errors: {}\n\n", report.errors.len()));
+    s.push_str("## Schemas Checked\n\n");
+    for schema in &report.schemas_checked {
+        s.push_str(&format!("- `{schema}`\n"));
+    }
+    s.push('\n');
+    if !report.errors.is_empty() {
+        s.push_str("## Errors\n\n");
+        for error in &report.errors {
+            s.push_str(&format!("- {error}\n"));
+        }
+        s.push('\n');
+    }
+    s
+}
+
+// =============================================================================
 // lint-policy checker
 // =============================================================================
 
@@ -1769,6 +2274,7 @@ pub fn policy_report() -> Result<()> {
     for (name, run) in [
         ("no-panic", check_no_panic_family()),
         ("file-policy", check_file_policy()),
+        ("negative-fixtures", check_negative_fixtures()),
         ("lint-policy", check_lint_policy()),
     ] {
         if let Err(e) = &run {
@@ -1857,6 +2363,52 @@ mod tests {
         assert!(msrv_reached("1.95", "1.94"));
         assert!(!msrv_reached("1.92", "1.94"));
         assert!(!msrv_reached("1.93", "1.94"));
+    }
+
+    #[test]
+    fn negative_fixture_stable_ids_are_lower_snake_case() {
+        assert!(is_valid_negative_stable_id("jwt_missing_kid"));
+        assert!(is_valid_negative_stable_id("x509_not_yet_valid_leaf"));
+        assert!(!is_valid_negative_stable_id("JwtMissingKid"));
+        assert!(!is_valid_negative_stable_id("jwt-missing-kid"));
+        assert!(!is_valid_negative_stable_id("jwt_missing_kid_"));
+    }
+
+    #[test]
+    fn negative_fixture_matrix_parser_reads_contract_rows() -> Result<()> {
+        let rows = parse_negative_fixture_matrix(
+            "| Stable ID | Status | Public surface | Bundle exposed | Proof |\n\
+             | --- | --- | --- | --- | --- |\n\
+             | `jwt_missing_kid` | `implemented` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n",
+        );
+        let row = rows
+            .get("jwt_missing_kid")
+            .ok_or_else(|| anyhow::anyhow!("matrix row"))?;
+        assert_eq!(row.status, "implemented");
+        assert_eq!(row.public_surface, "NegativeToken::MissingKid");
+        assert_eq!(row.bundle_exposed, "no");
+        assert_eq!(row.proof, "cargo test -p uselesskey-token --all-features");
+        Ok(())
+    }
+
+    #[test]
+    fn implemented_negative_fixture_requires_public_contract_fields() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "jwt_missing_kid".into(),
+            family: "jwt_token".into(),
+            status: "implemented".into(),
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(false),
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        validate_negative_fixture_entry(&entry, &mut errors);
+        assert!(errors.iter().any(|error| error.contains("owner_crate")));
+        assert!(errors.iter().any(|error| error.contains("public_surface")));
+        assert!(errors.iter().any(|error| error.contains("docs")));
+        assert!(errors.iter().any(|error| error.contains("tests")));
+        assert!(errors.iter().any(|error| error.contains("does_not_prove")));
     }
 
     #[test]
