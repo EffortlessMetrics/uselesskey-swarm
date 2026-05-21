@@ -210,29 +210,29 @@ struct AuditBundleArgs {
 }
 
 impl VerifyBundleArgs {
-    fn bundle_dir(&self) -> &Path {
+    fn bundle_dir(&self) -> Result<&Path> {
         self.bundle_dir
             .as_deref()
             .or(self.path.as_deref())
-            .expect("clap requires a bundle directory")
+            .context("clap requires a bundle directory")
     }
 }
 
 impl InspectBundleArgs {
-    fn bundle_dir(&self) -> &Path {
+    fn bundle_dir(&self) -> Result<&Path> {
         self.bundle_dir
             .as_deref()
             .or(self.path.as_deref())
-            .expect("clap requires a bundle directory")
+            .context("clap requires a bundle directory")
     }
 }
 
 impl AuditBundleArgs {
-    fn bundle_dir(&self) -> &Path {
+    fn bundle_dir(&self) -> Result<&Path> {
         self.bundle_dir
             .as_deref()
             .or(self.path.as_deref())
-            .expect("clap requires a bundle directory")
+            .context("clap requires a bundle directory")
     }
 }
 
@@ -544,7 +544,7 @@ fn run_bundle(args: BundleArgs) -> Result<()> {
 }
 
 fn run_verify_bundle(args: VerifyBundleArgs) -> Result<()> {
-    let bundle_dir = args.bundle_dir().to_path_buf();
+    let bundle_dir = args.bundle_dir()?.to_path_buf();
     let manifest_path = bundle_dir.join("manifest.json");
     let manifest = load_bundle_manifest(&manifest_path)
         .with_context(|| format!("invalid bundle manifest {}", manifest_path.display()))?;
@@ -566,7 +566,7 @@ fn run_verify_bundle(args: VerifyBundleArgs) -> Result<()> {
 }
 
 fn run_inspect_bundle(args: InspectBundleArgs) -> Result<()> {
-    let bundle_dir = args.bundle_dir().to_path_buf();
+    let bundle_dir = args.bundle_dir()?.to_path_buf();
     let manifest_path = bundle_dir.join("manifest.json");
     let manifest = load_bundle_manifest(&manifest_path)
         .with_context(|| format!("invalid bundle manifest {}", manifest_path.display()))?;
@@ -586,7 +586,8 @@ fn run_audit_bundle(args: AuditBundleArgs) -> Result<()> {
         return run_audit_bundle_ci(args);
     }
 
-    let audit = match build_bundle_audit(args.bundle_dir()) {
+    let bundle_dir = args.bundle_dir()?.to_path_buf();
+    let audit = match build_bundle_audit(&bundle_dir) {
         Ok(audit) => audit,
         Err(err) => {
             let diagnostic = bundle_audit_failure_diagnostic(&err);
@@ -643,7 +644,8 @@ fn run_audit_bundle(args: AuditBundleArgs) -> Result<()> {
 }
 
 fn run_audit_bundle_ci(args: AuditBundleArgs) -> Result<()> {
-    match build_bundle_audit(args.bundle_dir()) {
+    let bundle_dir = args.bundle_dir()?.to_path_buf();
+    match build_bundle_audit(&bundle_dir) {
         Ok(audit) => {
             if let Some(diagnostic) = bundle_audit_policy_failure(&audit, &args) {
                 let failure = bundle_audit_policy_failure_json(&audit, &diagnostic);
@@ -661,7 +663,7 @@ fn run_audit_bundle_ci(args: AuditBundleArgs) -> Result<()> {
         }
         Err(err) => {
             let diagnostic = bundle_audit_failure_diagnostic(&err);
-            let failure = bundle_audit_failure_json(args.bundle_dir(), &diagnostic);
+            let failure = bundle_audit_failure_json(&bundle_dir, &diagnostic);
             emit_artifact(&Artifact::Json(failure), None)?;
             bail!(
                 "audit failed: {}: {}",

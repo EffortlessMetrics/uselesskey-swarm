@@ -556,7 +556,11 @@ mod tests {
 
         let report = write_report(dir.path(), &out_dir)?;
 
-        assert_eq!(report.active_goal.as_ref().unwrap().id, "test-goal");
+        let active_goal = report
+            .active_goal
+            .as_ref()
+            .context("expected report to include an active goal")?;
+        assert_eq!(active_goal.id, "test-goal");
         assert_eq!(report.goal_manifest.status, "active");
         assert_eq!(report.ready_work_items.len(), 1);
         assert!(out_dir.join("graph.md").exists());
@@ -608,7 +612,10 @@ commands = ["cargo xtask repo-contract-report"]
             serde_json::from_str(&fs::read_to_string(out_dir.join("graph.json"))?)?;
         assert!(json["active_goal"].is_null());
         assert_eq!(json["goal_manifest"]["status"], "archived");
-        assert_eq!(json["ready_work_items"].as_array().unwrap().len(), 0);
+        let ready_work_items = json["ready_work_items"]
+            .as_array()
+            .context("expected ready_work_items to be an array")?;
+        assert_eq!(ready_work_items.len(), 0);
         Ok(())
     }
 
