@@ -110,7 +110,7 @@ commands = [
 
 [[work_item]]
 id = "release-readiness-record"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
