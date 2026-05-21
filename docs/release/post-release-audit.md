@@ -47,8 +47,8 @@ For bundle promises, regenerate and verify the default platform lane:
 
 ```bash
 cargo run -p uselesskey-cli -- bundle --profile scanner-safe --out target/post-release-bundle
-cargo run -p uselesskey-cli -- verify-bundle --path target/post-release-bundle
-cargo run -p uselesskey-cli -- inspect-bundle --path target/post-release-bundle
+cargo run -p uselesskey-cli -- verify-bundle target/post-release-bundle
+cargo run -p uselesskey-cli -- inspect-bundle target/post-release-bundle
 cargo run -p uselesskey-cli -- export k8s \
   --bundle-dir target/post-release-bundle \
   --name uselesskey-fixtures \

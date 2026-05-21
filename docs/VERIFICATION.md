@@ -113,7 +113,7 @@ Installed bundle audits are the reviewer handoff for one local generated
 bundle:
 
 ```bash
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
 ```
 
 The installed audit proves local bundle consistency and metadata

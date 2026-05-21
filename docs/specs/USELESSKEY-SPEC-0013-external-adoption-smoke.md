@@ -134,8 +134,8 @@ Installed-style CLI commands should prefer the product surface:
 uselesskey profiles
 uselesskey profile webhook --explain
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
-uselesskey inspect-bundle --path target/uselesskey-webhook
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
 ```
 
 The smoke command may use a local binary path in `--path .` mode, but receipts

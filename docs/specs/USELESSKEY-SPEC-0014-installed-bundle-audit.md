@@ -53,8 +53,8 @@ or a provider compatibility claim.
 The installed CLI provides bundle-local audit receipts:
 
 ```bash
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit
-uselesskey audit-bundle --path target/uselesskey-webhook --format json
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
+uselesskey audit-bundle target/uselesskey-webhook --format json
 ```
 
 When `--out <dir>` is provided, the command writes:
@@ -160,8 +160,8 @@ The command implementation should run:
 ```bash
 cargo test -p uselesskey-cli --all-features audit_bundle
 cargo run -p uselesskey-cli -- bundle --profile webhook --out target/audit-test/webhook
-cargo run -p uselesskey-cli -- audit-bundle --path target/audit-test/webhook --out target/audit-test/webhook-audit
-cargo run -p uselesskey-cli -- audit-bundle --path target/audit-test/webhook --format json
+cargo run -p uselesskey-cli -- audit-bundle target/audit-test/webhook --out target/audit-test/webhook-audit
+cargo run -p uselesskey-cli -- audit-bundle target/audit-test/webhook --format json
 cargo xtask no-blob
 cargo xtask pr-lite
 git diff --check
@@ -196,7 +196,7 @@ This spec is accepted when:
 Acceptable:
 
 ```text
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
   -> writes bundle-audit.json and bundle-audit.md
   -> lists request fixture paths, scanner-safe labels, runtime-material counts, and boundaries
   -> does not copy request payloads into the audit directory
@@ -205,7 +205,7 @@ uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey
 Acceptable:
 
 ```text
-uselesskey audit-bundle --path target/uselesskey-tls --format json
+uselesskey audit-bundle target/uselesskey-tls --format json
   -> emits metadata and check status for the local TLS bundle
   -> says production PKI and mTLS are not proven
 ```

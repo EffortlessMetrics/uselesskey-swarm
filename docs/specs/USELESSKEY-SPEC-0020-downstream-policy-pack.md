@@ -57,8 +57,8 @@ bundle audit output. Presets are named, bounded, and explainable:
 Policy controls should stay tiny. The initial accepted controls are:
 
 ```bash
-uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook
-uselesskey audit-bundle --path target/uselesskey-webhook --ci --policy strict
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook
+uselesskey audit-bundle target/uselesskey-webhook --ci --policy strict
 ```
 
 `--expect-profile <profile>` checks that the audited bundle profile matches the
@@ -150,7 +150,7 @@ This spec is implemented when:
 Acceptable:
 
 ```text
-uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook
   -> exits 0 when the local audit passes and the manifest profile is webhook
   -> exits non-zero with a stable class when the bundle profile is tls
 ```
@@ -158,7 +158,7 @@ uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile w
 Acceptable:
 
 ```text
-uselesskey audit-bundle --path target/uselesskey-oidc --ci --policy strict
+uselesskey audit-bundle target/uselesskey-oidc --ci --policy strict
   -> treats path_escape, missing_manifest, missing_receipt, unexpected_artifact,
      scanner_safe_mismatch, runtime_material_mismatch, and unsupported_profile
      as CI failures

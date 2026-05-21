@@ -216,9 +216,9 @@ not be smuggled into this bundle product-surface spec.
 The installed CLI verification path is:
 
 ```bash
-uselesskey verify-bundle --path target/uselesskey-oidc
-uselesskey inspect-bundle --path target/uselesskey-oidc
-uselesskey audit-bundle --path target/uselesskey-oidc --out target/uselesskey-oidc-audit --ci
+uselesskey verify-bundle target/uselesskey-oidc
+uselesskey inspect-bundle target/uselesskey-oidc
+uselesskey audit-bundle target/uselesskey-oidc --out target/uselesskey-oidc-audit --ci
 ```
 
 `verify-bundle` proves local bundle consistency against deterministic profile

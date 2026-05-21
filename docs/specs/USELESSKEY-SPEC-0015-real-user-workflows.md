@@ -131,9 +131,9 @@ Copyable command:
 
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
-uselesskey inspect-bundle --path target/uselesskey-webhook
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci
 ```
 
 Positive case:
@@ -153,7 +153,7 @@ when the profile or task requires them.
 Verification command:
 
 ```bash
-uselesskey verify-bundle --path target/uselesskey-webhook
+uselesskey verify-bundle target/uselesskey-webhook
 ```
 
 Receipt or smoke path:
@@ -200,7 +200,7 @@ payloads unless the artifact is documented scanner-safe.
 Verification command:
 
 ```bash
-uselesskey audit-bundle --path target/uselesskey-scanner-safe --summary
+uselesskey audit-bundle target/uselesskey-scanner-safe --summary
 ```
 
 Receipt or smoke path:

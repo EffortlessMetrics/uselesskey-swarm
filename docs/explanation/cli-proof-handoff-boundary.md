@@ -7,7 +7,7 @@ Installed CLI users can discover the relevant proof path:
 ```bash
 uselesskey profiles
 uselesskey profile webhook --explain
-uselesskey inspect-bundle --path target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
 ```
 
 Those commands explain generated files, scanner-safe posture, runtime-material

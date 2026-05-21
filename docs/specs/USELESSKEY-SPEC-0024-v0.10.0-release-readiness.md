@@ -140,8 +140,8 @@ Acceptable release-candidate CLI proof:
 ```bash
 uselesskey doctor --format json
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
-uselesskey verify-bundle --path target/uselesskey-oidc
-uselesskey inspect-bundle --path target/uselesskey-oidc
+uselesskey verify-bundle target/uselesskey-oidc
+uselesskey inspect-bundle target/uselesskey-oidc
 uselesskey audit-bundle \
   --path target/uselesskey-oidc \
   --ci \
