@@ -68,10 +68,10 @@ what should happen next from repository artifacts instead of chat history.
 | Claim ledger payload | Done | Missing payload claims and public-claims rows. |
 | Support-tier map | Done | `docs/status/SUPPORT_TIERS.md`. |
 | Check support tiers | Done | `cargo xtask check-support-tiers`. |
-| Control-plane implementation plan | Active | This plan and its doc-artifact ledger entry. |
-| Active goal manifest | Ready | Replace archived lane with source-of-truth control-plane active goal. |
-| Check active goals | Ready | Add `cargo xtask check-goals`. |
-| Agent operating contract | Ready | Root `AGENTS.md` and Codex operating contract doc updates. |
+| Control-plane implementation plan | Done | This plan and its doc-artifact ledger entry. |
+| Active goal manifest | Done | Replace archived lane with source-of-truth control-plane active goal. |
+| Check active goals | Done | Add `cargo xtask check-goals`. |
+| Agent operating contract | Done | Root `AGENTS.md` and Codex operating contract doc updates. |
 | PR and issue templates | Ready | GitHub PR and issue templates. |
 | Advisory CI | Ready | Source-of-truth checks beside the normalized routed result. |
 | Report and generators | Ready | Repo contract report, PR body generator, closeout generator. |
