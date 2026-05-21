@@ -28,15 +28,21 @@ normal repo work.
 
 For active work, start from the narrowest current-state artifact:
 
-1. `.uselesskey/goals/active.toml`
-2. The linked implementation plan item
-3. The linked spec
-4. The linked ADR, when a durable decision is needed
-5. The linked proposal, only for why and context
-6. Affected policy ledgers, support tiers, docs, and receipts
+1. `.rails/index.toml`
+2. The Rails `active_lane`, when present
+3. `.rails/migration-status.md` and `last_closed_lane`, when no Rails lane is
+   active
+4. `.uselesskey/goals/active.toml`, when present and `status = "active"`
+5. The linked implementation plan item
+6. The linked spec
+7. The linked ADR, when a durable decision is needed
+8. The linked proposal, only for why and context
+9. Affected policy ledgers, support tiers, docs, and receipts
 
-Do not treat old chat prompts, stale handoffs, or historical plans as active
-instructions when the active goal and linked plan disagree.
+Treat `status = "archived"` in `.uselesskey/goals/active.toml` as no current
+uselesskey goal. Do not treat old chat prompts, stale handoffs, or historical
+plans as active instructions when the Rails index, active goal, and linked plan
+disagree.
 
 ## Artifact Guides
 
