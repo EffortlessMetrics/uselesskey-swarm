@@ -1,7 +1,20 @@
 schema_version = "1.0"
 
 id = "<policy-reference-id>"
-name = "<Policy reference name>"
+kind = "policy-reference"
+title = "<Policy reference name>"
+status = "active"
 owner = "<owner>"
+created = "YYYY-MM-DD"
 source_path = "<existing-policy-file>"
+linked_proposal = "<REPO>-PROP-0001"
+linked_specs = ["<REPO>-SPEC-0001"]
+linked_adrs = []
+linked_lane = "<lane-id>"
+support_tier_impact = "none"
+policy_impact = "references existing policy source"
+required_evidence = ["git diff --check"]
+non_goals = []
+claim_boundary = "This reference does not duplicate or replace the live policy source."
+rollback = "Remove this reference if the source path is not ready to be indexed."
 notes = "References live policy source without duplication."

@@ -12,6 +12,9 @@ Lane: RAILS-LANE-0001
   and closeouts.
 - `.rails/migration-status.md` maps current source-of-truth authority, Rails
   migration state, and proof rules.
+- Portable Rails templates now include IDs/kinds, cross-artifact links,
+  support-tier impact, policy impact, required evidence, non-goals, claim
+  boundary, and rollback fields.
 - `docs/rails.md` and `docs/contributing/rails.md` explain how `.rails/` fits
   beside the existing uselesskey source-of-truth stack.
 - PR #56, the older `.uselesskey-spec/` namespace proposal, was closed as
@@ -35,6 +38,11 @@ Lane: RAILS-LANE-0001
 - Closeout PR: `cargo xtask typos`
 - Closeout PR: TOML parse for `.rails/index.toml` and the Rails lane manifest.
 - Closeout PR: `git diff --check`
+- Template hardening PR: `cargo xtask docs-sync --check`
+- Template hardening PR: `cargo xtask typos`
+- Template hardening PR: TOML parse for `.rails/templates/lane-tracker.toml`
+  and `.rails/templates/policy-reference.toml`.
+- Template hardening PR: `git diff --check`
 
 ## Current Boundaries
 

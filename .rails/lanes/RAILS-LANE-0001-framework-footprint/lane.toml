@@ -61,3 +61,15 @@ proof = [
   "git diff --check",
 ]
 evidence = "Recorded in `.rails/closeouts/2026-05-21-rails-framework-footprint.md`."
+
+[[work_item]]
+id = "template-hardening"
+status = "done"
+scope = "Make portable Rails templates carry links, evidence, policy impact, claim boundary, non-goals, and rollback fields."
+proof = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "TOML parse for `.rails/templates/lane-tracker.toml` and `.rails/templates/policy-reference.toml`",
+  "git diff --check",
+]
+evidence = "Added by the completion audit before marking the Rails footprint goal complete."

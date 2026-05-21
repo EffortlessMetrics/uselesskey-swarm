@@ -1,9 +1,17 @@
 schema_version = "1.0"
 
 id = "<lane-id>"
-name = "<Lane name>"
+kind = "lane"
+title = "<Lane name>"
 status = "active"
 owner = "<owner>"
+created = "YYYY-MM-DD"
+linked_proposal = "<REPO>-PROP-0001"
+linked_specs = ["<REPO>-SPEC-0001"]
+linked_adrs = []
+linked_plan = ".rails/lanes/<lane-id>/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
 
 objective = """
 What this lane is trying to make true.
@@ -21,8 +29,13 @@ proposal = "<REPO>-PROP-0001"
 spec = "<REPO>-SPEC-0001"
 adr = ""
 implementation_plan = ".rails/lanes/<lane-id>/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
 blocks = []
 blocked_by = []
 proof = [
   "git diff --check",
 ]
+non_goals = []
+claim_boundary = "What this work does not prove."
+rollback = "How to revert or abandon this work safely."
