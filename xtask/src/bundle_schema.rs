@@ -921,8 +921,38 @@ fn validate_audit_manifest_link(
         ));
     }
 
+    validate_audit_file_links(manifest, audit, errors);
     validate_audit_artifact_links(manifest, audit, errors);
     validate_audit_receipt_links(manifest, audit, errors);
+}
+
+fn validate_audit_file_links(manifest: &Value, audit: &Value, errors: &mut Vec<String>) {
+    let manifest_files = path_set(
+        manifest.get("files").and_then(Value::as_array),
+        "manifest.json.files",
+        errors,
+    );
+    let audit_files = path_set(
+        audit.get("files").and_then(Value::as_array),
+        "bundle-audit.json.files",
+        errors,
+    );
+
+    for file_path in &manifest_files {
+        if !audit_files.contains(file_path) {
+            errors.push(format!(
+                "bundle-audit.json.files: missing manifest file `{file_path}`"
+            ));
+        }
+    }
+
+    for file_path in &audit_files {
+        if !manifest_files.contains(file_path) {
+            errors.push(format!(
+                "bundle-audit.json.files: `{file_path}` is not listed in manifest.json.files"
+            ));
+        }
+    }
 }
 
 fn validate_audit_artifact_links(manifest: &Value, audit: &Value, errors: &mut Vec<String>) {
@@ -1074,6 +1104,23 @@ fn path_map<'a>(
         };
         if paths.insert(path, value).is_some() {
             errors.push(format!("{section}[{idx}].path: duplicate path `{path}`"));
+        }
+    }
+    paths
+}
+
+fn path_set<'a>(
+    values: Option<&'a Vec<Value>>,
+    section: &str,
+    errors: &mut Vec<String>,
+) -> BTreeSet<&'a str> {
+    let mut paths = BTreeSet::new();
+    for (idx, value) in values.into_iter().flatten().enumerate() {
+        let Some(path) = value.as_str() else {
+            continue;
+        };
+        if !paths.insert(path) {
+            errors.push(format!("{section}[{idx}]: duplicate path `{path}`"));
         }
     }
     paths
@@ -1632,6 +1679,7 @@ mod tests {
     fn audit_manifest_link_accepts_matching_artifacts_and_receipts() {
         let manifest = json!({
             "profile": "scanner-safe",
+            "files": ["token.json", "receipts/negative-coverage.json"],
             "artifacts": [{
                 "path": "token.json",
                 "kind": "token",
@@ -1650,6 +1698,7 @@ mod tests {
             "profile": "scanner-safe",
             "artifact_count": 1,
             "receipt_count": 1,
+            "files": ["token.json", "receipts/negative-coverage.json"],
             "artifacts": [{
                 "path": "token.json",
                 "kind": "token",
@@ -1676,6 +1725,11 @@ mod tests {
     fn audit_manifest_link_rejects_metadata_drift() {
         let manifest = json!({
             "profile": "scanner-safe",
+            "files": [
+                "token.json",
+                "receipts/negative-coverage.json",
+                "missing-from-audit.json"
+            ],
             "artifacts": [{
                 "path": "token.json",
                 "kind": "token",
@@ -1694,6 +1748,11 @@ mod tests {
             "profile": "scanner-safe",
             "artifact_count": 2,
             "receipt_count": 2,
+            "files": [
+                "token.json",
+                "extra-file.json",
+                "extra-file.json"
+            ],
             "artifacts": [
                 {
                     "path": "token.json",
@@ -1740,6 +1799,9 @@ mod tests {
             "runtime_material",
             "description",
             "extra.json",
+            "missing-from-audit.json",
+            "extra-file.json",
+            "duplicate path",
             "profile",
             "receipts/extra.json",
         ] {
