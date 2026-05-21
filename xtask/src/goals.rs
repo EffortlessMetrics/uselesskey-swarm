@@ -302,23 +302,17 @@ fn validate_work_item(
     }
 
     match item.status.as_str() {
-        "ready" | "active" => {
-            if item.commands.is_empty() {
-                errors.push(format!(
-                    "{label} status `{}` requires commands",
-                    item.status
-                ));
-            }
+        "ready" | "active" if item.commands.is_empty() => {
+            errors.push(format!(
+                "{label} status `{}` requires commands",
+                item.status
+            ));
         }
-        "done" => {
-            if item.commands.is_empty() && item.receipts.is_empty() {
-                errors.push(format!("{label} done item requires commands or receipts"));
-            }
+        "done" if item.commands.is_empty() && item.receipts.is_empty() => {
+            errors.push(format!("{label} done item requires commands or receipts"));
         }
-        "blocked" => {
-            if blocked_by_is_empty(item.blocked_by.as_ref()) {
-                errors.push(format!("{label} blocked item requires blocked_by"));
-            }
+        "blocked" if blocked_by_is_empty(item.blocked_by.as_ref()) => {
+            errors.push(format!("{label} blocked item requires blocked_by"));
         }
         _ => {}
     }
