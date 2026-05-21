@@ -113,7 +113,7 @@ bundle:
 
 This does not prove:
 
-- repo public claims;
+- broader repo public claims by itself;
 - release readiness;
 - production security or production key management;
 - provider compatibility;

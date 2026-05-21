@@ -77,9 +77,9 @@ uselesskey audit-bundle --path target/uselesskey-webhook --ci --out target/usele
 
 Attach `bundle-audit.md` and `bundle-audit.json` when a reviewer needs local
 bundle metadata. The audit proves local bundle consistency and metadata
-classification only. It does not prove repo public claims, release readiness,
-provider compatibility, production security, or downstream verifier
-correctness.
+classification only. It does not prove broader repo public claims by itself,
+release readiness, provider compatibility, production security, or downstream
+verifier correctness.
 
 Keep generated payloads under `target/`. Commit metadata, docs, and policy when
 needed, not generated secret-shaped payloads.

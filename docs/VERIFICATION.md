@@ -117,9 +117,9 @@ uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey
 ```
 
 The installed audit proves local bundle consistency and metadata
-classification. It does not prove repo public claims, release readiness,
-provider compatibility, production security, scanner evasion, or downstream
-verifier correctness. Use
+classification. It is not standalone proof for broader repo public claims,
+release readiness, provider compatibility, production security, scanner
+evasion, or downstream verifier correctness. Use
 [`docs/how-to/share-installed-bundle-audit.md`](how-to/share-installed-bundle-audit.md)
 for that workflow.
 

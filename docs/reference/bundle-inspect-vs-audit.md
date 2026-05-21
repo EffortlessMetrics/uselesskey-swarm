@@ -43,7 +43,7 @@ uselesskey audit-bundle --path target/uselesskey-webhook --summary
 `inspect-bundle` is for a human's immediate read. `audit-bundle` is for durable
 reviewer and CI evidence.
 
-Neither command proves repo public claims, release readiness, production
-security, provider compatibility, scanner evasion, or downstream verifier
-correctness. Use repo-local verification commands when you need public-claim or
-release evidence.
+Neither command is standalone proof for broader repo public claims, release
+readiness, production security, provider compatibility, scanner evasion, or
+downstream verifier correctness. Use repo-local verification commands when you
+need public-claim or release evidence.

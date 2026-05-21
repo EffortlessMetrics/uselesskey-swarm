@@ -19,9 +19,9 @@ to:
 - which local consistency checks passed;
 - which stable failure class applies if the audit fails.
 
-The JSON receipt is for installed-user bundle audit. It is not repo public-claim
-proof, release evidence, provider compatibility proof, production security
-proof, or scanner-evasion proof.
+The JSON receipt is for installed-user bundle audit. It is not standalone
+repo public-claim proof, release evidence, provider compatibility proof,
+production security proof, or scanner-evasion proof.
 
 ## Stable Fields
 
@@ -132,7 +132,7 @@ the bundle being audited.
 
 It does not prove:
 
-- repo public claims;
+- broader repo public claims by itself;
 - release readiness;
 - production security;
 - webhook, OIDC, TLS, or other provider compatibility;
