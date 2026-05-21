@@ -143,7 +143,7 @@ uselesskey bundle --profile oidc --out target/uselesskey-oidc
 uselesskey verify-bundle target/uselesskey-oidc
 uselesskey inspect-bundle target/uselesskey-oidc
 uselesskey audit-bundle \
-  --path target/uselesskey-oidc \
+  target/uselesskey-oidc \
   --ci \
   --expect-profile oidc \
   --policy strict
@@ -228,4 +228,3 @@ The lane is ready for release handoff when every work item in
 `.uselesskey/goals/active.toml` is `done`, the readiness record names any
 deferred or non-blocking gaps, and the publication repo can use the packet
 without reading chat history.
-

@@ -15,10 +15,10 @@ uselesskey bundle \
   --out target/uselesskey-bundle
 
 uselesskey verify-bundle \
-  --path target/uselesskey-bundle
+  target/uselesskey-bundle
 
 uselesskey inspect-bundle \
-  --path target/uselesskey-bundle
+  target/uselesskey-bundle
 ```
 
 From a repo checkout while changing the CLI, prefix those subcommands with

@@ -12,7 +12,7 @@ cargo run -p uselesskey-cli -- bundle \
   --out target/uselesskey-bundle
 
 cargo run -p uselesskey-cli -- verify-bundle \
-  --path target/uselesskey-bundle
+  target/uselesskey-bundle
 
 cargo run -p uselesskey-cli -- export k8s \
   --bundle-dir target/uselesskey-bundle \
