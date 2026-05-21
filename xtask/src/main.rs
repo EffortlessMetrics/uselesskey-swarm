@@ -272,6 +272,8 @@ enum Cmd {
     CheckDocArtifacts,
     /// Validate support-tier rows against public claims, proof commands, docs, and specs.
     CheckSupportTiers,
+    /// Validate claim-proof policy rows without running proof handlers.
+    CheckClaimProofPolicy,
     /// Validate active and archived source-of-truth goal manifests.
     CheckGoals,
     /// Generate the repo-native source-of-truth graph report.
@@ -742,6 +744,7 @@ fn main() -> Result<()> {
         }
         Cmd::CheckDocArtifacts => doc_artifacts::run(&workspace_root_path()),
         Cmd::CheckSupportTiers => support_tiers::run(&workspace_root_path()),
+        Cmd::CheckClaimProofPolicy => claim_proof::check_policy(&workspace_root_path()),
         Cmd::CheckGoals => goals::run(&workspace_root_path()),
         Cmd::RepoContractReport => repo_contract_report::run(&workspace_root_path()),
         Cmd::PrBody { work_item } => pr_body::run(&workspace_root_path(), &work_item),

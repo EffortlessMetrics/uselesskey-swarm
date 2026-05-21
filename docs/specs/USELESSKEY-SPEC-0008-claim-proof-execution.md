@@ -53,6 +53,16 @@ The claim-proof policy ledger must be validated before handler execution:
 - `claim_proof.status` must be `implemented` or `planned`;
 - `include_in_all_stable = true` requires `status = "implemented"`.
 
+The same validation must be available through:
+
+```bash
+cargo xtask check-claim-proof-policy
+```
+
+This command validates the claim-proof policy rows without running proof
+handlers or writing claim-proof receipts, so advisory source-of-truth CI can
+catch ledger-shape regressions cheaply.
+
 Initial handler mapping:
 
 | Claim | Handlers |
@@ -111,6 +121,7 @@ The implementation PR must add and run:
 
 ```bash
 cargo test -p xtask claim_proof
+cargo xtask check-claim-proof-policy
 cargo xtask claim-proof --claim scanner-safe-fixtures
 cargo xtask claim-proof --claim tls-contract-pack
 cargo xtask claim-proof --all-stable
@@ -199,6 +210,7 @@ Claim-proof implementation tests must cover:
 Claim-proof execution is owned by:
 
 - `xtask` command parsing for `claim-proof`;
+- `xtask` command parsing for `check-claim-proof-policy`;
 - `policy/claim-ledger.toml` for symbolic handler policy;
 - `policy/claim-ledger.toml` claim rows for boundaries and status;
 - `target/claim-proof/<claim>/receipt.json` and `.md` for receipts;
@@ -219,6 +231,7 @@ Implementation PR:
 
 ```bash
 cargo test -p xtask claim_proof
+cargo xtask check-claim-proof-policy
 cargo xtask claim-proof --claim scanner-safe-fixtures
 cargo xtask claim-proof --claim tls-contract-pack
 cargo xtask claim-proof --all-stable

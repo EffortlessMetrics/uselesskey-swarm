@@ -31,5 +31,8 @@ jobs:
       - name: Check support tiers
         run: cargo xtask check-support-tiers
 
+      - name: Check claim-proof policy
+        run: cargo xtask check-claim-proof-policy
+
       - name: Check negative fixtures
         run: cargo xtask check-negative-fixtures
