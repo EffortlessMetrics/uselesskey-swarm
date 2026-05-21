@@ -75,7 +75,7 @@ what should happen next from repository artifacts instead of chat history.
 | PR and issue templates | Done | GitHub PR and issue templates. |
 | Advisory CI | Done | Source-of-truth checks beside the normalized routed result. |
 | Report and generators | Done | Repo contract report, PR body generator, and closeout generator implemented. |
-| Product surface application | Active | OIDC/JWKS, JWT/token, webhook, TLS/X.509, and first-five-minutes docs are done; downstream CI recipes are next. |
+| Product surface application | Active | OIDC/JWKS, JWT/token, webhook, TLS/X.509, first-five-minutes docs, and downstream CI recipes are done; release handoff packet is next. |
 
 ## Per-PR Proof Commands
 

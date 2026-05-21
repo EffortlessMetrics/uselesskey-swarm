@@ -16,6 +16,20 @@ approval.
 | `strict` | CI should fail on audit drift for one expected profile | `uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook --policy strict` |
 | `reviewer` | you need files to attach to a security or platform review | `uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit` |
 
+## Copyable Recipe Pack
+
+The repo also ships standalone downstream examples under
+[`../../examples/external/ci-recipes/`](../../examples/external/ci-recipes/):
+
+| Job | Recipe |
+| --- | --- |
+| GitHub Actions bundle + verify + audit | `github-actions-bundle-verify-audit.yml.example` |
+| OIDC/JWKS verifier regression | `oidc-jwks-regression.md` |
+| JWT negative test regression | `jwt-negative-regression.md` |
+| Webhook signature regression | `webhook-signature-regression.md` |
+| TLS chain regression | `tls-chain-regression.md` |
+| Scanner-safe placeholder audit | `scanner-safe-placeholder-audit.md` |
+
 ## Strict CI Gate
 
 Generate, verify, inspect, and audit one profile per output directory:
@@ -48,6 +62,7 @@ For a reviewer handoff, write metadata-only receipts:
 ```bash
 uselesskey audit-bundle \
   --path target/uselesskey-webhook \
+  --ci \
   --out target/uselesskey-webhook-audit
 ```
 

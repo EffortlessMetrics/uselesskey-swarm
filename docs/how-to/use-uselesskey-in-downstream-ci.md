@@ -5,6 +5,8 @@ metadata-only audit receipt during CI.
 
 For GitHub Actions workflow files, see
 [use-uselesskey-in-github-actions.md](use-uselesskey-in-github-actions.md).
+For copyable workflow and regression snippets, see
+[`../../examples/external/ci-recipes/`](../../examples/external/ci-recipes/).
 
 ## Copy this
 
