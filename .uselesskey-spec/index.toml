@@ -1,0 +1,16 @@
+schema_version = "1.0"
+
+repo = "uselesskey"
+namespace = ".uselesskey-spec"
+
+[conventions]
+proposal_prefix = "USELESSKEY-PROP"
+spec_prefix = "USELESSKEY-SPEC"
+adr_prefix = "USELESSKEY-ADR"
+lane_prefix = "USELESSKEY-LANE"
+
+[external_namespaces]
+codex = ".codex"
+speckit = ".spec"
+claude = ".claude"
+jules = ".jules"
