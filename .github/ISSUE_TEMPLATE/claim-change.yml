@@ -1,0 +1,68 @@
+name: Claim change
+description: Add, change, or remove a public claim and its proof boundary.
+title: "claim: "
+labels:
+  - claim
+body:
+  - type: input
+    id: claim_id
+    attributes:
+      label: Claim ID
+      description: Stable claim ID in `policy/claim-ledger.toml`.
+      placeholder: metadata-only-audit-packets
+    validations:
+      required: true
+  - type: input
+    id: surface
+    attributes:
+      label: Public surface
+      description: CLI, crate, docs, schema, receipt, or workflow surface.
+      placeholder: uselesskey audit-bundle --ci
+    validations:
+      required: true
+  - type: dropdown
+    id: tier
+    attributes:
+      label: Support tier
+      options:
+        - stable
+        - stabilizing
+        - experimental
+        - advisory
+        - not-supported
+        - release-proof
+    validations:
+      required: true
+  - type: textarea
+    id: docs_and_specs
+    attributes:
+      label: Docs and specs
+      description: Docs paths and spec IDs that define the claim.
+      render: text
+    validations:
+      required: true
+  - type: textarea
+    id: proof_commands
+    attributes:
+      label: Proof commands
+      description: Commands or receipts that validate the claim.
+      render: bash
+    validations:
+      required: true
+  - type: textarea
+    id: does_not_prove
+    attributes:
+      label: Does not prove
+      description: Boundary statements that must appear with the claim.
+    validations:
+      required: true
+  - type: textarea
+    id: policy_impact
+    attributes:
+      label: Policy impact
+      description: Ledgers, support tiers, docs, or schemas that must change.
+  - type: textarea
+    id: rollback
+    attributes:
+      label: Rollback
+      description: How to revert or supersede the claim safely.
