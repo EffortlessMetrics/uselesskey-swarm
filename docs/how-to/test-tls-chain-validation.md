@@ -35,7 +35,7 @@ For file-based CI fixtures:
 ```bash
 uselesskey bundle --profile tls --out target/tls-fixtures
 uselesskey verify-bundle --path target/tls-fixtures
-uselesskey audit-bundle --path target/tls-fixtures --summary
+uselesskey audit-bundle --path target/tls-fixtures --ci --out target/tls-fixtures-audit
 ```
 
 ## What you get
@@ -45,14 +45,14 @@ construction through `uselesskey-rustls`.
 
 The installed CLI bundle writes:
 
-| File | Failure path | Intended failure |
+| File | Stable class | Intended failure |
 | --- | --- | --- |
 | `certs/valid-leaf.pem` | positive control | verifier accepts the leaf for the expected hostname |
 | `certs/valid-chain.pem` | positive control | verifier builds leaf -> intermediate -> root |
-| `certs/negative-expired-leaf.pem` | expired leaf | verifier rejects `notAfter` in the past |
-| `certs/negative-not-yet-valid.pem` | not-yet-valid leaf | verifier rejects `notBefore` in the future |
-| `certs/negative-wrong-hostname.pem` | wrong hostname | verifier rejects SAN/CN mismatch |
-| `certs/negative-untrusted-root.pem` | untrusted root | verifier rejects unknown issuer or trust anchor |
+| `certs/negative-expired-leaf.pem` | `x509_expired_leaf` | verifier rejects `notAfter` in the past |
+| `certs/negative-not-yet-valid.pem` | `x509_not_yet_valid_leaf` | verifier rejects `notBefore` in the future |
+| `certs/negative-wrong-hostname.pem` | `x509_wrong_hostname` | verifier rejects SAN/CN mismatch |
+| `certs/negative-untrusted-root.pem` | `x509_untrusted_root` | verifier rejects unknown issuer or trust anchor |
 
 The bundle also writes `manifest.json`, `evidence/tls-profile.md`, and metadata
 receipts under `receipts/`.
@@ -71,15 +71,21 @@ without committing fixture payloads.
 
 Use the installed bundle for file-based negative tests:
 
-| Fixture | Failure path | Expected downstream rejection |
+| Fixture or API surface | Stable class | Expected downstream rejection |
 | --- | --- | --- |
-| `negative-expired-leaf.pem` | expired leaf | date-bounds check rejects expired leaf |
-| `negative-not-yet-valid.pem` | not-yet-valid leaf | date-bounds check rejects future leaf |
-| `negative-wrong-hostname.pem` | wrong hostname | hostname verifier rejects `wrong.tls.uselesskey.test` when validating `valid.tls.uselesskey.test` |
-| `negative-untrusted-root.pem` | untrusted root | chain builder rejects a leaf outside the configured trust root |
+| `negative-expired-leaf.pem` | `x509_expired_leaf` | date-bounds check rejects expired leaf |
+| `negative-not-yet-valid.pem` | `x509_not_yet_valid_leaf` | date-bounds check rejects future leaf |
+| `negative-wrong-hostname.pem` | `x509_wrong_hostname` | hostname verifier rejects `wrong.tls.uselesskey.test` when validating `valid.tls.uselesskey.test` |
+| `negative-untrusted-root.pem` | `x509_untrusted_root` | chain builder rejects a leaf outside the configured trust root |
+| `ChainNegative::RevokedLeaf` | `x509_revoked_leaf` | revocation-aware tests reject a deterministic revoked leaf fixture |
+| `X509Negative::WrongKeyUsage` | `x509_invalid_key_usage` | verifier policy rejects a certificate missing required usage bits |
 
 Keep these assertions specific. A useful test distinguishes hostname mismatch
 from an unknown issuer, and a date-bound failure from a parse failure.
+
+The current installed TLS bundle exposes the first four negative classes; the
+revocation and key-usage classes are implemented Rust surfaces for tests that
+need those branches.
 
 ## Verify
 
