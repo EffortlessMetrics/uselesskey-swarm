@@ -18,6 +18,7 @@ use uselesskey_feature_grid::{BDD_FEATURE_MATRIX, CORE_FEATURE_MATRIX};
 mod adoption_regression;
 mod audit_surface;
 mod bundle_proof;
+mod bundle_schema;
 mod claim_proof;
 mod claim_report;
 mod contract_packs;
@@ -233,6 +234,12 @@ enum Cmd {
         /// Output directory for proof artifacts.
         #[arg(long)]
         out: Option<PathBuf>,
+    },
+    /// Generate bundle profiles and validate manifest/negative-coverage schema contracts.
+    CheckBundleSchemas {
+        /// Output directory for generated bundles and schema-check receipts.
+        #[arg(long, default_value = "target/bundle-schema-check")]
+        out: PathBuf,
     },
     /// Verify the committed scanner-safe-bundle reference outputs.
     ScannerSafeReference {
@@ -695,6 +702,7 @@ fn main() -> Result<()> {
             patch,
         } => release_evidence(&version, &out, dry_run, summary, patch),
         Cmd::BundleProof { profile, out } => bundle_proof::run(&profile, out.as_deref()),
+        Cmd::CheckBundleSchemas { out } => bundle_schema::check(&out),
         Cmd::ScannerSafeReference { check } => {
             if check {
                 scanner_safe_reference_check()
