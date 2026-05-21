@@ -1,0 +1,35 @@
+name: Source of Truth
+
+on:
+  pull_request:
+  merge_group:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  source-of-truth:
+    name: Source of Truth Advisory
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    continue-on-error: true
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Check doc artifacts
+        run: cargo xtask check-doc-artifacts
+
+      - name: Check goals
+        run: cargo xtask check-goals
+
+      - name: Check support tiers
+        run: cargo xtask check-support-tiers
+
+      - name: Check negative fixtures
+        run: cargo xtask check-negative-fixtures
