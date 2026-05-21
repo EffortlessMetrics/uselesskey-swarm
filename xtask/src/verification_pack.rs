@@ -11,8 +11,6 @@ use crate::{claim_proof, claim_report, contract_packs, git_head_sha};
 struct ClaimLedger {
     #[serde(default)]
     claim: Vec<ClaimEntry>,
-    #[serde(default)]
-    claim_proof: Vec<ClaimProofPolicy>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -23,13 +21,6 @@ struct ClaimEntry {
     boundary: String,
 }
 
-#[derive(Debug, Deserialize)]
-struct ClaimProofPolicy {
-    claim: String,
-    #[serde(default)]
-    include_in_all_stable: bool,
-}
-
 pub(crate) fn run(root: &Path, out: &Path, claim: Option<&str>) -> Result<()> {
     if let Some(claim) = claim {
         validate_claim_id(claim)?;
@@ -37,7 +28,12 @@ pub(crate) fn run(root: &Path, out: &Path, claim: Option<&str>) -> Result<()> {
 
     let out_dir = prepare_out_dir(root, out)?;
     let ledger = read_ledger(root)?;
-    let selected_claims = selected_claims(&ledger, claim)?;
+    let all_stable_claim_ids = if claim.is_some() {
+        Vec::new()
+    } else {
+        claim_proof::stable_claim_ids(root)?
+    };
+    let selected_claims = selected_claims(&ledger, claim, &all_stable_claim_ids)?;
 
     claim_report::write_target_receipt(root, claim)?;
     contract_packs::write_target_receipt(root)?;
@@ -99,7 +95,11 @@ fn read_ledger(root: &Path) -> Result<ClaimLedger> {
     toml::from_str(&text).context("parse policy/claim-ledger.toml")
 }
 
-fn selected_claims(ledger: &ClaimLedger, claim_filter: Option<&str>) -> Result<Vec<ClaimEntry>> {
+fn selected_claims(
+    ledger: &ClaimLedger,
+    claim_filter: Option<&str>,
+    all_stable_claim_ids: &[String],
+) -> Result<Vec<ClaimEntry>> {
     let claims = ledger
         .claim
         .iter()
@@ -118,24 +118,17 @@ fn selected_claims(ledger: &ClaimLedger, claim_filter: Option<&str>) -> Result<V
         }]);
     }
 
-    let proof_policies = ledger
-        .claim_proof
-        .iter()
-        .map(|policy| (policy.claim.as_str(), policy))
-        .collect::<BTreeMap<_, _>>();
     let mut selected = Vec::new();
-    for claim in ledger.claim.iter().filter(|claim| claim.status == "stable") {
-        let Some(policy) = proof_policies.get(claim.id.as_str()) else {
-            bail!("stable claim `{}` has no claim-proof policy", claim.id);
+    for claim_id in all_stable_claim_ids {
+        let Some(claim) = claims.get(claim_id.as_str()) else {
+            bail!("claim-proof selected unknown claim `{claim_id}`");
         };
-        if policy.include_in_all_stable {
-            selected.push(ClaimEntry {
-                id: claim.id.clone(),
-                title: claim.title.clone(),
-                status: claim.status.clone(),
-                boundary: claim.boundary.clone(),
-            });
-        }
+        selected.push(ClaimEntry {
+            id: claim.id.clone(),
+            title: claim.title.clone(),
+            status: claim.status.clone(),
+            boundary: claim.boundary.clone(),
+        });
     }
 
     if selected.is_empty() {
@@ -349,7 +342,14 @@ mod tests {
     #[test]
     fn default_selection_uses_stable_all_stable_claims() -> Result<()> {
         let ledger = minimal_ledger();
-        let selected = selected_claims(&ledger, None)?;
+        let selected = selected_claims(
+            &ledger,
+            None,
+            &[
+                "scanner-safe-fixtures".to_string(),
+                "tls-contract-pack".to_string(),
+            ],
+        )?;
 
         assert_eq!(
             selected
@@ -364,13 +364,29 @@ mod tests {
     #[test]
     fn claim_selection_rejects_unknown_claim() -> Result<()> {
         let ledger = minimal_ledger();
-        let err = match selected_claims(&ledger, Some("missing")) {
+        let err = match selected_claims(&ledger, Some("missing"), &[]) {
             Ok(claims) => bail!("unexpected claim selection: {claims:?}"),
             Err(err) => err,
         };
 
         assert!(
             err.to_string().contains("unknown claim `missing`"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn default_selection_rejects_unknown_claim_proof_selection() -> Result<()> {
+        let ledger = minimal_ledger();
+        let err = match selected_claims(&ledger, None, &["future-contract-pack".to_string()]) {
+            Ok(claims) => bail!("unexpected claim selection: {claims:?}"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string()
+                .contains("claim-proof selected unknown claim `future-contract-pack`"),
             "unexpected error: {err}"
         );
         Ok(())
@@ -487,20 +503,6 @@ mod tests {
                     title: "Crates.io smoke".to_string(),
                     status: "release-proof".to_string(),
                     boundary: "Boundary.".to_string(),
-                },
-            ],
-            claim_proof: vec![
-                ClaimProofPolicy {
-                    claim: "scanner-safe-fixtures".to_string(),
-                    include_in_all_stable: true,
-                },
-                ClaimProofPolicy {
-                    claim: "tls-contract-pack".to_string(),
-                    include_in_all_stable: true,
-                },
-                ClaimProofPolicy {
-                    claim: "external-cratesio-install-smoke".to_string(),
-                    include_in_all_stable: false,
                 },
             ],
         }

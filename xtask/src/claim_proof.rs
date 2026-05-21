@@ -104,6 +104,11 @@ pub(crate) fn run(root: &Path, claim: Option<&str>, all_stable: bool) -> Result<
     Ok(())
 }
 
+pub(crate) fn stable_claim_ids(root: &Path) -> Result<Vec<String>> {
+    let ledger = read_ledger(root)?;
+    stable_claims_with_policy(&ledger)
+}
+
 fn run_claim(root: &Path, ledger: &ClaimLedger, claim_id: &str) -> Result<ClaimProofReceipt> {
     validate_claim_id(claim_id)?;
     let claim = ledger

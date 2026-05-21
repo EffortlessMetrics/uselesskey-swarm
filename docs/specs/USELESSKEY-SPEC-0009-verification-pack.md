@@ -51,9 +51,9 @@ cargo xtask verification-pack --out target/uselesskey-verification
 cargo xtask verification-pack --out target/uselesskey-verification --claim scanner-safe-fixtures
 ```
 
-The default bundle contains stable public-claim receipts. A claim-filtered
-bundle contains the selected claim plus shared index files needed to understand
-that claim.
+The default bundle contains stable public-claim receipts selected by
+`cargo xtask claim-proof --all-stable`. A claim-filtered bundle contains the
+selected claim plus shared index files needed to understand that claim.
 
 The bundle layout is:
 
@@ -184,6 +184,7 @@ Verification-pack implementation tests must cover:
 Verification-pack is owned by:
 
 - `xtask` command parsing for `verification-pack`;
+- `cargo xtask claim-proof --all-stable` for default stable claim selection;
 - `target/claim-report/` for public-claim report receipts;
 - `target/contract-packs/` for contract-pack registry receipts;
 - `badges/*.json` for public badge endpoint JSON;
