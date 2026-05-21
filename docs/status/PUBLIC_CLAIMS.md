@@ -70,3 +70,10 @@ Use `cargo xtask claim-proof --claim <claim-id>` when a reviewer needs runnable
 evidence for a supported claim. Use `cargo xtask verification-pack --out <dir>`
 when they need claim reports, badge endpoints, contract-pack receipts, and
 claim-proof receipts in one metadata-only bundle.
+
+## Workflow Binding
+
+Task-first workflow pages bind back to the same claims instead of creating
+parallel promises. See [`workflow-support.md`](workflow-support.md) for the
+matrix that maps installed CLI and Rust-test workflows to support tiers, proof
+commands, receipts, and boundaries.
