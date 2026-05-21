@@ -248,6 +248,12 @@ fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
                 CLAIM_PROOF_POLICY_IMPLEMENTED
             );
         }
+        if policy.status == CLAIM_PROOF_POLICY_IMPLEMENTED && policy.requires_explicit_version {
+            bail!(
+                "implemented claim-proof policy `{}` requires an explicit version",
+                policy.claim
+            );
+        }
         if policy.status == CLAIM_PROOF_POLICY_IMPLEMENTED && policy.handlers.is_empty() {
             bail!(
                 "implemented claim-proof policy `{}` has no handlers",
@@ -730,6 +736,25 @@ mod tests {
         assert!(
             err.to_string().contains(
                 "claim-proof policy `scanner-safe-fixtures` sets include_in_all_stable with status `planned`, expected `implemented`"
+            ),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_implemented_explicit_version_policy() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].requires_explicit_version = true;
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains(
+                "implemented claim-proof policy `scanner-safe-fixtures` requires an explicit version"
             ),
             "unexpected error: {err}"
         );

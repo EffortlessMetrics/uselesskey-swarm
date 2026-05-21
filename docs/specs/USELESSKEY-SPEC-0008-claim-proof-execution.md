@@ -52,6 +52,8 @@ The claim-proof policy ledger must be validated before handler execution:
 - each claim may have at most one `claim_proof` row;
 - `claim_proof.status` must be `implemented` or `planned`;
 - `include_in_all_stable = true` requires `status = "implemented"`.
+- `status = "implemented"` must not set `requires_explicit_version = true`
+  until claim-proof supports an explicit-version command shape;
 - implemented policy rows must list at least one handler;
 - each handler id may appear at most once per policy row;
 - each handler id must resolve to a known symbolic handler, including
@@ -206,6 +208,7 @@ Claim-proof implementation tests must cover:
 - `--all-stable` selection;
 - claim-proof policy ledger validation;
 - planned claim-proof policy rejection;
+- implemented explicit-version policy rejection;
 - duplicate handler-id rejection;
 - unknown handler-id rejection;
 - implemented policy rows with no handlers;
