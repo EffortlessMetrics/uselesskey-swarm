@@ -254,7 +254,14 @@ fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
                 policy.claim
             );
         }
+        let mut handlers_seen = BTreeSet::new();
         for handler in &policy.handlers {
+            if !handlers_seen.insert(handler.as_str()) {
+                bail!(
+                    "claim-proof policy `{}` repeats handler `{handler}`",
+                    policy.claim
+                );
+            }
             validate_handler_id(handler)
                 .with_context(|| format!("claim-proof policy `{}`", policy.claim))?;
         }
@@ -742,6 +749,25 @@ mod tests {
         assert!(
             err.to_string()
                 .contains("implemented claim-proof policy `scanner-safe-fixtures` has no handlers"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_rejects_duplicate_handler_id() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim_proof[0].handlers = vec!["no_blob".to_string(), "no_blob".to_string()];
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains(
+                "claim-proof policy `scanner-safe-fixtures` repeats handler `no_blob`"
+            ),
             "unexpected error: {err}"
         );
         Ok(())
