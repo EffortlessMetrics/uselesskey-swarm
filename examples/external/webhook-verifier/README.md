@@ -66,8 +66,8 @@ For generated CLI bundles, use:
 
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
 ```
 
 The installed audit output is metadata-only. It records paths, counts, profile

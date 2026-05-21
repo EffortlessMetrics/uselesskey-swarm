@@ -34,8 +34,8 @@ For file-based CI fixtures:
 
 ```bash
 uselesskey bundle --profile tls --out target/tls-fixtures
-uselesskey verify-bundle --path target/tls-fixtures
-uselesskey audit-bundle --path target/tls-fixtures --ci --out target/tls-fixtures-audit
+uselesskey verify-bundle target/tls-fixtures
+uselesskey audit-bundle target/tls-fixtures --ci --out target/tls-fixtures-audit
 ```
 
 ## What you get
@@ -98,8 +98,8 @@ cargo test --manifest-path examples/external/tls-chain-validation/Cargo.toml
 For the installed bundle path:
 
 ```bash
-uselesskey verify-bundle --path target/tls-fixtures
-uselesskey inspect-bundle --path target/tls-fixtures
+uselesskey verify-bundle target/tls-fixtures
+uselesskey inspect-bundle target/tls-fixtures
 ```
 
 Repo-local proof for this workflow:
@@ -116,7 +116,7 @@ Write a metadata-only reviewer packet:
 
 ```bash
 uselesskey audit-bundle \
-  --path target/tls-fixtures \
+  target/tls-fixtures \
   --out target/tls-fixtures-audit \
   --ci
 ```

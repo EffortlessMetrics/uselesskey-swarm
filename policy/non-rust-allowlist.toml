@@ -46,6 +46,15 @@ reason = "GitHub repo metadata: settings, dependabot, funding, release notes."
 covered_by = ["GitHub schema validation"]
 
 [[allow]]
+glob = ".github/ISSUE_TEMPLATE/*.yml"
+kind = "github_issue_template"
+owner = "repo-policy"
+surface = "github"
+classification = "config"
+reason = "GitHub issue templates route proposal, spec, implementation slice, policy exception, and claim-change intake into source-of-truth metadata."
+covered_by = ["GitHub issue template schema validation", "cargo xtask check-file-policy"]
+
+[[allow]]
 glob = ".github/ci/*.Dockerfile"
 kind = "ci_runner_image"
 owner = "release/ci"
@@ -289,6 +298,15 @@ owner = "cli"
 surface = "examples"
 classification = "docs"
 reason = "Downstream-shaped GitHub Actions workflow example for installed CLI bundle audit. It is inert until copied by a downstream project."
+covered_by = ["cargo xtask external-adoption-smoke --path .", "cargo xtask check-file-policy"]
+
+[[allow]]
+glob = "examples/external/ci-recipes/*.yml.example"
+kind = "external_ci_recipe"
+owner = "cli"
+surface = "examples"
+classification = "docs"
+reason = "Downstream CI recipe files are copyable examples for bundle, verify, and audit workflows. They are inert until copied by a downstream project."
 covered_by = ["cargo xtask external-adoption-smoke --path .", "cargo xtask check-file-policy"]
 
 [[allow]]

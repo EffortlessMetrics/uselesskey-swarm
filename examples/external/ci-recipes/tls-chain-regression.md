@@ -29,9 +29,9 @@ fixtures and metadata-only bundle receipts.
 
 ```bash
 uselesskey bundle --profile tls --out target/uselesskey-tls
-uselesskey verify-bundle --path target/uselesskey-tls
+uselesskey verify-bundle target/uselesskey-tls
 uselesskey audit-bundle \
-  --path target/uselesskey-tls \
+  target/uselesskey-tls \
   --ci \
   --expect-profile tls \
   --policy strict \

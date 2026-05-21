@@ -34,12 +34,12 @@ jobs:
         run: uselesskey bundle --profile webhook --out target/uselesskey-webhook
 
       - name: Verify webhook bundle
-        run: uselesskey verify-bundle --path target/uselesskey-webhook
+        run: uselesskey verify-bundle target/uselesskey-webhook
 
       - name: Audit webhook bundle
         run: |
           uselesskey audit-bundle \
-            --path target/uselesskey-webhook \
+            target/uselesskey-webhook \
             --out target/uselesskey-webhook-audit \
             --ci \
             --expect-profile webhook \
@@ -78,12 +78,12 @@ jobs:
         run: uselesskey bundle --profile tls --out target/uselesskey-tls
 
       - name: Verify TLS bundle
-        run: uselesskey verify-bundle --path target/uselesskey-tls
+        run: uselesskey verify-bundle target/uselesskey-tls
 
       - name: Audit TLS bundle
         run: |
           uselesskey audit-bundle \
-            --path target/uselesskey-tls \
+            target/uselesskey-tls \
             --out target/uselesskey-tls-audit \
             --ci \
             --expect-profile tls \
@@ -93,12 +93,12 @@ jobs:
         run: uselesskey bundle --profile oidc --out target/uselesskey-oidc
 
       - name: Verify OIDC bundle
-        run: uselesskey verify-bundle --path target/uselesskey-oidc
+        run: uselesskey verify-bundle target/uselesskey-oidc
 
       - name: Audit OIDC bundle
         run: |
           uselesskey audit-bundle \
-            --path target/uselesskey-oidc \
+            target/uselesskey-oidc \
             --out target/uselesskey-oidc-audit \
             --ci \
             --expect-profile oidc \

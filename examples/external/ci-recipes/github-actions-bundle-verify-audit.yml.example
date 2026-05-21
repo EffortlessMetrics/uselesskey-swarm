@@ -28,12 +28,12 @@ jobs:
             --out "target/uselesskey-${{ matrix.profile }}"
 
       - name: Verify fixture bundle
-        run: uselesskey verify-bundle --path "target/uselesskey-${{ matrix.profile }}"
+        run: uselesskey verify-bundle "target/uselesskey-${{ matrix.profile }}"
 
       - name: Audit fixture bundle
         run: |
           uselesskey audit-bundle \
-            --path "target/uselesskey-${{ matrix.profile }}" \
+            "target/uselesskey-${{ matrix.profile }}" \
             --ci \
             --expect-profile "${{ matrix.profile }}" \
             --policy strict \
@@ -48,4 +48,3 @@ jobs:
             target/uselesskey-${{ matrix.profile }}-audit/bundle-audit.json
             target/uselesskey-${{ matrix.profile }}-audit/bundle-audit.md
           if-no-files-found: error
-

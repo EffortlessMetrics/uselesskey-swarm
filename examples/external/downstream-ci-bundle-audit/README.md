@@ -7,8 +7,8 @@ The installed CLI path is the product surface:
 
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
-uselesskey verify-bundle --path target/uselesskey-webhook
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci
 ```
 
 The reviewable files are:

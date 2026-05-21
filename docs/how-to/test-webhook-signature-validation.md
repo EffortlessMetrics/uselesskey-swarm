@@ -32,8 +32,8 @@ For file-based CI fixtures:
 
 ```bash
 uselesskey bundle --profile webhook --out target/webhook-fixtures
-uselesskey verify-bundle --path target/webhook-fixtures
-uselesskey audit-bundle --path target/webhook-fixtures --ci --out target/webhook-fixtures-audit
+uselesskey verify-bundle target/webhook-fixtures
+uselesskey audit-bundle target/webhook-fixtures --ci --out target/webhook-fixtures-audit
 ```
 
 ## What you get
@@ -102,8 +102,8 @@ cargo test --manifest-path examples/external/webhook-verifier/Cargo.toml
 For the installed bundle path:
 
 ```bash
-uselesskey verify-bundle --path target/webhook-fixtures
-uselesskey inspect-bundle --path target/webhook-fixtures
+uselesskey verify-bundle target/webhook-fixtures
+uselesskey inspect-bundle target/webhook-fixtures
 ```
 
 Repo-local proof for this workflow:
@@ -120,7 +120,7 @@ Write a metadata-only reviewer packet:
 
 ```bash
 uselesskey audit-bundle \
-  --path target/webhook-fixtures \
+  target/webhook-fixtures \
   --out target/webhook-fixtures-audit \
   --ci
 ```

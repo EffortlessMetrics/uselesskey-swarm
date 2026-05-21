@@ -67,6 +67,6 @@
   "profile": "scanner-safe",
   "receipt": "bundle-verification",
   "status": "generated",
-  "verification_command": "uselesskey verify-bundle --path <bundle-dir>",
+  "verification_command": "uselesskey verify-bundle <bundle-dir>",
   "version": 1
 }

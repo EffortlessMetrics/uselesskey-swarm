@@ -33,9 +33,9 @@ job needs metadata-only bundle evidence:
 
 ```bash
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
-uselesskey verify-bundle --path target/uselesskey-oidc
+uselesskey verify-bundle target/uselesskey-oidc
 uselesskey audit-bundle \
-  --path target/uselesskey-oidc \
+  target/uselesskey-oidc \
   --ci \
   --expect-profile oidc \
   --policy strict \
