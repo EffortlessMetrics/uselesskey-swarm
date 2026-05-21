@@ -1,9 +1,10 @@
+use std::collections::BTreeMap;
 use std::fs;
 use std::path::Path;
 use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, bail};
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
 use crate::{read_json_file, write_json_pretty};
@@ -11,6 +12,7 @@ use crate::{read_json_file, write_json_pretty};
 const BUNDLE_MANIFEST_SCHEMA_JSON: &str = "docs/schemas/bundle-manifest.schema.json";
 const NEGATIVE_COVERAGE_SCHEMA_JSON: &str = "docs/schemas/negative-coverage.schema.json";
 const BUNDLE_AUDIT_SCHEMA_JSON: &str = "docs/schemas/bundle-audit.schema.json";
+const NEGATIVE_FIXTURES_TOML: &str = "policy/negative-fixtures.toml";
 const PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook", "runtime"];
 
 #[derive(Debug, Serialize)]
@@ -34,12 +36,33 @@ struct BundleSchemaProfileReport {
     negative_count: usize,
 }
 
+#[derive(Debug, Deserialize)]
+struct NegativeFixturePolicy {
+    #[serde(default)]
+    negative: Vec<NegativeFixturePolicyEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct NegativeFixturePolicyEntry {
+    stable_id: String,
+    status: String,
+    #[serde(default)]
+    scanner_safe: Option<bool>,
+    #[serde(default)]
+    runtime_material: Option<bool>,
+    #[serde(default)]
+    bundle_exposed: Option<bool>,
+    #[serde(default)]
+    bundle_profiles: Vec<String>,
+}
+
 pub(crate) fn check(out: &Path) -> Result<()> {
     prepare_output_dir(out)?;
 
     let manifest_schema: Value = read_json_file(Path::new(BUNDLE_MANIFEST_SCHEMA_JSON))?;
     let negative_schema: Value = read_json_file(Path::new(NEGATIVE_COVERAGE_SCHEMA_JSON))?;
     let audit_schema: Value = read_json_file(Path::new(BUNDLE_AUDIT_SCHEMA_JSON))?;
+    let negative_policy = load_negative_fixture_policy()?;
 
     let mut profile_reports = Vec::new();
     let mut errors = Vec::new();
@@ -57,6 +80,12 @@ pub(crate) fn check(out: &Path) -> Result<()> {
 
         validate_bundle_manifest(&manifest_schema, &manifest, &mut errors);
         validate_negative_coverage(&negative_schema, &negative_coverage, &mut errors);
+        validate_negative_coverage_policy_link(
+            profile,
+            &negative_coverage,
+            &negative_policy,
+            &mut errors,
+        );
         validate_bundle_audit(&audit_schema, &audit, &mut errors);
         validate_manifest_receipt_link(profile, &manifest, &negative_coverage, &mut errors);
         validate_audit_manifest_link(profile, &manifest, &audit, &mut errors);
@@ -181,6 +210,18 @@ fn run_quiet_command(cmd: &mut Command) -> Result<()> {
         bail!("command failed with status: {status}");
     }
     Ok(())
+}
+
+fn load_negative_fixture_policy() -> Result<BTreeMap<String, NegativeFixturePolicyEntry>> {
+    let raw = fs::read_to_string(NEGATIVE_FIXTURES_TOML)
+        .with_context(|| format!("read {NEGATIVE_FIXTURES_TOML}"))?;
+    let policy: NegativeFixturePolicy =
+        toml::from_str(&raw).with_context(|| format!("parse {NEGATIVE_FIXTURES_TOML}"))?;
+    Ok(policy
+        .negative
+        .into_iter()
+        .map(|entry| (entry.stable_id.clone(), entry))
+        .collect())
 }
 
 fn validate_bundle_manifest(schema: &Value, manifest: &Value, errors: &mut Vec<String>) {
@@ -348,6 +389,84 @@ fn validate_negative_coverage(schema: &Value, receipt: &Value, errors: &mut Vec<
         true,
         errors,
     );
+}
+
+fn validate_negative_coverage_policy_link(
+    expected_profile: &str,
+    receipt: &Value,
+    policy: &BTreeMap<String, NegativeFixturePolicyEntry>,
+    errors: &mut Vec<String>,
+) {
+    let coverage = receipt
+        .get("coverage")
+        .and_then(Value::as_array)
+        .cloned()
+        .unwrap_or_default();
+    for (idx, entry) in coverage.iter().enumerate() {
+        let path = format!("negative-coverage.json.coverage[{idx}]");
+        let Some(failure_class) = entry.get("failure_class").and_then(Value::as_str) else {
+            continue;
+        };
+        let Some(policy_entry) = policy.get(failure_class) else {
+            errors.push(format!(
+                "{path}.failure_class: `{failure_class}` is not present in {NEGATIVE_FIXTURES_TOML}"
+            ));
+            continue;
+        };
+
+        if policy_entry.status != "implemented" {
+            errors.push(format!(
+                "{path}.failure_class: `{failure_class}` has policy status `{}`; generated bundle receipts require implemented entries",
+                policy_entry.status
+            ));
+        }
+        if policy_entry.bundle_exposed != Some(true) {
+            errors.push(format!(
+                "{path}.failure_class: `{failure_class}` is not bundle_exposed=true in {NEGATIVE_FIXTURES_TOML}"
+            ));
+        }
+        if !policy_entry
+            .bundle_profiles
+            .iter()
+            .any(|profile| profile == expected_profile)
+        {
+            errors.push(format!(
+                "{path}.failure_class: `{failure_class}` is not exposed for profile `{expected_profile}` in {NEGATIVE_FIXTURES_TOML}"
+            ));
+        }
+
+        compare_optional_bool(
+            entry.get("scanner_safe").and_then(Value::as_bool),
+            policy_entry.scanner_safe,
+            &format!("{path}.scanner_safe"),
+            failure_class,
+            errors,
+        );
+        compare_optional_bool(
+            entry.get("runtime_material").and_then(Value::as_bool),
+            policy_entry.runtime_material,
+            &format!("{path}.runtime_material"),
+            failure_class,
+            errors,
+        );
+    }
+}
+
+fn compare_optional_bool(
+    receipt_value: Option<bool>,
+    policy_value: Option<bool>,
+    path: &str,
+    failure_class: &str,
+    errors: &mut Vec<String>,
+) {
+    let (Some(receipt_value), Some(policy_value)) = (receipt_value, policy_value) else {
+        return;
+    };
+    if receipt_value != policy_value {
+        errors.push(format!(
+            "{path}: `{failure_class}` value `{receipt_value}` does not match {NEGATIVE_FIXTURES_TOML} `{policy_value}`"
+        ));
+    }
 }
 
 fn validate_bundle_audit(schema: &Value, audit: &Value, errors: &mut Vec<String>) {
@@ -880,6 +999,102 @@ mod tests {
         let mut errors = Vec::new();
         validate_negative_coverage(&schema, &receipt, &mut errors);
         assert!(errors.iter().any(|error| error.contains("negative_count")));
+    }
+
+    #[test]
+    fn negative_coverage_policy_link_accepts_policy_backed_profile() {
+        let receipt = json!({
+            "coverage": [{
+                "path": "token.json",
+                "kind": "token",
+                "failure_class": "token_near_miss",
+                "expected_failure": "policy rejects token shape",
+                "scanner_safe": true,
+                "runtime_material": false,
+                "description": "scanner-safe token near miss"
+            }]
+        });
+        let mut policy = BTreeMap::new();
+        policy.insert(
+            "token_near_miss".to_string(),
+            NegativeFixturePolicyEntry {
+                stable_id: "token_near_miss".to_string(),
+                status: "implemented".to_string(),
+                scanner_safe: Some(true),
+                runtime_material: Some(false),
+                bundle_exposed: Some(true),
+                bundle_profiles: vec!["scanner-safe".to_string()],
+            },
+        );
+
+        let mut errors = Vec::new();
+        validate_negative_coverage_policy_link("scanner-safe", &receipt, &policy, &mut errors);
+
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
+    fn negative_coverage_policy_link_rejects_unbacked_or_misaligned_classes() {
+        let receipt = json!({
+            "coverage": [
+                {
+                    "path": "token.json",
+                    "kind": "token",
+                    "failure_class": "token_near_miss",
+                    "expected_failure": "policy rejects token shape",
+                    "scanner_safe": false,
+                    "runtime_material": false,
+                    "description": "scanner-safe token near miss"
+                },
+                {
+                    "path": "unknown.json",
+                    "kind": "token",
+                    "failure_class": "missing_from_policy",
+                    "expected_failure": "policy rejects token shape",
+                    "scanner_safe": true,
+                    "runtime_material": false,
+                    "description": "unknown token near miss"
+                }
+            ]
+        });
+        let mut policy = BTreeMap::new();
+        policy.insert(
+            "token_near_miss".to_string(),
+            NegativeFixturePolicyEntry {
+                stable_id: "token_near_miss".to_string(),
+                status: "implemented".to_string(),
+                scanner_safe: Some(true),
+                runtime_material: Some(false),
+                bundle_exposed: Some(false),
+                bundle_profiles: vec!["oidc".to_string()],
+            },
+        );
+
+        let mut errors = Vec::new();
+        validate_negative_coverage_policy_link("scanner-safe", &receipt, &policy, &mut errors);
+
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("bundle_exposed=true")),
+            "{errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("profile `scanner-safe`")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| error.contains("scanner_safe")),
+            "{errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("missing_from_policy")),
+            "{errors:?}"
+        );
     }
 
     #[test]
