@@ -1496,7 +1496,7 @@ mod tests {
     }
 
     #[test]
-    fn manifest_file_links_accept_declared_artifacts_and_receipts() {
+    fn manifest_file_links_accept_declared_artifacts_and_receipts() -> Result<()> {
         let manifest = json!({
             "files": ["token.json", "receipts/negative-coverage.json"],
             "artifacts": [{
@@ -1508,17 +1508,17 @@ mod tests {
         });
         let files = manifest["files"]
             .as_array()
-            .unwrap()
+            .context("expected manifest.files to be an array")?
             .iter()
             .collect::<Vec<_>>();
         let artifacts = manifest["artifacts"]
             .as_array()
-            .unwrap()
+            .context("expected manifest.artifacts to be an array")?
             .iter()
             .collect::<Vec<_>>();
         let receipts = manifest["receipts"]
             .as_array()
-            .unwrap()
+            .context("expected manifest.receipts to be an array")?
             .iter()
             .collect::<Vec<_>>();
 
@@ -1526,10 +1526,11 @@ mod tests {
         validate_manifest_file_links(&files, &artifacts, &receipts, &mut errors);
 
         assert!(errors.is_empty(), "{errors:?}");
+        Ok(())
     }
 
     #[test]
-    fn manifest_file_links_reject_orphan_duplicate_and_unlisted_paths() {
+    fn manifest_file_links_reject_orphan_duplicate_and_unlisted_paths() -> Result<()> {
         let manifest = json!({
             "files": ["token.json", "orphan.json"],
             "artifacts": [
@@ -1549,17 +1550,17 @@ mod tests {
         });
         let files = manifest["files"]
             .as_array()
-            .unwrap()
+            .context("expected manifest.files to be an array")?
             .iter()
             .collect::<Vec<_>>();
         let artifacts = manifest["artifacts"]
             .as_array()
-            .unwrap()
+            .context("expected manifest.artifacts to be an array")?
             .iter()
             .collect::<Vec<_>>();
         let receipts = manifest["receipts"]
             .as_array()
-            .unwrap()
+            .context("expected manifest.receipts to be an array")?
             .iter()
             .collect::<Vec<_>>();
 
@@ -1586,6 +1587,7 @@ mod tests {
             errors.iter().any(|error| error.contains("not declared")),
             "{errors:?}"
         );
+        Ok(())
     }
 
     #[test]
