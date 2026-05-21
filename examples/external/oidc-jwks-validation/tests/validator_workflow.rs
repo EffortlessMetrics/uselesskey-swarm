@@ -28,6 +28,30 @@ fn rejects_duplicate_kid() {
 }
 
 #[test]
+fn rejects_duplicate_key() {
+    let jwks = issuer()
+        .public_jwks()
+        .negative_value(NegativeJwks::DuplicateKey);
+
+    assert_eq!(
+        validate_oidc_jwks(&jwks),
+        Err(JwksValidationError::DuplicateKey)
+    );
+}
+
+#[test]
+fn rejects_empty_keys() {
+    let jwks = issuer()
+        .public_jwks()
+        .negative_value(NegativeJwks::EmptyKeys);
+
+    assert_eq!(
+        validate_oidc_jwks(&jwks),
+        Err(JwksValidationError::EmptyKeys)
+    );
+}
+
+#[test]
 fn rejects_wrong_kty() {
     let key = issuer().public_jwk().negative_value(NegativeJwk::WrongKty);
     let jwks = json!({ "keys": [key] });
@@ -48,6 +72,18 @@ fn rejects_unsupported_alg() {
     assert_eq!(
         validate_oidc_jwks(&jwks),
         Err(JwksValidationError::UnsupportedAlg)
+    );
+}
+
+#[test]
+fn rejects_mixed_valid_invalid_set_member() {
+    let jwks = issuer()
+        .public_jwks()
+        .negative_value(NegativeJwks::MixedValidInvalid);
+
+    assert_eq!(
+        validate_oidc_jwks(&jwks),
+        Err(JwksValidationError::MalformedMaterial)
     );
 }
 
