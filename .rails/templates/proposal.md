@@ -1,5 +1,8 @@
 # <REPO>-PROP-0001: <Title>
 
+ID:
+Kind: proposal
+Title:
 Status:
 Owner:
 Created:
@@ -7,6 +10,8 @@ Target milestone:
 Linked specs:
 Linked ADRs:
 Linked lanes:
+Support-tier impact:
+Policy impact:
 
 ## Problem
 
@@ -30,8 +35,14 @@ Linked lanes:
 
 ## Evidence plan
 
+## Claim boundary
+
+What this proposal may support, and what it must not imply.
+
 ## Risks
 
 ## Non-goals
+
+## Rollback / exit
 
 ## Exit criteria
