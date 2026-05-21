@@ -2412,6 +2412,30 @@ mod tests {
     }
 
     #[test]
+    fn routed_rust_workflow_uses_org_runner_discovery_and_cpx42_contract() {
+        let workflow = std::fs::read_to_string(std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/em-ci-routed-rust.yml"))
+            .expect("read routed workflow");
+        assert!(workflow.contains("orgs/${ORG}/actions/runners?per_page=100"));
+        assert!(!workflow.contains("repos/${{ github.repository }}/actions/runners"));
+        assert!(workflow.contains("- cpx42"));
+        assert!(workflow.contains(r#"emit "cpx42" "cpx42_idle" "false""#));
+        assert!(workflow.contains(r#"emit "github" "runner_token_missing" "true""#));
+        assert!(workflow.contains(r#"emit "github" "runner_api_failed" "true""#));
+        assert!(workflow.contains(r#"emit "github" "parse_failed" "true""#));
+        assert!(workflow.contains(r#"emit "github" "fork_pr" "false""#));
+        assert!(workflow.contains("labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]"));
+        let scratch_idx = workflow.find("- name: Prepare CPX42 scratch").expect("prepare scratch step");
+        let toolchain_idx = workflow.find("- uses: dtolnay/rust-toolchain@v1").expect("toolchain step");
+        assert!(scratch_idx < toolchain_idx, "scratch prep must run before rust-toolchain");
+        assert!(workflow.contains("toolchain: 1.95.0"));
+        assert!(workflow.contains("uselesskey-rust-small-cx43"));
+        assert!(workflow.contains("uselesskey-rust-small-cx53"));
+        assert!(workflow.contains("uselesskey-rust-small-github"));
+        assert!(workflow.contains("uselesskey-rust-small-cpx42"));
+        assert!(workflow.contains("Uselesskey Rust Small Result"));
+    }
+
+    #[test]
     fn implemented_negative_fixture_requires_public_contract_fields() {
         let entry = NegativeFixtureEntry {
             stable_id: "jwt_missing_kid".into(),
