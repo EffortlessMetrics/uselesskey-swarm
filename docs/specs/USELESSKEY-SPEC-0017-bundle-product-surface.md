@@ -373,7 +373,8 @@ Implementation owners:
 - `crates/uselesskey-cli/tests/cli.rs` owns installed CLI manifest and receipt
   coverage.
 - `cargo xtask check-bundle-schemas` owns generated-bundle validation against
-  the committed bundle manifest and negative-coverage schema contracts.
+  the committed bundle manifest, negative-coverage, and bundle-audit schema
+  contracts.
 - `xtask/src/bundle_proof.rs` owns repo-local bundle proof.
 - `xtask/src/external_adoption_smoke.rs` owns installed-style bundle loop
   smoke evidence.

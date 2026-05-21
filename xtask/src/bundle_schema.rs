@@ -10,6 +10,7 @@ use crate::{read_json_file, write_json_pretty};
 
 const BUNDLE_MANIFEST_SCHEMA_JSON: &str = "docs/schemas/bundle-manifest.schema.json";
 const NEGATIVE_COVERAGE_SCHEMA_JSON: &str = "docs/schemas/negative-coverage.schema.json";
+const BUNDLE_AUDIT_SCHEMA_JSON: &str = "docs/schemas/bundle-audit.schema.json";
 const PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook", "runtime"];
 
 #[derive(Debug, Serialize)]
@@ -27,6 +28,7 @@ struct BundleSchemaProfileReport {
     bundle_dir: String,
     manifest_path: String,
     negative_coverage_path: String,
+    audit_path: String,
     artifact_count: usize,
     receipt_count: usize,
     negative_count: usize,
@@ -37,6 +39,7 @@ pub(crate) fn check(out: &Path) -> Result<()> {
 
     let manifest_schema: Value = read_json_file(Path::new(BUNDLE_MANIFEST_SCHEMA_JSON))?;
     let negative_schema: Value = read_json_file(Path::new(NEGATIVE_COVERAGE_SCHEMA_JSON))?;
+    let audit_schema: Value = read_json_file(Path::new(BUNDLE_AUDIT_SCHEMA_JSON))?;
 
     let mut profile_reports = Vec::new();
     let mut errors = Vec::new();
@@ -45,18 +48,25 @@ pub(crate) fn check(out: &Path) -> Result<()> {
         generate_bundle(profile, &bundle_dir)?;
         let manifest_path = bundle_dir.join("manifest.json");
         let negative_coverage_path = bundle_dir.join("receipts/negative-coverage.json");
+        let audit_dir = out.join(profile).join("audit");
+        generate_bundle_audit(&bundle_dir, &audit_dir)?;
+        let audit_path = audit_dir.join("bundle-audit.json");
         let manifest: Value = read_json_file(&manifest_path)?;
         let negative_coverage: Value = read_json_file(&negative_coverage_path)?;
+        let audit: Value = read_json_file(&audit_path)?;
 
         validate_bundle_manifest(&manifest_schema, &manifest, &mut errors);
         validate_negative_coverage(&negative_schema, &negative_coverage, &mut errors);
+        validate_bundle_audit(&audit_schema, &audit, &mut errors);
         validate_manifest_receipt_link(profile, &manifest, &negative_coverage, &mut errors);
+        validate_audit_manifest_link(profile, &manifest, &audit, &mut errors);
 
         profile_reports.push(BundleSchemaProfileReport {
             profile: (*profile).to_string(),
             bundle_dir: normalize_report_path(&bundle_dir),
             manifest_path: normalize_report_path(&manifest_path),
             negative_coverage_path: normalize_report_path(&negative_coverage_path),
+            audit_path: normalize_report_path(&audit_path),
             artifact_count: array_len(manifest.get("artifacts")),
             receipt_count: array_len(manifest.get("receipts")),
             negative_count: negative_coverage
@@ -72,6 +82,7 @@ pub(crate) fn check(out: &Path) -> Result<()> {
         schemas_checked: vec![
             BUNDLE_MANIFEST_SCHEMA_JSON.to_string(),
             NEGATIVE_COVERAGE_SCHEMA_JSON.to_string(),
+            BUNDLE_AUDIT_SCHEMA_JSON.to_string(),
         ],
         profile_reports,
         errors,
@@ -140,6 +151,23 @@ fn generate_bundle(profile: &str, bundle_dir: &Path) -> Result<()> {
     ]);
     cmd.arg(bundle_dir);
     run_quiet_command(&mut cmd).with_context(|| format!("generate {profile} bundle"))
+}
+
+fn generate_bundle_audit(bundle_dir: &Path, audit_dir: &Path) -> Result<()> {
+    let mut cmd = Command::new("cargo");
+    cmd.args([
+        "run",
+        "-p",
+        "uselesskey-cli",
+        "--",
+        "audit-bundle",
+        "--path",
+    ]);
+    cmd.arg(bundle_dir);
+    cmd.arg("--out");
+    cmd.arg(audit_dir);
+    run_quiet_command(&mut cmd)
+        .with_context(|| format!("audit generated bundle {}", bundle_dir.display()))
 }
 
 fn run_quiet_command(cmd: &mut Command) -> Result<()> {
@@ -322,6 +350,210 @@ fn validate_negative_coverage(schema: &Value, receipt: &Value, errors: &mut Vec<
     );
 }
 
+fn validate_bundle_audit(schema: &Value, audit: &Value, errors: &mut Vec<String>) {
+    validate_required_fields(schema, "", audit, "bundle-audit.json", errors);
+    validate_object_type(audit, "bundle-audit.json", errors);
+    validate_positive_integer(audit.get("version"), "bundle-audit.json.version", errors);
+    validate_enum(
+        audit.get("status"),
+        schema.pointer("/properties/status/enum"),
+        "bundle-audit.json.status",
+        errors,
+    );
+    validate_string(
+        audit.get("bundle_path"),
+        "bundle-audit.json.bundle_path",
+        errors,
+    );
+    validate_string(audit.get("profile"), "bundle-audit.json.profile", errors);
+    validate_nonnegative_integer(
+        audit.get("manifest_version"),
+        "bundle-audit.json.manifest_version",
+        errors,
+    );
+    if audit.get("manifest_path").and_then(Value::as_str) != Some("manifest.json") {
+        errors.push("bundle-audit.json.manifest_path: expected `manifest.json`".to_string());
+    }
+    validate_nonnegative_integer(
+        audit.get("artifact_count"),
+        "bundle-audit.json.artifact_count",
+        errors,
+    );
+    validate_nonnegative_integer(
+        audit.get("receipt_count"),
+        "bundle-audit.json.receipt_count",
+        errors,
+    );
+    validate_nonnegative_integer(
+        audit.get("scanner_safe_count"),
+        "bundle-audit.json.scanner_safe_count",
+        errors,
+    );
+    validate_nonnegative_integer(
+        audit.get("runtime_material_count"),
+        "bundle-audit.json.runtime_material_count",
+        errors,
+    );
+
+    let files = validate_array(audit.get("files"), "bundle-audit.json.files", errors);
+    for (idx, value) in files.iter().enumerate() {
+        validate_relative_path(value, &format!("bundle-audit.json.files[{idx}]"), errors);
+    }
+
+    let artifacts = validate_array(
+        audit.get("artifacts"),
+        "bundle-audit.json.artifacts",
+        errors,
+    );
+    for (idx, artifact) in artifacts.iter().enumerate() {
+        let path = format!("bundle-audit.json.artifacts[{idx}]");
+        validate_required_fields(schema, "/$defs/artifact", artifact, &path, errors);
+        validate_object_type(artifact, &path, errors);
+        validate_relative_path(
+            artifact.get("path").unwrap_or(&Value::Null),
+            &format!("{path}.path"),
+            errors,
+        );
+        validate_string(artifact.get("kind"), &format!("{path}.kind"), errors);
+        validate_string(artifact.get("format"), &format!("{path}.format"), errors);
+        validate_bool(
+            artifact.get("scanner_safe"),
+            &format!("{path}.scanner_safe"),
+            errors,
+        );
+        validate_bool(
+            artifact.get("runtime_material"),
+            &format!("{path}.runtime_material"),
+            errors,
+        );
+        validate_string(
+            artifact.get("description"),
+            &format!("{path}.description"),
+            errors,
+        );
+    }
+
+    let receipts = validate_array(audit.get("receipts"), "bundle-audit.json.receipts", errors);
+    for (idx, receipt) in receipts.iter().enumerate() {
+        let path = format!("bundle-audit.json.receipts[{idx}]");
+        validate_required_fields(schema, "/$defs/receipt", receipt, &path, errors);
+        validate_object_type(receipt, &path, errors);
+        validate_relative_path(
+            receipt.get("path").unwrap_or(&Value::Null),
+            &format!("{path}.path"),
+            errors,
+        );
+        validate_string(receipt.get("kind"), &format!("{path}.kind"), errors);
+        validate_string(receipt.get("profile"), &format!("{path}.profile"), errors);
+        validate_string(
+            receipt.get("description"),
+            &format!("{path}.description"),
+            errors,
+        );
+    }
+
+    for array_name in ["missing_files", "unexpected_files"] {
+        let path = format!("bundle-audit.json.{array_name}");
+        let values = validate_array(audit.get(array_name), &path, errors);
+        for (idx, value) in values.iter().enumerate() {
+            validate_relative_path(value, &format!("{path}[{idx}]"), errors);
+        }
+    }
+
+    let checks = validate_array(audit.get("checks"), "bundle-audit.json.checks", errors);
+    for (idx, check) in checks.iter().enumerate() {
+        let path = format!("bundle-audit.json.checks[{idx}]");
+        validate_required_fields(schema, "/$defs/check", check, &path, errors);
+        validate_object_type(check, &path, errors);
+        validate_string(check.get("name"), &format!("{path}.name"), errors);
+        validate_enum(
+            check.get("status"),
+            schema.pointer("/$defs/check/properties/status/enum"),
+            &format!("{path}.status"),
+            errors,
+        );
+        validate_enum(
+            check.get("failure_class"),
+            schema.pointer("/$defs/failure_class/enum"),
+            &format!("{path}.failure_class"),
+            errors,
+        );
+        validate_string(check.get("detail"), &format!("{path}.detail"), errors);
+    }
+
+    validate_string_array(
+        audit.get("boundaries"),
+        &[],
+        "bundle-audit.json.boundaries",
+        true,
+        errors,
+    );
+    validate_string_array(
+        audit.get("does_not_prove"),
+        &[],
+        "bundle-audit.json.does_not_prove",
+        true,
+        errors,
+    );
+
+    let artifact_count = audit
+        .get("artifact_count")
+        .and_then(Value::as_u64)
+        .unwrap_or_default() as usize;
+    if artifact_count != artifacts.len() {
+        errors.push(format!(
+            "bundle-audit.json.artifact_count: expected {}, found {:?}",
+            artifacts.len(),
+            audit.get("artifact_count")
+        ));
+    }
+    let receipt_count = audit
+        .get("receipt_count")
+        .and_then(Value::as_u64)
+        .unwrap_or_default() as usize;
+    if receipt_count != receipts.len() {
+        errors.push(format!(
+            "bundle-audit.json.receipt_count: expected {}, found {:?}",
+            receipts.len(),
+            audit.get("receipt_count")
+        ));
+    }
+    let scanner_safe_count = artifacts
+        .iter()
+        .filter(|artifact| {
+            artifact
+                .get("scanner_safe")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
+        .count();
+    if audit.get("scanner_safe_count").and_then(Value::as_u64) != Some(scanner_safe_count as u64) {
+        errors.push(format!(
+            "bundle-audit.json.scanner_safe_count: expected {}, found {:?}",
+            scanner_safe_count,
+            audit.get("scanner_safe_count")
+        ));
+    }
+    let runtime_material_count = artifacts
+        .iter()
+        .filter(|artifact| {
+            artifact
+                .get("runtime_material")
+                .and_then(Value::as_bool)
+                .unwrap_or(false)
+        })
+        .count();
+    if audit.get("runtime_material_count").and_then(Value::as_u64)
+        != Some(runtime_material_count as u64)
+    {
+        errors.push(format!(
+            "bundle-audit.json.runtime_material_count: expected {}, found {:?}",
+            runtime_material_count,
+            audit.get("runtime_material_count")
+        ));
+    }
+}
+
 fn validate_manifest_receipt_link(
     expected_profile: &str,
     manifest: &Value,
@@ -353,6 +585,36 @@ fn validate_manifest_receipt_link(
         errors.push(
             "manifest.json.receipts: missing receipts/negative-coverage.json linkage".to_string(),
         );
+    }
+}
+
+fn validate_audit_manifest_link(
+    expected_profile: &str,
+    manifest: &Value,
+    audit: &Value,
+    errors: &mut Vec<String>,
+) {
+    if audit.get("profile").and_then(Value::as_str) != Some(expected_profile) {
+        errors.push(format!(
+            "bundle-audit.json.profile: expected `{expected_profile}`, found {:?}",
+            audit.get("profile")
+        ));
+    }
+    let manifest_artifact_count = array_len(manifest.get("artifacts"));
+    if audit.get("artifact_count").and_then(Value::as_u64) != Some(manifest_artifact_count as u64) {
+        errors.push(format!(
+            "bundle-audit.json.artifact_count: expected manifest artifact count {}, found {:?}",
+            manifest_artifact_count,
+            audit.get("artifact_count")
+        ));
+    }
+    let manifest_receipt_count = array_len(manifest.get("receipts"));
+    if audit.get("receipt_count").and_then(Value::as_u64) != Some(manifest_receipt_count as u64) {
+        errors.push(format!(
+            "bundle-audit.json.receipt_count: expected manifest receipt count {}, found {:?}",
+            manifest_receipt_count,
+            audit.get("receipt_count")
+        ));
     }
 }
 
@@ -544,12 +806,16 @@ fn render_bundle_schema_check_markdown(report: &BundleSchemaCheckReport) -> Stri
         out.push_str(&format!("- `{schema}`\n"));
     }
     out.push_str("\n## Profiles\n\n");
-    out.push_str("| Profile | Artifacts | Receipts | Negative classes |\n");
-    out.push_str("| --- | ---: | ---: | ---: |\n");
+    out.push_str("| Profile | Artifacts | Receipts | Negative classes | Audit receipt |\n");
+    out.push_str("| --- | ---: | ---: | ---: | --- |\n");
     for profile in &report.profile_reports {
         out.push_str(&format!(
-            "| `{}` | {} | {} | {} |\n",
-            profile.profile, profile.artifact_count, profile.receipt_count, profile.negative_count
+            "| `{}` | {} | {} | {} | `{}` |\n",
+            profile.profile,
+            profile.artifact_count,
+            profile.receipt_count,
+            profile.negative_count,
+            profile.audit_path
         ));
     }
     if !report.errors.is_empty() {
@@ -614,5 +880,103 @@ mod tests {
         let mut errors = Vec::new();
         validate_negative_coverage(&schema, &receipt, &mut errors);
         assert!(errors.iter().any(|error| error.contains("negative_count")));
+    }
+
+    #[test]
+    fn bundle_audit_validator_rejects_count_drift() {
+        let schema = json!({
+            "required": [
+                "version",
+                "status",
+                "bundle_path",
+                "profile",
+                "manifest_version",
+                "manifest_path",
+                "artifact_count",
+                "receipt_count",
+                "scanner_safe_count",
+                "runtime_material_count",
+                "files",
+                "artifacts",
+                "receipts",
+                "missing_files",
+                "unexpected_files",
+                "checks",
+                "boundaries",
+                "does_not_prove"
+            ],
+            "properties": {
+                "status": { "enum": ["pass", "fail"] }
+            },
+            "$defs": {
+                "artifact": {
+                    "required": [
+                        "path",
+                        "kind",
+                        "format",
+                        "scanner_safe",
+                        "runtime_material",
+                        "description"
+                    ]
+                },
+                "receipt": {
+                    "required": ["path", "kind", "profile", "description"]
+                },
+                "check": {
+                    "required": ["name", "status", "failure_class", "detail"],
+                    "properties": {
+                        "status": { "enum": ["pass", "fail"] }
+                    }
+                },
+                "failure_class": {
+                    "enum": ["missing_artifact"]
+                }
+            }
+        });
+        let audit = json!({
+            "version": 1,
+            "status": "pass",
+            "bundle_path": "target/uselesskey-test",
+            "profile": "scanner-safe",
+            "manifest_version": 1,
+            "manifest_path": "manifest.json",
+            "artifact_count": 2,
+            "receipt_count": 1,
+            "scanner_safe_count": 1,
+            "runtime_material_count": 1,
+            "files": ["tokens/near-miss.json"],
+            "artifacts": [{
+                "path": "tokens/near-miss.json",
+                "kind": "token",
+                "format": "json-manifest",
+                "scanner_safe": true,
+                "runtime_material": false,
+                "description": "scanner-safe token near miss"
+            }],
+            "receipts": [{
+                "path": "receipts/negative-coverage.json",
+                "kind": "negative-coverage",
+                "profile": "scanner-safe",
+                "description": "negative coverage"
+            }],
+            "missing_files": [],
+            "unexpected_files": [],
+            "checks": [{
+                "name": "artifact-content",
+                "status": "pass",
+                "failure_class": "missing_artifact",
+                "detail": "checked"
+            }],
+            "boundaries": ["metadata-only"],
+            "does_not_prove": ["production security"]
+        });
+        let mut errors = Vec::new();
+        validate_bundle_audit(&schema, &audit, &mut errors);
+        assert!(errors.iter().any(|error| error.contains("artifact_count")));
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("runtime_material_count"))
+        );
     }
 }
