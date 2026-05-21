@@ -316,6 +316,8 @@ fn validate_bundle_manifest(schema: &Value, manifest: &Value, errors: &mut Vec<S
             errors,
         );
     }
+
+    validate_manifest_file_links(&file_values, &artifacts, &receipts, errors);
 }
 
 fn validate_negative_coverage(schema: &Value, receipt: &Value, errors: &mut Vec<String>) {
@@ -508,6 +510,68 @@ fn compare_optional_string(
         errors.push(format!(
             "{path}: `{subject}` value `{left_value}` does not match {right_source} `{right_value}`"
         ));
+    }
+}
+
+fn validate_manifest_file_links<'a>(
+    files: &[&'a Value],
+    artifacts: &[&'a Value],
+    receipts: &[&'a Value],
+    errors: &mut Vec<String>,
+) {
+    let file_paths = files.iter().filter_map(|value| value.as_str()).collect();
+    let mut declared_paths = BTreeSet::new();
+
+    validate_manifest_declared_paths(
+        "manifest.json.artifacts",
+        artifacts,
+        &file_paths,
+        &mut declared_paths,
+        errors,
+    );
+    validate_manifest_declared_paths(
+        "manifest.json.receipts",
+        receipts,
+        &file_paths,
+        &mut declared_paths,
+        errors,
+    );
+
+    for file_path in &file_paths {
+        if !declared_paths.contains(file_path) {
+            errors.push(format!(
+                "manifest.json.files: `{file_path}` is not declared by manifest.json.artifacts or manifest.json.receipts"
+            ));
+        }
+    }
+}
+
+fn validate_manifest_declared_paths<'a>(
+    section: &str,
+    entries: &[&'a Value],
+    file_paths: &BTreeSet<&'a str>,
+    declared_paths: &mut BTreeSet<&'a str>,
+    errors: &mut Vec<String>,
+) {
+    let mut section_paths = BTreeSet::new();
+    for (idx, entry) in entries.iter().enumerate() {
+        let path = format!("{section}[{idx}].path");
+        let Some(entry_path) = entry.get("path").and_then(Value::as_str) else {
+            continue;
+        };
+        if !file_paths.contains(entry_path) {
+            errors.push(format!(
+                "{path}: `{entry_path}` is not listed in manifest.json.files"
+            ));
+        }
+        if !section_paths.insert(entry_path) {
+            errors.push(format!("{path}: duplicate path `{entry_path}`"));
+        }
+        if !declared_paths.insert(entry_path) {
+            errors.push(format!(
+                "{path}: `{entry_path}` is already declared by another manifest artifact or receipt"
+            ));
+        }
     }
 }
 
@@ -1214,6 +1278,99 @@ mod tests {
             errors
                 .iter()
                 .any(|error| error.contains("missing_from_policy")),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn manifest_file_links_accept_declared_artifacts_and_receipts() {
+        let manifest = json!({
+            "files": ["token.json", "receipts/negative-coverage.json"],
+            "artifacts": [{
+                "path": "token.json"
+            }],
+            "receipts": [{
+                "path": "receipts/negative-coverage.json"
+            }]
+        });
+        let files = manifest["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>();
+        let artifacts = manifest["artifacts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>();
+        let receipts = manifest["receipts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>();
+
+        let mut errors = Vec::new();
+        validate_manifest_file_links(&files, &artifacts, &receipts, &mut errors);
+
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
+    fn manifest_file_links_reject_orphan_duplicate_and_unlisted_paths() {
+        let manifest = json!({
+            "files": ["token.json", "orphan.json"],
+            "artifacts": [
+                {
+                    "path": "token.json"
+                },
+                {
+                    "path": "token.json"
+                },
+                {
+                    "path": "missing.json"
+                }
+            ],
+            "receipts": [{
+                "path": "token.json"
+            }]
+        });
+        let files = manifest["files"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>();
+        let artifacts = manifest["artifacts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>();
+        let receipts = manifest["receipts"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .collect::<Vec<_>>();
+
+        let mut errors = Vec::new();
+        validate_manifest_file_links(&files, &artifacts, &receipts, &mut errors);
+
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("not listed in manifest.json.files")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| error.contains("duplicate path")),
+            "{errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("already declared")),
+            "{errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| error.contains("not declared")),
             "{errors:?}"
         );
     }
