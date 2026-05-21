@@ -27,6 +27,7 @@ mod docs_sync;
 mod doctor;
 mod economics;
 mod external_adoption_smoke;
+mod goals;
 mod plan;
 mod policy;
 mod pr_bundles;
@@ -268,6 +269,8 @@ enum Cmd {
     CheckDocArtifacts,
     /// Validate support-tier rows against public claims, proof commands, docs, and specs.
     CheckSupportTiers,
+    /// Validate active and archived source-of-truth goal manifests.
+    CheckGoals,
     /// Index public claim-ledger entries and proof commands for users and reviewers.
     ClaimReport {
         /// Output format.
@@ -722,6 +725,7 @@ fn main() -> Result<()> {
         }
         Cmd::CheckDocArtifacts => doc_artifacts::run(&workspace_root_path()),
         Cmd::CheckSupportTiers => support_tiers::run(&workspace_root_path()),
+        Cmd::CheckGoals => goals::run(&workspace_root_path()),
         Cmd::ClaimReport {
             format,
             claim,
