@@ -2,9 +2,11 @@ schema_version = "1.0"
 
 id = "RAILS-LANE-0001"
 title = "Rails framework footprint"
-status = "active"
+status = "closed"
 owner = "codex"
 created = "2026-05-21"
+closed = "2026-05-21"
+closeout = ".rails/closeouts/2026-05-21-rails-framework-footprint.md"
 
 objective = """
 Introduce `.rails/` as the durable, portable repo-native control-plane
@@ -52,9 +54,10 @@ evidence = "Added `.rails/migration-status.md`."
 
 [[work_item]]
 id = "rails-handoff"
-status = "ready"
+status = "done"
 scope = "Record what `.rails/` owns now, what remains legacy, and the next migration lane."
 proof = [
   "cargo xtask docs-sync --check",
   "git diff --check",
 ]
+evidence = "Recorded in `.rails/closeouts/2026-05-21-rails-framework-footprint.md`."
