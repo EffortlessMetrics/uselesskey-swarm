@@ -8,8 +8,8 @@ dependencies, and lane closeout. Do not use handoffs as the active task source;
 current agent state belongs under `.uselesskey/goals/`.
 
 Start with [agent-bootstrap.md](agent-bootstrap.md) when resuming agent work.
-It defines the read order from `active.toml` to plans, specs, claim reports, and
-validation commands.
+It defines the read order from `.rails/index.toml` to active lanes, archived
+goal state, plans, specs, claim reports, and validation commands.
 
 Use [local-validation.md](local-validation.md) when reporting local PR evidence
 or deciding what `pr-lite`, hosted CI, targeted mutation, and release evidence

@@ -5,13 +5,23 @@ lane state lives in the repo, not in chat history.
 
 ## Startup Order
 
-1. Read `.uselesskey/goals/active.toml`.
-2. Read the `plan` paths linked from ready or active work items.
-3. Read the linked proposal, specs, and ADRs for the work item.
-4. Run `cargo xtask spec-check --strict` before changing source-of-truth files.
-5. Run `cargo xtask claim-report` when public claims, badges, contract packs, or
+1. Read `.rails/index.toml`.
+2. If `active_lane` is set, read the linked `.rails/lanes/*` lane before
+   choosing work.
+3. If `active_lane` is empty, read `last_closed_lane` and
+   `.rails/migration-status.md` to understand what just closed and which
+   existing artifacts still own truth.
+4. Read `.uselesskey/goals/active.toml` when present. If its status is
+   `active`, read the `plan` paths linked from ready or active work items. If
+   its status is `archived`, there is no current uselesskey goal.
+5. Read the linked proposal, specs, and ADRs for the work item.
+6. If no active Rails lane or uselesskey goal exists, inspect open PRs and make
+   the smallest aligned improvement from committed repo truth instead of using
+   old chat history as the task source.
+7. Run `cargo xtask spec-check --strict` before changing source-of-truth files.
+8. Run `cargo xtask claim-report` when public claims, badges, contract packs, or
    release evidence change.
-6. Use chat instructions as current operator intent, but do not treat old chat
+9. Use chat instructions as current operator intent, but do not treat old chat
    prompts as source-of-truth state.
 
 ## PR Body Contract
