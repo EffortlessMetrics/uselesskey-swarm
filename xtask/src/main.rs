@@ -33,6 +33,7 @@ mod pr_bundles;
 mod public_surface;
 mod receipt;
 mod spec_check;
+mod support_tiers;
 mod test_efficiency;
 mod user_path_smoke;
 mod verification_pack;
@@ -265,6 +266,8 @@ enum Cmd {
     },
     /// Validate the source-of-truth document artifact ledger.
     CheckDocArtifacts,
+    /// Validate support-tier rows against public claims, proof commands, docs, and specs.
+    CheckSupportTiers,
     /// Index public claim-ledger entries and proof commands for users and reviewers.
     ClaimReport {
         /// Output format.
@@ -718,6 +721,7 @@ fn main() -> Result<()> {
             spec_check::run(&workspace_root_path(), strict, format.into())
         }
         Cmd::CheckDocArtifacts => doc_artifacts::run(&workspace_root_path()),
+        Cmd::CheckSupportTiers => support_tiers::run(&workspace_root_path()),
         Cmd::ClaimReport {
             format,
             claim,
