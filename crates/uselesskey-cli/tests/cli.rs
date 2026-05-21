@@ -975,6 +975,103 @@ fn audit_bundle_writes_metadata_only_reviewer_receipts() -> TestResult<()> {
 }
 
 #[test]
+fn audit_bundle_receipts_do_not_copy_runtime_payloads() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let profiles = ["webhook", "runtime", "tls", "oidc"];
+    let mut runtime_payloads_checked = 0usize;
+
+    for profile in profiles {
+        let bundle_dir = dir.path().join(format!("{profile}-bundle"));
+        let audit_dir = dir.path().join(format!("{profile}-audit"));
+
+        let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+        bundle.args([
+            "bundle",
+            "--profile",
+            profile,
+            "--out",
+            bundle_dir.to_str().test_context("utf-8")?,
+        ]);
+        bundle.assert().success();
+
+        let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+        audit.args([
+            "audit-bundle",
+            "--path",
+            bundle_dir.to_str().test_context("utf-8")?,
+            "--out",
+            audit_dir.to_str().test_context("utf-8")?,
+        ]);
+        audit.assert().success();
+
+        assert_eq!(
+            audit_receipt_files(&audit_dir)?,
+            vec![
+                "bundle-audit.json".to_string(),
+                "bundle-audit.md".to_string()
+            ]
+        );
+
+        let audit_json =
+            fs::read(audit_dir.join("bundle-audit.json")).test_context("audit json")?;
+        let audit_md = fs::read(audit_dir.join("bundle-audit.md")).test_context("audit md")?;
+        let mut audit_bytes = audit_json.clone();
+        audit_bytes.extend_from_slice(&audit_md);
+        let audit_text = String::from_utf8_lossy(&audit_bytes);
+
+        let manifest: Value = serde_json::from_slice(
+            &fs::read(bundle_dir.join("manifest.json")).test_context("manifest")?,
+        )
+        .test_context("manifest json")?;
+        let artifacts = manifest["artifacts"]
+            .as_array()
+            .test_context("manifest artifacts")?;
+        for artifact in artifacts {
+            if artifact["scanner_safe"].as_bool() != Some(false) {
+                continue;
+            }
+            let relative = artifact["path"]
+                .as_str()
+                .test_context("artifact relative path")?;
+            let payload = fs::read(bundle_dir.join(relative))
+                .test_context(format!("runtime payload {profile}:{relative}"))?;
+            if payload.len() < 32 {
+                continue;
+            }
+            runtime_payloads_checked += 1;
+            assert!(
+                !contains_bytes(&audit_bytes, &payload),
+                "audit receipt copied raw payload bytes for {profile}:{relative}"
+            );
+            if let Ok(payload_text) = String::from_utf8(payload) {
+                let payload_text = payload_text.trim();
+                if payload_text.len() >= 32 {
+                    assert!(
+                        !audit_text.contains(payload_text),
+                        "audit receipt copied raw payload text for {profile}:{relative}"
+                    );
+                    let escaped_payload =
+                        serde_json::to_string(payload_text).test_context("escape payload")?;
+                    let escaped_payload = escaped_payload
+                        .trim_start_matches('"')
+                        .trim_end_matches('"');
+                    assert!(
+                        !audit_text.contains(escaped_payload),
+                        "audit receipt copied escaped payload text for {profile}:{relative}"
+                    );
+                }
+            }
+        }
+    }
+
+    assert!(
+        runtime_payloads_checked > 0,
+        "test should inspect at least one runtime-material payload"
+    );
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_golden_json_preserves_schema_and_boundaries() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("webhook");
@@ -1077,6 +1174,46 @@ fn audit_bundle_json_reports_artifact_runtime_material_flags() -> TestResult<()>
     assert_eq!(evidence["scanner_safe"], true);
     assert_eq!(evidence["runtime_material"], false);
     Ok(())
+}
+
+fn audit_receipt_files(audit_dir: &std::path::Path) -> TestResult<Vec<String>> {
+    fn collect(
+        root: &std::path::Path,
+        dir: &std::path::Path,
+        files: &mut Vec<String>,
+    ) -> TestResult<()> {
+        for entry in fs::read_dir(dir).test_context("audit dir")? {
+            let entry = entry.test_context("audit dir entry")?;
+            let path = entry.path();
+            let metadata = entry.metadata().test_context("audit entry metadata")?;
+            if metadata.is_dir() {
+                collect(root, &path, files)?;
+            } else if metadata.is_file() {
+                files.push(
+                    path.strip_prefix(root)
+                        .map_err(|err| err.to_string())
+                        .test_context("audit relative path")?
+                        .display()
+                        .to_string()
+                        .replace('\\', "/"),
+                );
+            }
+        }
+        Ok(())
+    }
+
+    let mut files = Vec::new();
+    collect(audit_dir, audit_dir, &mut files)?;
+    files.sort();
+    Ok(files)
+}
+
+fn contains_bytes(haystack: &[u8], needle: &[u8]) -> bool {
+    !needle.is_empty()
+        && needle.len() <= haystack.len()
+        && haystack
+            .windows(needle.len())
+            .any(|window| window == needle)
 }
 
 fn normalize_snapshot_paths(value: Value, temp_root: &std::path::Path) -> Value {
