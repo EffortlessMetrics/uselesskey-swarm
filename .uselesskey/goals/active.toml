@@ -280,19 +280,21 @@ commands = [
 
 [[work_item]]
 id = "first-five-minutes-path"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0022"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = [
   "cargo xtask docs-sync --check",
   "cargo xtask typos",
+  "cargo xtask check-goals",
+  "cargo xtask pr",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "downstream-ci-recipes"
-status = "planned"
+status = "ready"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0020"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"

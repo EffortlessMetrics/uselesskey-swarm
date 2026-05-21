@@ -32,11 +32,11 @@ Pick the job first; the repo proof machinery is behind links when you need it.
 
 | I need to... | Start with | Copy this |
 | --- | --- | --- |
-| use fixtures in Rust tests | facade crate | `uselesskey = { version = "0.9.1", features = ["rsa"] }` |
-| generate deterministic bundles on disk | installed CLI | `uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle` |
-| test webhook, TLS, or OIDC/JWKS verifier paths | contract-pack profiles | `uselesskey profiles` |
-| fail CI on bundle drift | downstream policy pack | `uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook --policy strict` |
-| share a reviewer packet without cloning the repo | installed bundle audit | `uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit` |
+| write Rust tests | facade crate | `uselesskey = { version = "0.9.1", features = ["rsa"] }` |
+| install CI fixtures | installed CLI bundle | `uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle` |
+| test negative verifier paths | contract packs | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` |
+| review bundle evidence | verify + audit | `uselesskey verify-bundle --path target/uselesskey-webhook` |
+| keep runtime material disposable | `target/` output | `uselesskey audit-bundle --path target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` |
 | prove repo public claims from a checkout | repo verification pack | `cargo xtask verification-pack --out target/uselesskey-verification` |
 
 Install the CLI when you want fixture bundles outside this workspace:
@@ -54,7 +54,7 @@ Generate, verify, inspect, and audit a webhook bundle:
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle --path target/uselesskey-webhook
 uselesskey inspect-bundle --path target/uselesskey-webhook
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit
+uselesskey audit-bundle --path target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
 ```
 
 Use `--ci --expect-profile <profile> --policy strict` when the audit is part
@@ -97,8 +97,8 @@ What this does not prove:
 - repo public claims unless you run the repo-local proof commands.
 
 Start with [docs/how-to/start-here.md](docs/how-to/start-here.md) for the task
-router, [docs/reference/bundle-inspect-vs-audit.md](docs/reference/bundle-inspect-vs-audit.md)
-for the inspect/audit split, or
+router, [docs/how-to/verify-a-fixture-bundle.md](docs/how-to/verify-a-fixture-bundle.md)
+for the verify/audit loop, or
 [docs/status/PUBLIC_CLAIMS.md](docs/status/PUBLIC_CLAIMS.md) for the full proof
 index.
 

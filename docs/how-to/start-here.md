@@ -11,14 +11,12 @@ or cryptographic assurance.
 
 | I need to... | Copy this | Full workflow |
 | --- | --- | --- |
-| use fake RSA/JWK fixtures in Rust tests | `uselesskey = { version = "0.9.1", features = ["rsa", "jwk"] }` | [choose-features.md](choose-features.md) |
-| test JWT/token parser or claim rejection | `uselesskey = { version = "0.9.1", default-features = false, features = ["token"] }` | [test-jwt-negative-validation.md](test-jwt-negative-validation.md) |
-| generate a scanner-safe bundle | `uselesskey bundle --profile scanner-safe --out target/uselesskey-scanner-safe` | [share-installed-bundle-audit.md](share-installed-bundle-audit.md) |
-| test TLS verifier behavior | `uselesskey bundle --profile tls --out target/uselesskey-tls` | [test-tls-chain-validation.md](test-tls-chain-validation.md) |
-| test OIDC/JWKS validator behavior | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` | [test-oidc-jwks-validation.md](test-oidc-jwks-validation.md) |
-| test webhook signature negatives | `uselesskey bundle --profile webhook --out target/uselesskey-webhook` | [test-webhook-signature-validation.md](test-webhook-signature-validation.md) |
+| write Rust tests | `uselesskey = { version = "0.9.1", features = ["rsa", "jwk"] }` | [choose-features.md](choose-features.md) |
+| install CI fixtures | `uselesskey bundle --profile scanner-safe --out target/uselesskey-scanner-safe` | [verify-a-fixture-bundle.md](verify-a-fixture-bundle.md) |
+| test negative verifier paths | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` | [test-oidc-jwks-validation.md](test-oidc-jwks-validation.md) |
+| collect review evidence | `uselesskey audit-bundle --path target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` | [verify-a-fixture-bundle.md](verify-a-fixture-bundle.md) |
+| keep runtime material disposable | `uselesskey bundle --profile tls --out target/uselesskey-tls` | [test-tls-chain-validation.md](test-tls-chain-validation.md) |
 | fail CI on installed bundle drift | `uselesskey audit-bundle --path target/uselesskey-webhook --ci --expect-profile webhook --policy strict` | [use-uselesskey-in-downstream-ci.md](use-uselesskey-in-downstream-ci.md) |
-| share what an installed bundle contains | `uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit` | [share-installed-bundle-audit.md](share-installed-bundle-audit.md) |
 | prove public claims from a repo checkout | `cargo xtask verification-pack --out target/uselesskey-verification` | [verify-uselesskey-public-claims.md](verify-uselesskey-public-claims.md) |
 
 ## Install the CLI
@@ -74,7 +72,7 @@ Generate, verify, inspect, and audit a bundle:
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle --path target/uselesskey-webhook
 uselesskey inspect-bundle --path target/uselesskey-webhook
-uselesskey audit-bundle --path target/uselesskey-webhook --out target/uselesskey-webhook-audit
+uselesskey audit-bundle --path target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
 ```
 
 Attach `bundle-audit.md` and `bundle-audit.json` when a reviewer needs local
