@@ -57,9 +57,10 @@ Initial handler mapping:
 | `generated-badge-endpoints` | `badges_check` |
 | `external-cratesio-install-smoke` | `cratesio_smoke_version` with explicit version only |
 
-`--all-stable` runs stable claims with claim-proof handlers. It must not run
-release-proof claims such as `external-cratesio-install-smoke` unless the user
-passes an explicit version option in a later command shape.
+`--all-stable` runs stable claims with `status = "implemented"` claim-proof
+policies and `include_in_all_stable = true`. It must not run planned policies
+or release-proof claims such as `external-cratesio-install-smoke` unless the
+user passes an explicit version option in a later command shape.
 
 Each receipt must record:
 
@@ -135,7 +136,20 @@ Valid handler policy:
 ```toml
 [[claim_proof]]
 claim = "scanner-safe-fixtures"
+status = "implemented"
+include_in_all_stable = true
 handlers = ["scanner_safe_reference_check", "no_blob", "badges_check"]
+```
+
+Planned handler policy may be recorded in the ledger, but claim-proof must not
+execute it by default:
+
+```toml
+[[claim_proof]]
+claim = "future-contract-pack"
+status = "planned"
+include_in_all_stable = false
+handlers = ["future_contract_pack"]
 ```
 
 Invalid handler policy:
@@ -165,6 +179,7 @@ Claim-proof implementation tests must cover:
 - handler mapping for `scanner-safe-fixtures`;
 - handler mapping for `tls-contract-pack`;
 - `--all-stable` selection;
+- planned claim-proof policy rejection;
 - unknown claim rejection;
 - release-proof claim rejection without explicit version;
 - receipt JSON and Markdown shape;
