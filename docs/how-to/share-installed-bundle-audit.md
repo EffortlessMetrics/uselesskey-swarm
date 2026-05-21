@@ -3,9 +3,10 @@
 Use this when you generated a bundle with the installed CLI and need a
 metadata-only packet for a security or platform reviewer.
 
-The installed audit path explains the local bundle. It is not repo public-claim
-proof, release evidence, provider compatibility proof, or production security
-assurance.
+The installed audit path explains the local bundle and binds to the advisory
+`metadata-only-audit-packets` claim. A downstream receipt is still local
+evidence; it is not proof of every repo public claim, release evidence, provider
+compatibility proof, or production security assurance.
 
 ## Generate a Bundle
 
@@ -91,7 +92,7 @@ The JSON receipt reports:
 
 `audit-bundle` does not prove:
 
-- repo public claims;
+- every repo public claim;
 - release readiness;
 - provider compatibility;
 - production key management or production security;

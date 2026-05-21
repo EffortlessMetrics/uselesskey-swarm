@@ -94,7 +94,7 @@ unless a local policy explicitly allows that artifact.
 
 - It does not prove provider compatibility.
 - It does not prove production security.
-- It does not prove repo public claims.
+- It does not prove every repo public claim.
 - It does not prove scanner evasion.
 - It does not prove release readiness.
 - It does not prove downstream verifier correctness.
