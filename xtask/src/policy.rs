@@ -20,6 +20,7 @@ const CLIPPY_LINTS_TOML: &str = "policy/clippy-lints.toml";
 const CLIPPY_DEBT_TOML: &str = "policy/clippy-debt.toml";
 const NEGATIVE_FIXTURES_TOML: &str = "policy/negative-fixtures.toml";
 const NEGATIVE_FIXTURE_MATRIX_MD: &str = "docs/status/negative-fixture-matrix.md";
+const CLAIM_LEDGER_TOML: &str = "policy/claim-ledger.toml";
 const BUNDLE_MANIFEST_SCHEMA_JSON: &str = "docs/schemas/bundle-manifest.schema.json";
 const NEGATIVE_COVERAGE_SCHEMA_JSON: &str = "docs/schemas/negative-coverage.schema.json";
 
@@ -1225,6 +1226,17 @@ struct NegativeFixturePolicy {
     negative: Vec<NegativeFixtureEntry>,
 }
 
+#[derive(Debug, Deserialize)]
+struct NegativeFixtureClaimLedger {
+    #[serde(default)]
+    claim: Vec<NegativeFixtureClaimEntry>,
+}
+
+#[derive(Debug, Deserialize)]
+struct NegativeFixtureClaimEntry {
+    id: String,
+}
+
 #[derive(Debug, Default, Deserialize)]
 struct NegativeFixtureEntry {
     stable_id: String,
@@ -1259,6 +1271,7 @@ struct NegativeFixtureEntry {
 #[derive(Debug)]
 struct NegativeFixtureMatrixRow {
     status: String,
+    claim: String,
     public_surface: String,
     bundle_exposed: String,
     proof: String,
@@ -1281,11 +1294,17 @@ struct NegativeFixturePolicyReport {
 
 pub fn check_negative_fixtures() -> Result<()> {
     let policy: NegativeFixturePolicy = read_toml(NEGATIVE_FIXTURES_TOML)?;
+    let claim_ledger: NegativeFixtureClaimLedger = read_toml(CLAIM_LEDGER_TOML)?;
+    let claim_ids = claim_ledger
+        .claim
+        .iter()
+        .map(|claim| claim.id.as_str())
+        .collect::<BTreeSet<_>>();
     let matrix_raw = fs::read_to_string(NEGATIVE_FIXTURE_MATRIX_MD)
         .with_context(|| format!("read {NEGATIVE_FIXTURE_MATRIX_MD}"))?;
     let (matrix_rows, duplicate_matrix_ids) = parse_negative_fixture_matrix(&matrix_raw);
 
-    let mut errors = validate_negative_fixture_policy(&policy, &matrix_rows);
+    let mut errors = validate_negative_fixture_policy(&policy, &matrix_rows, &claim_ids);
     for stable_id in duplicate_matrix_ids {
         errors.push(format!(
             "{NEGATIVE_FIXTURE_MATRIX_MD}: duplicate row for `{stable_id}`"
@@ -1342,6 +1361,7 @@ pub fn check_negative_fixtures() -> Result<()> {
 fn validate_negative_fixture_policy(
     policy: &NegativeFixturePolicy,
     matrix_rows: &BTreeMap<String, NegativeFixtureMatrixRow>,
+    claim_ids: &BTreeSet<&str>,
 ) -> Vec<String> {
     let mut errors = Vec::new();
     if policy.schema_version != "1.0" {
@@ -1367,7 +1387,7 @@ fn validate_negative_fixture_policy(
 
     let mut seen = BTreeSet::new();
     for entry in &policy.negative {
-        validate_negative_fixture_entry(entry, &mut errors);
+        validate_negative_fixture_entry(entry, claim_ids, &mut errors);
         if !seen.insert(entry.stable_id.clone()) {
             errors.push(format!(
                 "{NEGATIVE_FIXTURES_TOML}: duplicate stable_id `{}`",
@@ -1385,7 +1405,11 @@ fn validate_negative_fixture_policy(
     errors
 }
 
-fn validate_negative_fixture_entry(entry: &NegativeFixtureEntry, errors: &mut Vec<String>) {
+fn validate_negative_fixture_entry(
+    entry: &NegativeFixtureEntry,
+    claim_ids: &BTreeSet<&str>,
+    errors: &mut Vec<String>,
+) {
     if !is_valid_negative_stable_id(&entry.stable_id) {
         errors.push(format!(
             "{NEGATIVE_FIXTURES_TOML}: stable_id `{}` must be lower snake_case and start with a letter",
@@ -1412,11 +1436,13 @@ fn validate_negative_fixture_entry(entry: &NegativeFixtureEntry, errors: &mut Ve
             ));
         }
     }
-    if let Some(claim) = &entry.claim
-        && claim.trim().is_empty()
+    validate_required_text(entry.claim.as_deref(), &entry.stable_id, "claim", errors);
+    if let Some(claim) = entry.claim.as_deref().map(str::trim)
+        && !claim.is_empty()
+        && !claim_ids.contains(claim)
     {
         errors.push(format!(
-            "{NEGATIVE_FIXTURES_TOML}: `{}` claim must not be empty when present",
+            "{NEGATIVE_FIXTURES_TOML}: `{}` claim `{claim}` is not present in {CLAIM_LEDGER_TOML}",
             entry.stable_id
         ));
     }
@@ -1542,6 +1568,13 @@ fn validate_negative_fixture_matrix(
                 entry.stable_id, row.status, entry.status
             ));
         }
+        let expected_claim = entry.claim.as_deref().unwrap_or("none");
+        if row.claim != expected_claim {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURE_MATRIX_MD}: `{}` claim `{}` does not match ledger `{}`",
+                entry.stable_id, row.claim, expected_claim
+            ));
+        }
         let expected_bundle = expected_negative_fixture_bundle_cell(entry);
         if row.bundle_exposed != expected_bundle {
             errors.push(format!(
@@ -1624,7 +1657,7 @@ fn parse_negative_fixture_matrix(
             .split('|')
             .map(str::trim)
             .collect::<Vec<_>>();
-        if columns.len() < 5 {
+        if columns.len() < 6 {
             continue;
         }
         let Some(stable_id) = first_markdown_code(columns[0]) else {
@@ -1633,11 +1666,13 @@ fn parse_negative_fixture_matrix(
         let Some(status) = first_markdown_code(columns[1]) else {
             continue;
         };
-        let public_surface = first_markdown_code(columns[2]).unwrap_or_else(|| columns[2].into());
-        let bundle_exposed = first_markdown_code(columns[3]).unwrap_or_else(|| columns[3].into());
-        let proof = first_markdown_code(columns[4]).unwrap_or_else(|| columns[4].into());
+        let claim = first_markdown_code(columns[2]).unwrap_or_else(|| columns[2].into());
+        let public_surface = first_markdown_code(columns[3]).unwrap_or_else(|| columns[3].into());
+        let bundle_exposed = first_markdown_code(columns[4]).unwrap_or_else(|| columns[4].into());
+        let proof = first_markdown_code(columns[5]).unwrap_or_else(|| columns[5].into());
         let row = NegativeFixtureMatrixRow {
             status,
+            claim,
             public_surface,
             bundle_exposed,
             proof,
@@ -2385,15 +2420,16 @@ mod tests {
     #[test]
     fn negative_fixture_matrix_parser_reads_contract_rows() -> Result<()> {
         let (rows, duplicate_ids) = parse_negative_fixture_matrix(
-            "| Stable ID | Status | Public surface | Bundle exposed | Proof |\n\
-             | --- | --- | --- | --- | --- |\n\
-             | `jwt_missing_kid` | `implemented` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n",
+            "| Stable ID | Status | Claim | Public surface | Bundle exposed | Proof |\n\
+             | --- | --- | --- | --- | --- | --- |\n\
+             | `jwt_missing_kid` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n",
         );
         assert!(duplicate_ids.is_empty());
         let row = rows
             .get("jwt_missing_kid")
             .ok_or_else(|| anyhow::anyhow!("matrix row"))?;
         assert_eq!(row.status, "implemented");
+        assert_eq!(row.claim, "jwt-token-negative-fixtures");
         assert_eq!(row.public_surface, "NegativeToken::MissingKid");
         assert_eq!(row.bundle_exposed, "no");
         assert_eq!(row.proof, "cargo test -p uselesskey-token --all-features");
@@ -2403,10 +2439,10 @@ mod tests {
     #[test]
     fn negative_fixture_matrix_parser_reports_duplicate_rows() {
         let (_rows, duplicate_ids) = parse_negative_fixture_matrix(
-            "| Stable ID | Status | Public surface | Bundle exposed | Proof |\n\
-             | --- | --- | --- | --- | --- |\n\
-             | `jwt_missing_kid` | `implemented` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n\
-             | `jwt_missing_kid` | `implemented` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n",
+            "| Stable ID | Status | Claim | Public surface | Bundle exposed | Proof |\n\
+             | --- | --- | --- | --- | --- | --- |\n\
+             | `jwt_missing_kid` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n\
+             | `jwt_missing_kid` | `implemented` | `jwt-token-negative-fixtures` | `NegativeToken::MissingKid` | no | `cargo test -p uselesskey-token --all-features` |\n",
         );
         assert_eq!(duplicate_ids, vec!["jwt_missing_kid"]);
     }
@@ -2471,12 +2507,37 @@ mod tests {
             ..NegativeFixtureEntry::default()
         };
         let mut errors = Vec::new();
-        validate_negative_fixture_entry(&entry, &mut errors);
+        let claim_ids = BTreeSet::from(["jwt-token-negative-fixtures"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(errors.iter().any(|error| error.contains("claim")));
         assert!(errors.iter().any(|error| error.contains("owner_crate")));
         assert!(errors.iter().any(|error| error.contains("public_surface")));
         assert!(errors.iter().any(|error| error.contains("docs")));
         assert!(errors.iter().any(|error| error.contains("tests")));
         assert!(errors.iter().any(|error| error.contains("does_not_prove")));
+    }
+
+    #[test]
+    fn negative_fixture_claim_must_exist_in_claim_ledger() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "jwt_missing_kid".into(),
+            family: "jwt_token".into(),
+            status: "accepted_planned".into(),
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(false),
+            claim: Some("missing-claim".into()),
+            reason: Some("accepted for taxonomy".into()),
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["jwt-token-negative-fixtures"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("missing-claim") && error.contains(CLAIM_LEDGER_TOML))
+        );
     }
 
     #[test]
