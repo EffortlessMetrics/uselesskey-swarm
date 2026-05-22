@@ -1,11 +1,16 @@
 use std::collections::BTreeMap;
 use std::fmt::Write as _;
 use std::fs;
-use std::path::{Path, PathBuf};
+use std::path::{Component, Path, PathBuf};
 use std::time::{Instant, SystemTime, UNIX_EPOCH};
 
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
+
+use crate::target_output;
+
+const XTASK_RECEIPT_PATH: &str = "target/xtask/receipt.json";
+const XTASK_RECEIPT_LOCK_DIR: &str = "target/xtask-receipt.lock";
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Receipt {
@@ -355,6 +360,12 @@ impl Runner {
     }
 
     pub fn write(&self) -> Result<()> {
+        let _output_lock = if is_default_xtask_receipt_path(&self.path) {
+            Some(acquire_xtask_receipt_output_lock()?)
+        } else {
+            None
+        };
+
         if let Some(parent) = self.path.parent() {
             fs::create_dir_all(parent)
                 .with_context(|| format!("failed to create receipt dir {:?}", parent))?;
@@ -377,6 +388,16 @@ impl Runner {
         fs::write(path, sarif).context("failed to write SARIF file")?;
         Ok(())
     }
+}
+
+fn acquire_xtask_receipt_output_lock() -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(Path::new("."), XTASK_RECEIPT_LOCK_DIR, "xtask receipt")
+}
+
+fn is_default_xtask_receipt_path(path: &Path) -> bool {
+    path.components()
+        .filter(|component| !matches!(component, Component::CurDir))
+        .eq(Path::new(XTASK_RECEIPT_PATH).components())
 }
 
 #[cfg(test)]
@@ -460,6 +481,20 @@ mod tests {
             !json.contains("coverage_percent"),
             "receipt JSON should omit coverage_percent when None"
         );
+    }
+
+    #[test]
+    fn default_xtask_receipt_path_is_lock_target() {
+        assert!(is_default_xtask_receipt_path(Path::new(
+            "target/xtask/receipt.json"
+        )));
+        assert!(is_default_xtask_receipt_path(Path::new(
+            "./target/xtask/receipt.json"
+        )));
+        assert!(!is_default_xtask_receipt_path(Path::new(
+            "target/other/receipt.json"
+        )));
+        assert!(!is_default_xtask_receipt_path(Path::new("receipt.json")));
     }
 
     #[test]
