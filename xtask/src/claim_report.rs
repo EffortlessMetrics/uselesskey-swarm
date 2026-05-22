@@ -5,6 +5,10 @@ use std::path::Path;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
+use crate::target_output;
+
+const LOCK_DIR: &str = "target/claim-report.lock";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OutputFormat {
     Human,
@@ -96,6 +100,7 @@ pub fn run(
         bail!("claim-report: --check-public-claims cannot be combined with --claim");
     }
 
+    let _output_lock = acquire_output_lock(root)?;
     let report = build_report(root, claim_filter)?;
     let out_dir = root.join("target/claim-report");
     fs::create_dir_all(&out_dir).with_context(|| format!("create {}", out_dir.display()))?;
@@ -140,6 +145,7 @@ pub(crate) fn write_release_receipt(root: &Path, out_dir: &Path) -> Result<()> {
 }
 
 pub(crate) fn write_target_receipt(root: &Path, claim_filter: Option<&str>) -> Result<()> {
+    let _output_lock = acquire_output_lock(root)?;
     let report = build_report(root, claim_filter)?;
     let out_dir = root.join("target/claim-report");
     fs::create_dir_all(&out_dir).with_context(|| format!("create {}", out_dir.display()))?;
@@ -151,6 +157,10 @@ pub(crate) fn write_target_receipt(root: &Path, claim_filter: Option<&str>) -> R
         .with_context(|| format!("write {}", md_path.display()))?;
 
     Ok(())
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "claim-report")
 }
 
 fn check_public_claims_doc(root: &Path, report: &ClaimReport) -> Result<()> {
@@ -692,6 +702,15 @@ mod tests {
             )),
             "errors: {errors:?}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_report_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
         Ok(())
     }
 
