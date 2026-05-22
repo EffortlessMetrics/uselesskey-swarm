@@ -788,6 +788,42 @@ docs = ["docs/VERIFICATION.md"]
     }
 
     #[test]
+    fn rejects_workflow_row_without_receipts() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support_full(
+            dir.path(),
+            "stable bundle workflow",
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+            "none",
+            "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
+        )?;
+        assert_error(
+            dir.path(),
+            "workflow `Scanner-safe bundle handoff` has no receipt paths",
+        )
+    }
+
+    #[test]
+    fn rejects_workflow_tier_without_meaning() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support_full(
+            dir.path(),
+            "stable bundle workflow",
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+            "`target/external-adoption-smoke/report.json`",
+            "| stable bundle workflow |  |",
+        )?;
+        assert_error(
+            dir.path(),
+            "workflow support tier `stable bundle workflow` has an empty meaning",
+        )
+    }
+
+    #[test]
     fn rejects_duplicate_workflow_row() -> Result<()> {
         let dir = minimal_repo()?;
         append_duplicate_workflow_row(dir.path())?;
@@ -923,6 +959,26 @@ updated = "2026-05-21"
         primary_docs: &str,
         proof: &str,
     ) -> Result<()> {
+        write_workflow_support_full(
+            root,
+            tier,
+            claim,
+            primary_docs,
+            proof,
+            "`target/external-adoption-smoke/report.json`",
+            "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
+        )
+    }
+
+    fn write_workflow_support_full(
+        root: &Path,
+        tier: &str,
+        claim: &str,
+        primary_docs: &str,
+        proof: &str,
+        receipts: &str,
+        tier_definition: &str,
+    ) -> Result<()> {
         write_file(
             root,
             WORKFLOW_SUPPORT_MD,
@@ -933,13 +989,13 @@ updated = "2026-05-21"
 
 | Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| Scanner-safe bundle handoff | {tier} | {claim} | {primary_docs} | {proof} | `target/external-adoption-smoke/report.json` | Boundary. |
+| Scanner-safe bundle handoff | {tier} | {claim} | {primary_docs} | {proof} | {receipts} | Boundary. |
 
 ## Support Tier Interpretation
 
 | Tier | Meaning |
 | --- | --- |
-| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |
+{tier_definition}
 "#
             ),
         )
