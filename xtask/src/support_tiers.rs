@@ -8,6 +8,7 @@ use serde::Deserialize;
 const CLAIM_LEDGER_TOML: &str = "policy/claim-ledger.toml";
 const DOC_ARTIFACTS_TOML: &str = "policy/doc-artifacts.toml";
 const SUPPORT_TIERS_MD: &str = "docs/status/SUPPORT_TIERS.md";
+const WORKFLOW_SUPPORT_MD: &str = "docs/status/workflow-support.md";
 const VALID_TIERS: &[&str] = &[
     "Stable",
     "Stabilizing",
@@ -62,15 +63,29 @@ struct SupportRow {
     release_lane: String,
 }
 
+#[derive(Debug)]
+struct WorkflowRow {
+    line: usize,
+    workflow: String,
+    support_tier: String,
+    claim: String,
+    primary_docs: String,
+    proof_commands: String,
+    receipts: String,
+    boundary: String,
+}
+
 pub(crate) fn run(root: &Path) -> Result<()> {
     let errors = validate(root)?;
     if errors.is_empty() {
         let ledger = read_claim_ledger(root)?;
         let rows = read_support_rows(root)?;
+        let workflows = read_workflow_rows(root)?;
         println!(
-            "support-tiers: {} claims; {} support rows; map ok",
+            "support-tiers: {} claims; {} support rows; {} workflow rows; map ok",
             ledger.claim.len(),
-            rows.len()
+            rows.len(),
+            workflows.len()
         );
         Ok(())
     } else {
@@ -85,6 +100,7 @@ fn validate(root: &Path) -> Result<Vec<String>> {
     let ledger = read_claim_ledger(root)?;
     let artifacts = read_doc_artifacts(root)?;
     let rows = read_support_rows(root)?;
+    let workflow_rows = read_workflow_rows(root)?;
     let mut errors = Vec::new();
 
     if ledger.claim.is_empty() {
@@ -93,6 +109,11 @@ fn validate(root: &Path) -> Result<Vec<String>> {
     if rows.is_empty() {
         errors.push(format!(
             "{SUPPORT_TIERS_MD}: no parseable Claim Support Map rows found"
+        ));
+    }
+    if workflow_rows.is_empty() {
+        errors.push(format!(
+            "{WORKFLOW_SUPPORT_MD}: no parseable Workflow Matrix rows found"
         ));
     }
 
@@ -218,11 +239,13 @@ fn validate(root: &Path) -> Result<Vec<String>> {
         }
         for doc in inline_code_values(&row.docs)
             .into_iter()
-            .filter(|path| is_repo_doc_path(path))
+            .filter(|path| is_repo_path(path))
         {
             validate_existing_path(root, SUPPORT_TIERS_MD, &row.surface, &doc, &mut errors);
         }
     }
+
+    validate_workflow_rows(&workflow_rows, &claims, root, &mut errors);
 
     for claim in ledger
         .claim
@@ -246,6 +269,74 @@ fn validate(root: &Path) -> Result<Vec<String>> {
     Ok(errors)
 }
 
+fn validate_workflow_rows(
+    rows: &[WorkflowRow],
+    claims: &BTreeMap<&str, &ClaimEntry>,
+    root: &Path,
+    errors: &mut Vec<String>,
+) {
+    for row in rows {
+        if row.support_tier.trim().is_empty() {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has an empty support tier",
+                row.line, row.workflow
+            ));
+        }
+
+        let Some(claim) = claims.get(row.claim.as_str()) else {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` references unknown claim `{}`",
+                row.line, row.workflow, row.claim
+            ));
+            continue;
+        };
+
+        let docs = inline_code_values(&row.primary_docs);
+        if docs.is_empty() {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has no primary docs",
+                row.line, row.workflow
+            ));
+        }
+        for doc in docs.into_iter().filter(|path| is_repo_path(path)) {
+            validate_existing_path(root, WORKFLOW_SUPPORT_MD, &row.workflow, &doc, errors);
+        }
+
+        let proof_commands = inline_code_values(&row.proof_commands);
+        if proof_commands.is_empty() {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has no visible proof commands",
+                row.line, row.workflow
+            ));
+        } else if !claim.proof_commands.is_empty()
+            && !proof_commands.iter().any(|proof| {
+                claim
+                    .proof_commands
+                    .iter()
+                    .any(|claim_proof| claim_proof == proof)
+            })
+        {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has no proof command from claim `{}`",
+                row.line, row.workflow, claim.id
+            ));
+        }
+
+        if inline_code_values(&row.receipts).is_empty() {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has no receipt paths",
+                row.line, row.workflow
+            ));
+        }
+        if row.boundary.trim().is_empty() {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has an empty boundary",
+                row.line, row.workflow
+            ));
+        }
+    }
+}
+
 fn read_claim_ledger(root: &Path) -> Result<ClaimLedger> {
     let path = root.join(CLAIM_LEDGER_TOML);
     let text = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
@@ -262,6 +353,12 @@ fn read_support_rows(root: &Path) -> Result<Vec<SupportRow>> {
     let path = root.join(SUPPORT_TIERS_MD);
     let markdown = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     Ok(parse_support_rows(&markdown))
+}
+
+fn read_workflow_rows(root: &Path) -> Result<Vec<WorkflowRow>> {
+    let path = root.join(WORKFLOW_SUPPORT_MD);
+    let markdown = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+    Ok(parse_workflow_rows(&markdown))
 }
 
 fn parse_support_rows(markdown: &str) -> Vec<SupportRow> {
@@ -308,6 +405,50 @@ fn parse_support_rows(markdown: &str) -> Vec<SupportRow> {
     rows
 }
 
+fn parse_workflow_rows(markdown: &str) -> Vec<WorkflowRow> {
+    let mut rows = Vec::new();
+    let mut in_map = false;
+
+    for (idx, line) in markdown.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed == "## Workflow Matrix" {
+            in_map = true;
+            continue;
+        }
+        if in_map && trimmed.starts_with("## ") {
+            break;
+        }
+        if !in_map || !trimmed.starts_with('|') {
+            continue;
+        }
+
+        let cells = trimmed
+            .trim_matches('|')
+            .split('|')
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        if cells.len() < 7 {
+            continue;
+        }
+        if cells[0] == "Workflow" || cells[0].starts_with("---") {
+            continue;
+        }
+
+        rows.push(WorkflowRow {
+            line: idx + 1,
+            workflow: cells[0].to_string(),
+            support_tier: cells[1].to_string(),
+            claim: strip_inline_code(cells[2]),
+            primary_docs: cells[3].to_string(),
+            proof_commands: cells[4].to_string(),
+            receipts: cells[5].to_string(),
+            boundary: cells[6].to_string(),
+        });
+    }
+
+    rows
+}
+
 fn validate_existing_path(
     root: &Path,
     source: &str,
@@ -315,7 +456,7 @@ fn validate_existing_path(
     rel: &str,
     errors: &mut Vec<String>,
 ) {
-    if !is_repo_doc_path(rel) {
+    if !is_repo_path(rel) {
         return;
     }
     let path = root.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR));
@@ -326,8 +467,11 @@ fn validate_existing_path(
     }
 }
 
-fn is_repo_doc_path(path: &str) -> bool {
-    path.starts_with("docs/") || path.starts_with("badges/") || path.starts_with("policy/")
+fn is_repo_path(path: &str) -> bool {
+    path.starts_with("docs/")
+        || path.starts_with("badges/")
+        || path.starts_with("policy/")
+        || path.starts_with("examples/")
 }
 
 fn strip_inline_code(value: &str) -> String {
@@ -471,6 +615,45 @@ docs = ["docs/VERIFICATION.md"]
         )
     }
 
+    #[test]
+    fn rejects_workflow_row_unknown_claim() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support(
+            dir.path(),
+            "`unknown-claim`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+        )?;
+        assert_error(dir.path(), "references unknown claim `unknown-claim`")
+    }
+
+    #[test]
+    fn rejects_workflow_row_without_claim_proof_command() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support(
+            dir.path(),
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask fake-proof`",
+        )?;
+        assert_error(
+            dir.path(),
+            "has no proof command from claim `scanner-safe-fixtures`",
+        )
+    }
+
+    #[test]
+    fn rejects_workflow_row_missing_primary_doc() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support(
+            dir.path(),
+            "`scanner-safe-fixtures`",
+            "`docs/missing.md`",
+            "`cargo xtask no-blob`",
+        )?;
+        assert_error(dir.path(), "references missing path `docs/missing.md`")
+    }
+
     fn assert_error(root: &Path, needle: &str) -> Result<()> {
         let errors = validate(root)?;
         assert!(
@@ -505,6 +688,12 @@ standalone_reason = "test"
             dir.path(),
             "Stable",
             "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`",
+        )?;
+        write_workflow_support(
+            dir.path(),
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
             "`cargo xtask no-blob`",
         )?;
         Ok(dir)
@@ -570,6 +759,30 @@ updated = "2026-05-21"
 | Scanner-safe fixtures | {tier} | {claim} | {proof} | `docs/VERIFICATION.md` | Boundary. | `pr` |
 
 ## Explicit Non-Support
+"#
+            ),
+        )
+    }
+
+    fn write_workflow_support(
+        root: &Path,
+        claim: &str,
+        primary_docs: &str,
+        proof: &str,
+    ) -> Result<()> {
+        write_file(
+            root,
+            WORKFLOW_SUPPORT_MD,
+            &format!(
+                r#"# Workflow Support
+
+## Workflow Matrix
+
+| Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| Scanner-safe bundle handoff | stable bundle workflow | {claim} | {primary_docs} | {proof} | `target/external-adoption-smoke/report.json` | Boundary. |
+
+## Support Tier Interpretation
 "#
             ),
         )
