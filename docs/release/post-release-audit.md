@@ -1,90 +1,130 @@
 # Post-Release Audit
 
-Run this checklist after publishing a `uselesskey` release. It verifies that the
-public fixture promises described in the release notes are visible to users and
-that evidence artifacts remain reachable.
+Run this checklist after publishing a `uselesskey` release from the
+release/source boundary repo. It verifies that the shipped registry state,
+docs.rs state, installed user path, and public-claim receipts match the release
+story.
 
-The audit is for release confidence, not production cryptographic assurance.
-`uselesskey` remains a test-fixture layer.
+This audit is release confidence only. It is not production cryptographic
+assurance, provider compatibility certification, scanner-policy approval, or
+permission to move release authority into `uselesskey-swarm`.
 
 ## Inputs
 
-- Release tag, for example `v0.7.0`.
-- Published crate version, for example `0.7.0`.
-- Release evidence matrix for the candidate commit.
-- Release notes generated from `.github/release.yml`.
+- Release tag, for example `v0.10.0`.
+- Published crate version, for example `0.10.0`.
+- Source release commit and release workflow URL.
+- Release-specific evidence matrix or readiness record.
+- Swarm handoff packet, when the release picked up work from
+  `EffortlessMetrics/uselesskey-swarm`.
 
 Set local variables before running commands:
 
 ```bash
-TAG=v0.7.0
-VERSION=0.7.0
+TAG=v0.10.0
+VERSION=0.10.0
 ```
 
 ## Immediate Checks
 
-| Check | Command | Pass condition | If it fails |
+| Check | Command or surface | Pass condition | If it fails |
 | --- | --- | --- | --- |
-| GitHub release is visible | `gh release view "$TAG"` | Draft is published, tag points at the intended commit, release notes include the fixture-platform claim boundary. | Fix release notes if only text is wrong; otherwise stop and investigate tag/commit mismatch. |
-| Crates are visible | `cargo search uselesskey --limit 5` | The facade version appears on crates.io after indexing delay. | Wait for indexing; if still missing, inspect `cargo xtask publish` output and crates.io package pages. |
-| Facade install path resolves | `cargo search uselesskey --limit 5` plus a fresh downstream smoke crate if needed | Users can resolve the published facade version. | Open a release issue and document dependency-order or indexing symptoms. |
-| Docs.rs build started or completed | Open `https://docs.rs/crate/uselesskey/$VERSION` | docs.rs has accepted the package or shows a build in progress. | Track as a release issue; do not republish solely for docs.rs lag. |
-| Release evidence is linkable | Review the release body and uploaded workflow artifacts | Evidence matrix, receipts, mutation/perf artifacts, and bundle proof are linked or referenced. | Patch release notes with missing links. |
+| GitHub release is visible | `gh release view "$TAG"` | Draft is published, tag points at the intended source commit, and release notes keep claim boundaries visible. | Fix release notes if only text is wrong; otherwise stop and investigate the tag or commit mismatch. |
+| crates.io packages are visible | `cargo search uselesskey --limit 5` and crate pages for changed packages | The facade and intended publish crates show the published `$VERSION` after indexing delay. | Wait for indexing; if still missing, inspect publish logs and package pages. |
+| External install smoke passes | `cargo xtask cratesio-smoke --version "$VERSION"` | A fresh registry install can use the facade and installed CLI path for the published version. | Treat as a release follow-up or patch blocker, depending on the broken surface. |
+| docs.rs accepted the facade | `https://docs.rs/crate/uselesskey/$VERSION/status.json` | docs.rs reports a successful build or an explainable queued state. | Open a tracking issue for docs.rs lag or failure; do not republish solely for lag. |
+| Release evidence is linkable | Release body and workflow artifacts | Evidence matrix, claim receipts, verification pack, and bundle proof artifacts are linked or reproducible. | Patch release notes or attach the missing receipt. |
 
-## Public Promise Checks
+## Registry And Installed User Path
 
-Run these from a clean checkout or a temporary downstream smoke project once
-crates.io indexing has settled:
+Run the external crates.io smoke first:
 
 ```bash
-cargo xtask public-surface
+cargo xtask cratesio-smoke --version "$VERSION"
+```
+
+Then spot-check the installed CLI user path when the release changed bundle,
+audit, profile, or receipt behavior:
+
+```bash
+cargo install uselesskey-cli --version "$VERSION" --locked
+uselesskey doctor
+uselesskey profiles
+uselesskey bundle --profile oidc --out target/post-release-oidc
+uselesskey verify-bundle target/post-release-oidc
+uselesskey inspect-bundle target/post-release-oidc
+uselesskey audit-bundle target/post-release-oidc --ci --expect-profile oidc --policy strict
+```
+
+Swap `oidc` for `scanner-safe`, `webhook`, or `tls` when the release claim or
+fix targets that profile. Keep generated payloads under `target/`.
+
+## Public Claim Proof
+
+From a clean checkout of the released source commit, regenerate the current
+claim and support evidence:
+
+```bash
+cargo xtask claim-report --check-public-claims
+cargo xtask contract-packs --check
+cargo xtask check-support-tiers
+cargo xtask check-doc-artifacts
 cargo xtask docs-sync --check
-cargo xtask publish-preflight
+cargo xtask badges --check
 cargo xtask no-blob
 ```
 
-For bundle promises, regenerate and verify the default platform lane:
+Run stable public-claim proofs and the metadata-only reviewer bundle:
 
 ```bash
-cargo run -p uselesskey-cli -- bundle --profile scanner-safe --out target/post-release-bundle
-cargo run -p uselesskey-cli -- verify-bundle target/post-release-bundle
-cargo run -p uselesskey-cli -- inspect-bundle target/post-release-bundle
-cargo run -p uselesskey-cli -- export k8s \
-  --bundle-dir target/post-release-bundle \
-  --name uselesskey-fixtures \
-  --namespace tests \
-  --out target/post-release-bundle/secret.yaml
-cargo run -p uselesskey-cli -- export vault-kv-json \
-  --bundle-dir target/post-release-bundle \
-  --out target/post-release-bundle/kv-v2.json
+cargo xtask claim-proof --all-stable
+cargo xtask verification-pack --out target/uselesskey-verification
 ```
 
-For evidence promises, confirm the latest release-candidate artifacts exist:
+For stable contract packs, regenerate release evidence receipts:
 
 ```bash
-cargo xtask economics
-cargo xtask audit-surface
-cargo xtask perf --compare
-cargo xtask mutants-nightly --scope public --dry-run
+cargo xtask bundle-proof --profile tls --out target/release-evidence/tls
+cargo xtask bundle-proof --profile oidc --out target/release-evidence/oidc
+cargo xtask bundle-proof --profile webhook --out target/release-evidence/webhook
 ```
 
-The dry-run mutation command verifies scope planning and survivor-ledger parsing.
-Use the scheduled/manual mutation workflow result for actual survivor evidence.
+Attach or link metadata receipts only. Do not attach generated PEM, DER, JWT,
+JWK private members, HMAC secrets, webhook request bodies, Kubernetes Secret
+payloads, Vault payloads, or other generated secret-shaped material.
+
+## Package And Source Checks
+
+If the release included packaging, docs, schema, or public-surface changes,
+repeat the non-publishing package checks from the source commit:
+
+```bash
+cargo xtask publish-preflight
+cargo xtask publish-check
+cargo xtask public-surface
+git diff --check
+```
+
+These commands prove packageability and source consistency. They do not publish
+again, create tags, sign artifacts, or move source-sync authority.
 
 ## Audit Record
 
-Record the audit in the release issue or post-release tracking issue with this
-shape:
+Record the audit in the release issue, release closeout, or post-release
+tracking issue with this shape:
 
 ```markdown
-## Post-release audit for v0.7.0
+## Post-release audit for v0.10.0
 
 - Release visible: pass/fail, link
-- Crates.io facade visible: pass/fail, link
-- Docs.rs visible: pass/fail, link
-- Public-surface/docs/package checks: pass/fail, command evidence
-- Scanner-safe bundle verify/export/inspect: pass/fail, artifact path or link
-- Receipts: pass/fail, economics/audit/perf/mutation artifact links
+- Tag/source commit: pass/fail, SHA
+- crates.io packages visible: pass/fail, package list or API evidence
+- External install smoke: pass/fail, command evidence
+- docs.rs facade status: pass/fail/queued, link
+- Public claim checks: pass/fail, command evidence
+- Contract-pack receipts: pass/fail, receipt paths
+- Verification pack: pass/fail, receipt path
+- Package/source checks: pass/fail/not applicable, command evidence
 - Open follow-ups:
   - issue link or "none"
 ```
@@ -94,9 +134,23 @@ shape:
 - Text-only release note issue: edit the GitHub release and note the correction
   in the audit record.
 - Missing docs.rs build: open a follow-up issue and link the docs.rs build log.
-- Crates.io publish gap: pause announcements until the missing crate or facade
+- crates.io publish gap: pause announcements until the missing crate or facade
   path is understood.
-- Scanner-safe bundle regression: open a blocking patch issue; do not recommend
-  the affected bundle path until a fix is released.
+- External install or installed CLI regression: open a blocking release issue;
+  cut a patch only after the source boundary approves it.
+- Contract-pack or metadata-only receipt regression: mark the affected claim
+  unproven until a fix lands and proof is regenerated.
 - Evidence artifact gap: attach the missing command output or explain why the
   evidence is not applicable for this release.
+
+## Boundaries
+
+This checklist does not prove:
+
+- production security;
+- provider compatibility;
+- scanner-policy approval;
+- downstream verifier correctness;
+- future registry state;
+- release authority transfer from `EffortlessMetrics/uselesskey` to
+  `EffortlessMetrics/uselesskey-swarm`.
