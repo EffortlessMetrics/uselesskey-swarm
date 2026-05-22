@@ -33,7 +33,7 @@ use uselesskey_x509::{ChainNegative, ChainSpec, X509Chain, X509FactoryExt, X509S
   uselesskey doctor
   uselesskey profiles
   uselesskey bundle --profile webhook --out target/uselesskey-webhook
-  uselesskey audit-bundle target/uselesskey-webhook --ci
+  uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
 
 Boundaries:
   Installed CLI commands generate, verify, inspect, and audit local fixtures.
@@ -103,7 +103,7 @@ struct GenerateArgs {
   uselesskey bundle --profile webhook --out target/uselesskey-webhook
   uselesskey verify-bundle target/uselesskey-webhook
   uselesskey inspect-bundle target/uselesskey-webhook
-  uselesskey audit-bundle target/uselesskey-webhook --ci
+  uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
 
 Boundary:
   bundle writes test fixtures; keep generated payloads under target/ unless
@@ -165,9 +165,8 @@ struct InspectBundleArgs {
 #[derive(clap::Args, Debug)]
 #[command(after_help = "Examples:
   uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
-  uselesskey audit-bundle target/uselesskey-webhook --ci
-  uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook
-  uselesskey audit-bundle target/uselesskey-webhook --ci --policy strict
+  uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
+  uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit
   uselesskey audit-bundle target/uselesskey-webhook --summary
 
 Boundary:
@@ -176,7 +175,9 @@ Boundary:
   claims by itself.
 
 CI:
-  --ci emits stable audit failure classes in JSON for downstream policy checks.")]
+  Combine --ci with --out to keep bundle-audit.json and bundle-audit.md as
+  uploadable metadata-only receipts for passing audits and stable policy
+  failures.")]
 #[command(group(
     ArgGroup::new("audit_bundle_input")
         .required(true)
@@ -1555,7 +1556,7 @@ fn build_doctor_report() -> DoctorReport {
         next_steps: vec![
             "uselesskey profiles".to_string(),
             "uselesskey bundle --profile webhook --out target/uselesskey-webhook".to_string(),
-            "uselesskey audit-bundle target/uselesskey-webhook --ci".to_string(),
+            "uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit".to_string(),
         ],
         boundaries: vec![
             "doctor checks installed CLI concerns only".to_string(),
