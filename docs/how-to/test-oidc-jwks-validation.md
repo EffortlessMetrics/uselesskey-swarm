@@ -11,7 +11,7 @@ Installed CLI bundle path:
 uselesskey bundle --profile oidc --out target/oidc-fixtures
 uselesskey verify-bundle target/oidc-fixtures
 uselesskey inspect-bundle target/oidc-fixtures
-uselesskey audit-bundle target/oidc-fixtures --ci --out target/oidc-fixtures-audit
+uselesskey audit-bundle target/oidc-fixtures --ci --expect-profile oidc --policy strict --out target/oidc-fixtures-audit
 ```
 
 Rust test dependency path:
@@ -121,10 +121,10 @@ cargo xtask bundle-proof --profile oidc --out target/release-evidence/oidc
 
 ## Audit / receipt
 
-Write metadata-only audit receipts:
+Write metadata-only audit receipts with the strict CI preset:
 
 ```bash
-uselesskey audit-bundle target/oidc-fixtures --ci --out target/oidc-fixtures-audit
+uselesskey audit-bundle target/oidc-fixtures --ci --expect-profile oidc --policy strict --out target/oidc-fixtures-audit
 ```
 
 Attach:

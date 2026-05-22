@@ -33,7 +33,7 @@ For file-based CI fixtures:
 ```bash
 uselesskey bundle --profile webhook --out target/webhook-fixtures
 uselesskey verify-bundle target/webhook-fixtures
-uselesskey audit-bundle target/webhook-fixtures --ci --out target/webhook-fixtures-audit
+uselesskey audit-bundle target/webhook-fixtures --ci --expect-profile webhook --policy strict --out target/webhook-fixtures-audit
 ```
 
 ## What you get
@@ -116,13 +116,15 @@ cargo xtask no-blob
 
 ## Audit / receipt
 
-Write a metadata-only reviewer packet:
+Write a metadata-only reviewer packet with the strict CI preset:
 
 ```bash
 uselesskey audit-bundle \
   target/webhook-fixtures \
-  --out target/webhook-fixtures-audit \
-  --ci
+  --ci \
+  --expect-profile webhook \
+  --policy strict \
+  --out target/webhook-fixtures-audit
 ```
 
 Attach:
