@@ -56,8 +56,13 @@ uselesskey audit-bundle \
   target/uselesskey-webhook \
   --ci \
   --expect-profile webhook \
-  --policy strict
+  --policy strict \
+  --out target/uselesskey-webhook-audit
 ```
+
+With `--ci --out`, the audit directory is written for passing audits and stable
+policy failures, so a reviewer can inspect the same metadata-only packet when
+CI rejects a bundle.
 
 For the full downstream policy preset list, see
 [use-downstream-policy-pack.md](use-downstream-policy-pack.md).

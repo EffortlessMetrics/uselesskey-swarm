@@ -759,8 +759,11 @@ fn run_audit_bundle_ci(args: AuditBundleArgs) -> Result<()> {
     match build_bundle_audit(&bundle_dir) {
         Ok(audit) => {
             if let Some(diagnostic) = bundle_audit_policy_failure(&audit, &args) {
-                let failure = bundle_audit_policy_failure_json(&audit, &diagnostic);
-                emit_artifact(&Artifact::Json(failure), None)?;
+                let failure = bundle_audit_policy_failure_receipt(&audit, &diagnostic);
+                if let Some(out_dir) = args.out.as_deref() {
+                    write_bundle_audit_receipts(&failure, out_dir)?;
+                }
+                emit_artifact(&Artifact::Json(json!(failure)), None)?;
                 bail!(
                     "audit policy failed: {}: {}",
                     diagnostic.failure_class,
@@ -774,8 +777,11 @@ fn run_audit_bundle_ci(args: AuditBundleArgs) -> Result<()> {
         }
         Err(err) => {
             let diagnostic = bundle_audit_failure_diagnostic(&err);
-            let failure = bundle_audit_failure_json(&bundle_dir, &diagnostic);
-            emit_artifact(&Artifact::Json(failure), None)?;
+            let failure = bundle_audit_failure_receipt(&bundle_dir, &diagnostic);
+            if let Some(out_dir) = args.out.as_deref() {
+                write_bundle_audit_receipts(&failure, out_dir)?;
+            }
+            emit_artifact(&Artifact::Json(json!(failure)), None)?;
             bail!(
                 "audit failed: {}: {}",
                 diagnostic.failure_class,
@@ -1662,82 +1668,76 @@ const BUNDLE_AUDIT_FAILURE_CLASSES: [&str; 11] = [
     "unsupported_profile",
 ];
 
-fn bundle_audit_failure_json(
+fn bundle_audit_failure_receipt(
     bundle_dir: &Path,
     diagnostic: &BundleAuditFailureDiagnostic,
-) -> serde_json::Value {
-    json!({
-        "version": 1,
-        "status": "fail",
-        "bundle_path": display_path(bundle_dir),
-        "profile": "unknown",
-        "manifest_version": 0,
-        "manifest_path": "manifest.json",
-        "artifact_count": 0,
-        "receipt_count": 0,
-        "scanner_safe_count": 0,
-        "runtime_material_count": 0,
-        "files": [],
-        "artifacts": [],
-        "receipts": [],
-        "missing_files": [],
-        "unexpected_files": [],
-        "checks": [
-            {
-                "name": "bundle-audit",
-                "status": "fail",
-                "failure_class": diagnostic.failure_class,
-                "detail": diagnostic.detail,
-            }
+) -> BundleAudit {
+    BundleAudit {
+        version: 1,
+        status: "fail".to_string(),
+        bundle_path: display_path(bundle_dir),
+        profile: "unknown".to_string(),
+        manifest_version: 0,
+        manifest_path: "manifest.json".to_string(),
+        artifact_count: 0,
+        receipt_count: 0,
+        scanner_safe_count: 0,
+        runtime_material_count: 0,
+        files: vec![],
+        artifacts: vec![],
+        receipts: vec![],
+        missing_files: vec![],
+        unexpected_files: vec![],
+        checks: vec![BundleAuditCheck::fail(
+            "bundle-audit",
+            diagnostic.failure_class,
+            &diagnostic.detail,
+        )],
+        boundaries: vec![
+            BUNDLE_AUDIT_LOCAL_BOUNDARY.to_string(),
+            BUNDLE_AUDIT_REPO_CLAIM_BOUNDARY.to_string(),
+            BUNDLE_AUDIT_RELEASE_BOUNDARY.to_string(),
+            BUNDLE_AUDIT_METADATA_ONLY_BOUNDARY.to_string(),
         ],
-        "boundaries": [
-            BUNDLE_AUDIT_LOCAL_BOUNDARY,
-            BUNDLE_AUDIT_REPO_CLAIM_BOUNDARY,
-            BUNDLE_AUDIT_RELEASE_BOUNDARY,
-            BUNDLE_AUDIT_METADATA_ONLY_BOUNDARY,
+        does_not_prove: vec![
+            "broader repo public claims by itself".to_string(),
+            "release readiness".to_string(),
+            "provider compatibility".to_string(),
+            "production security".to_string(),
+            "scanner evasion".to_string(),
+            "downstream verifier correctness".to_string(),
         ],
-        "does_not_prove": [
-            "broader repo public claims by itself",
-            "release readiness",
-            "provider compatibility",
-            "production security",
-            "scanner evasion",
-            "downstream verifier correctness",
-        ],
-    })
+    }
 }
 
-fn bundle_audit_policy_failure_json(
+fn bundle_audit_policy_failure_receipt(
     audit: &BundleAudit,
     diagnostic: &BundleAuditFailureDiagnostic,
-) -> serde_json::Value {
-    json!({
-        "version": audit.version,
-        "status": "fail",
-        "bundle_path": &audit.bundle_path,
-        "profile": &audit.profile,
-        "manifest_version": audit.manifest_version,
-        "manifest_path": &audit.manifest_path,
-        "artifact_count": audit.artifact_count,
-        "receipt_count": audit.receipt_count,
-        "scanner_safe_count": audit.scanner_safe_count,
-        "runtime_material_count": audit.runtime_material_count,
-        "files": &audit.files,
-        "artifacts": &audit.artifacts,
-        "receipts": &audit.receipts,
-        "missing_files": &audit.missing_files,
-        "unexpected_files": &audit.unexpected_files,
-        "checks": [
-            {
-                "name": "bundle-audit-policy",
-                "status": "fail",
-                "failure_class": diagnostic.failure_class,
-                "detail": diagnostic.detail,
-            }
-        ],
-        "boundaries": &audit.boundaries,
-        "does_not_prove": &audit.does_not_prove,
-    })
+) -> BundleAudit {
+    BundleAudit {
+        version: audit.version,
+        status: "fail".to_string(),
+        bundle_path: audit.bundle_path.clone(),
+        profile: audit.profile.clone(),
+        manifest_version: audit.manifest_version,
+        manifest_path: audit.manifest_path.clone(),
+        artifact_count: audit.artifact_count,
+        receipt_count: audit.receipt_count,
+        scanner_safe_count: audit.scanner_safe_count,
+        runtime_material_count: audit.runtime_material_count,
+        files: audit.files.clone(),
+        artifacts: audit.artifacts.clone(),
+        receipts: audit.receipts.clone(),
+        missing_files: audit.missing_files.clone(),
+        unexpected_files: audit.unexpected_files.clone(),
+        checks: vec![BundleAuditCheck::fail(
+            "bundle-audit-policy",
+            diagnostic.failure_class,
+            &diagnostic.detail,
+        )],
+        boundaries: audit.boundaries.clone(),
+        does_not_prove: audit.does_not_prove.clone(),
+    }
 }
 
 fn bundle_audit_policy_failure(
@@ -3797,7 +3797,7 @@ fn default_bundle_profile() -> String {
     "runtime".to_string()
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct BundleAudit {
     version: u32,
     status: String,
@@ -3819,7 +3819,7 @@ struct BundleAudit {
     does_not_prove: Vec<String>,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct BundleAuditArtifact {
     path: String,
     kind: String,
@@ -3829,7 +3829,7 @@ struct BundleAuditArtifact {
     description: String,
 }
 
-#[derive(Debug, Serialize)]
+#[derive(Clone, Debug, Serialize)]
 struct BundleAuditCheck {
     name: String,
     status: String,
@@ -3842,6 +3842,15 @@ impl BundleAuditCheck {
         Self {
             name: name.to_string(),
             status: "pass".to_string(),
+            failure_class: failure_class.to_string(),
+            detail: detail.to_string(),
+        }
+    }
+
+    fn fail(name: &str, failure_class: &str, detail: &str) -> Self {
+        Self {
+            name: name.to_string(),
+            status: "fail".to_string(),
             failure_class: failure_class.to_string(),
             detail: detail.to_string(),
         }

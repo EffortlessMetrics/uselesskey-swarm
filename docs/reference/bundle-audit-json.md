@@ -2,7 +2,8 @@
 
 `uselesskey audit-bundle --format json` emits a metadata-only bundle audit
 receipt. `uselesskey audit-bundle --out <dir>` writes the same shape to
-`<dir>/bundle-audit.json`.
+`<dir>/bundle-audit.json`. In CI mode, `--out` writes the same metadata-only
+files for passing audits and stable policy failures.
 
 The schema is published at
 [`docs/schemas/bundle-audit.schema.json`](../schemas/bundle-audit.schema.json).
