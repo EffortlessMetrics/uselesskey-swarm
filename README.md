@@ -42,7 +42,7 @@ Pick the job first; the repo proof machinery is behind links when you need it.
 Install the CLI when you want fixture bundles outside this workspace:
 
 ```bash
-cargo install uselesskey-cli --version 0.9.1
+cargo install uselesskey-cli --version 0.9.1 --locked
 uselesskey doctor
 uselesskey profiles
 uselesskey bundle --profile webhook --explain
