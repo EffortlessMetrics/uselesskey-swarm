@@ -6,9 +6,12 @@ use std::process::Command;
 use anyhow::{Context, Result};
 use serde::Serialize;
 
+use crate::target_output;
+
 const AUDIT_JSON_PATH: &str = "target/xtask/audit-surface/latest.json";
 const AUDIT_MARKDOWN_PATH: &str = "target/xtask/audit-surface/latest.md";
 const AUDIT_DOCS_PATH: &str = "docs/reference/audit-surface.md";
+const LOCK_DIR: &str = "target/audit-surface.lock";
 
 struct Lane {
     name: &'static str,
@@ -63,6 +66,8 @@ struct AuditSurfaceEntry {
 }
 
 pub fn audit_surface_cmd() -> Result<()> {
+    let root = crate::workspace_root_path();
+    let _output_lock = acquire_output_lock(&root)?;
     let workspace_deny_status = workspace_deny_status();
     let mut entries = Vec::with_capacity(LANES.len());
 
@@ -99,6 +104,10 @@ pub fn audit_surface_cmd() -> Result<()> {
         AUDIT_JSON_PATH, AUDIT_MARKDOWN_PATH
     );
     Ok(())
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "audit-surface")
 }
 
 fn cargo_tree(package: &str) -> Result<String> {
@@ -295,5 +304,14 @@ mod tests {
         let markdown = render_docs_markdown(&report);
         assert!(markdown.contains("| lane | package | markers | class |"));
         assert!(!markdown.contains("dep count"));
+    }
+
+    #[test]
+    fn audit_surface_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
+        Ok(())
     }
 }
