@@ -4,9 +4,11 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail};
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 
 const METADATA_PATH: &str = "docs/metadata/workspace-docs.json";
+const OUTPUT_DIR: &str = "target/xtask/public-surface";
+const LOCK_DIR: &str = "target/public-surface.lock";
 
 /// Historically held the published-internal `uselesskey-core-*` and
 /// `uselesskey-token-spec` shards that wrapped owner-crate `srp::*` modules.
@@ -52,12 +54,14 @@ struct CargoPackage {
 }
 
 pub fn public_surface_cmd(publish_crates: &[&str]) -> Result<()> {
+    let root = crate::workspace_root_path();
+    let _output_lock = acquire_output_lock(&root)?;
     crate::docs_sync::docs_sync_cmd(true)?;
 
-    let root = crate::workspace_root_path();
     let metadata = load_docs_metadata(&root)?;
     let cargo = cargo_metadata(&root)?;
     let summary = validate_public_surface(&cargo.packages, &metadata, publish_crates)?;
+    write_public_surface_report(&root, &summary)?;
 
     println!(
         "public-surface: checked {} workspace crates ({} public promises, {} adapter promises, {} published internals, {} workspace-only)",
@@ -68,6 +72,38 @@ pub fn public_surface_cmd(publish_crates: &[&str]) -> Result<()> {
         summary.workspace_only
     );
     Ok(())
+}
+
+fn acquire_output_lock(root: &Path) -> Result<crate::target_output::TargetOutputLock> {
+    crate::target_output::acquire_lock(root, LOCK_DIR, "public-surface")
+}
+
+fn write_public_surface_report(root: &Path, summary: &PublicSurfaceSummary) -> Result<()> {
+    let out_dir = root.join(OUTPUT_DIR);
+    fs::create_dir_all(&out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
+    let report = PublicSurfaceReport::from_summary(summary);
+    let json = serde_json::to_string_pretty(&report)?;
+    fs::write(out_dir.join("latest.json"), format!("{json}\n"))
+        .with_context(|| format!("failed to write {}", out_dir.join("latest.json").display()))?;
+    fs::write(
+        out_dir.join("latest.md"),
+        render_public_surface_markdown(&report),
+    )
+    .with_context(|| format!("failed to write {}", out_dir.join("latest.md").display()))?;
+    Ok(())
+}
+
+fn render_public_surface_markdown(report: &PublicSurfaceReport) -> String {
+    format!(
+        "# Public Surface Report\n\nSchema version: `{}`\n\n| Metric | Count |\n| --- | ---: |\n| Workspace crates | {} |\n| Public promises | {} |\n| Adapter promises | {} |\n| Published internals | {} |\n| Workspace-only crates | {} |\n",
+        report.schema_version,
+        report.workspace_crates,
+        report.public_promises,
+        report.adapter_promises,
+        report.published_internals,
+        report.workspace_only
+    )
 }
 
 fn load_docs_metadata(root: &Path) -> Result<DocsMetadata> {
@@ -373,9 +409,36 @@ struct PublicSurfaceSummary {
     workspace_only: usize,
 }
 
+#[derive(Debug, PartialEq, Eq, Serialize)]
+struct PublicSurfaceReport {
+    schema_version: &'static str,
+    workspace_crates: usize,
+    public_promises: usize,
+    adapter_promises: usize,
+    published_internals: usize,
+    workspace_only: usize,
+}
+
+impl PublicSurfaceReport {
+    fn from_summary(summary: &PublicSurfaceSummary) -> Self {
+        Self {
+            schema_version: "1.0",
+            workspace_crates: summary.workspace_crates,
+            public_promises: summary.public_promises,
+            adapter_promises: summary.adapter_promises,
+            published_internals: summary.published_internals,
+            workspace_only: summary.workspace_only,
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
-    use super::{CargoPackage, CrateEntry, DocsMetadata, SupportEntry, validate_public_surface};
+    use super::{
+        CargoPackage, CrateEntry, DocsMetadata, LOCK_DIR, PublicSurfaceReport,
+        PublicSurfaceSummary, SupportEntry, render_public_surface_markdown,
+        validate_public_surface, write_public_surface_report,
+    };
     use std::path::PathBuf;
 
     #[test]
@@ -529,5 +592,55 @@ mod tests {
             err.to_string()
                 .contains("published crates missing from PUBLISH_CRATES")
         );
+    }
+
+    #[test]
+    fn public_surface_report_is_written_to_target() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let summary = PublicSurfaceSummary {
+            workspace_crates: 35,
+            public_promises: 17,
+            adapter_promises: 7,
+            published_internals: 0,
+            workspace_only: 11,
+        };
+
+        write_public_surface_report(dir.path(), &summary)?;
+
+        let json =
+            std::fs::read_to_string(dir.path().join("target/xtask/public-surface/latest.json"))?;
+        assert!(json.contains("\"schema_version\": \"1.0\""));
+        assert!(json.contains("\"workspace_crates\": 35"));
+        let markdown =
+            std::fs::read_to_string(dir.path().join("target/xtask/public-surface/latest.md"))?;
+        assert!(markdown.contains("| Workspace crates | 35 |"));
+        assert!(markdown.contains("| Workspace-only crates | 11 |"));
+        Ok(())
+    }
+
+    #[test]
+    fn public_surface_output_lock_is_target_local() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = super::acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
+        Ok(())
+    }
+
+    #[test]
+    fn public_surface_markdown_renders_counts() {
+        let report = PublicSurfaceReport {
+            schema_version: "1.0",
+            workspace_crates: 3,
+            public_promises: 1,
+            adapter_promises: 1,
+            published_internals: 0,
+            workspace_only: 1,
+        };
+
+        let markdown = render_public_surface_markdown(&report);
+
+        assert!(markdown.contains("Schema version: `1.0`"));
+        assert!(markdown.contains("| Public promises | 1 |"));
     }
 }
