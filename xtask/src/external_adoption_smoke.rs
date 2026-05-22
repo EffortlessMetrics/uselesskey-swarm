@@ -1123,6 +1123,16 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_ci_recipe_profiles_are_cli_smoke_profiles() {
+        for profile in CI_RECIPE_PROFILES {
+            assert!(
+                CLI_PROFILES.contains(profile),
+                "ci recipe profile `{profile}` must also run through installed CLI smoke"
+            );
+        }
+    }
+
+    #[test]
     fn external_adoption_library_examples_are_bounded() {
         let names: Vec<&str> = LIBRARY_EXAMPLES
             .iter()
