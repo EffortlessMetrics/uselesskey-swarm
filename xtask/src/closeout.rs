@@ -871,11 +871,7 @@ plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = ["cargo xtask next"]
 "#,
         );
-        write_file(
-            dir.path(),
-            ACTIVE_GOAL_TOML,
-            &active_goal,
-        )?;
+        write_file(dir.path(), ACTIVE_GOAL_TOML, &active_goal)?;
         Ok(dir)
     }
 
