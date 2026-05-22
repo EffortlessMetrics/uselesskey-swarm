@@ -4559,6 +4559,7 @@ fn scanner_safe_reference_compare_bytes(expected_path: &Path, actual_path: &Path
 
 const BADGE_ENDPOINT_DIR: &str = "badges";
 const BADGE_ENDPOINT_TARGET_DIR: &str = "target/xtask/badges";
+const BADGES_LOCK_DIR: &str = "target/badges.lock";
 const CRATESIO_SMOKE_LOCK_DIR: &str = "target/cratesio-smoke.lock";
 
 #[derive(Clone, Debug, PartialEq, Eq, serde::Deserialize, serde::Serialize)]
@@ -4572,6 +4573,7 @@ struct ShieldsEndpointBadge {
 
 fn badges(check: bool) -> Result<()> {
     let workspace_root = workspace_root_path();
+    let _output_lock = acquire_badges_output_lock(&workspace_root)?;
     let target_dir = workspace_root.join(BADGE_ENDPOINT_TARGET_DIR);
     fs::create_dir_all(&target_dir)
         .with_context(|| format!("failed to create {}", target_dir.display()))?;
@@ -4618,6 +4620,10 @@ fn badges(check: bool) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn acquire_badges_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, BADGES_LOCK_DIR, "badges")
 }
 
 fn ripr_plus_badge(workspace_root: &Path) -> Result<ShieldsEndpointBadge> {
@@ -8077,6 +8083,15 @@ mod tests {
         let _lock = acquire_cratesio_smoke_output_lock(dir.path())?;
 
         assert!(dir.path().join(CRATESIO_SMOKE_LOCK_DIR).is_dir());
+        Ok(())
+    }
+
+    #[test]
+    fn badges_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_badges_output_lock(dir.path())?;
+
+        assert!(dir.path().join(BADGES_LOCK_DIR).is_dir());
         Ok(())
     }
 
