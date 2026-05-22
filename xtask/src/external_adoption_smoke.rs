@@ -1318,6 +1318,39 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         assert!(markdown.contains("target/audit-webhook"));
     }
 
+    #[test]
+    fn external_adoption_accepts_ci_audit_receipt_pair() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ci_audit_json(dir.path(), "oidc")?;
+        fs::write(dir.path().join("bundle-audit.md"), "# Bundle Audit\n")?;
+
+        verify_ci_audit_receipt(dir.path(), "oidc")
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_audit_without_markdown_receipt() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ci_audit_json(dir.path(), "oidc")?;
+
+        let err = match verify_ci_audit_receipt(dir.path(), "oidc") {
+            Ok(()) => bail!("CI audit receipt without markdown was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("markdown receipt missing"));
+        Ok(())
+    }
+
+    fn write_ci_audit_json(dir: &Path, profile: &str) -> Result<()> {
+        fs::write(
+            dir.join("bundle-audit.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "profile": profile,
+            }))?,
+        )?;
+        Ok(())
+    }
+
     fn actions_matrix_profiles(example: &str) -> Vec<&str> {
         let line = example
             .lines()
