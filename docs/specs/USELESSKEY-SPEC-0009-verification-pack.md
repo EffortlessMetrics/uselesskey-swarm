@@ -51,9 +51,11 @@ cargo xtask verification-pack --out target/uselesskey-verification
 cargo xtask verification-pack --out target/uselesskey-verification --claim scanner-safe-fixtures
 ```
 
-The default bundle contains stable public-claim receipts selected by
-`cargo xtask claim-proof --all-stable`. A claim-filtered bundle contains the
-selected claim plus shared index files needed to understand that claim.
+The default bundle runs claim-proof's stable public-claim selection internally
+and contains the resulting receipts. A claim-filtered bundle runs claim-proof
+for the selected claim plus shared index files needed to understand that claim.
+Callers do not need to run `cargo xtask claim-proof --all-stable` separately
+unless they need standalone receipts outside the pack.
 
 The bundle layout is:
 

@@ -93,8 +93,11 @@ For public-claim evidence from a repo checkout:
 
 ```bash
 cargo xtask verification-pack --out target/uselesskey-verification
-cargo xtask claim-proof --all-stable
 ```
+
+`verification-pack` runs the relevant claim-proof handlers and copies the
+receipts into the review pack. Run `cargo xtask claim-proof --claim <id>` only
+when you need standalone claim-proof receipts outside the pack.
 
 Do not attach generated PEM, DER, JWT, key, Kubernetes Secret, Vault payload, or
 webhook request files to reviewer packets.

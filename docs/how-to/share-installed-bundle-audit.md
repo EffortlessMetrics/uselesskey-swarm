@@ -103,5 +103,8 @@ For broader repo public-claim proof, use a repo checkout:
 
 ```bash
 cargo xtask verification-pack --out target/uselesskey-verification
-cargo xtask claim-proof --all-stable
 ```
+
+`verification-pack` runs claim-proof for the included claims and copies the
+receipts into the pack. Run `cargo xtask claim-proof --claim <id>` separately
+only when a reviewer needs standalone claim-proof receipts.
