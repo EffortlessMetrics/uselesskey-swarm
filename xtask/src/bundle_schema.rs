@@ -1980,14 +1980,15 @@ mod tests {
         }
     }
 
-    fn failure_reports_for_schema(schema: &Value) -> Vec<BundleSchemaFailureReport> {
+    fn failure_reports_for_schema(schema: &Value) -> Result<Vec<BundleSchemaFailureReport>> {
         schema
             .pointer("/$defs/failure_class/enum")
             .and_then(Value::as_array)
-            .expect("test schema has failure_class enum")
+            .context("test schema has failure_class enum")?
             .iter()
             .map(|class| {
-                failure_report_for_tests(class.as_str().expect("failure class is a string"))
+                let class = class.as_str().context("failure class is a string")?;
+                Ok(failure_report_for_tests(class))
             })
             .collect()
     }
@@ -2522,14 +2523,15 @@ mod tests {
     }
 
     #[test]
-    fn failure_class_coverage_accepts_schema_classes_with_generated_receipts() {
+    fn failure_class_coverage_accepts_schema_classes_with_generated_receipts() -> Result<()> {
         let schema = audit_schema_for_tests();
-        let reports = failure_reports_for_schema(&schema);
+        let reports = failure_reports_for_schema(&schema)?;
         let mut errors = Vec::new();
 
         validate_failure_class_coverage(&schema, &reports, &mut errors);
 
         assert!(errors.is_empty(), "{errors:?}");
+        Ok(())
     }
 
     #[test]
@@ -2550,9 +2552,9 @@ mod tests {
     }
 
     #[test]
-    fn failure_class_coverage_rejects_receipt_class_outside_schema() {
+    fn failure_class_coverage_rejects_receipt_class_outside_schema() -> Result<()> {
         let schema = audit_schema_for_tests();
-        let mut reports = failure_reports_for_schema(&schema);
+        let mut reports = failure_reports_for_schema(&schema)?;
         reports.push(failure_report_for_tests("future_failure"));
         let mut errors = Vec::new();
 
@@ -2565,6 +2567,7 @@ mod tests {
             }),
             "{errors:?}"
         );
+        Ok(())
     }
 
     #[test]
