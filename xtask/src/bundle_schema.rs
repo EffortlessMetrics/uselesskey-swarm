@@ -340,6 +340,66 @@ fn validate_generated_failure_receipts(
         failure_class: "path_escape".to_string(),
     });
 
+    let missing_artifact_bundle = out.join("ci-failure-missing-artifact").join("bundle");
+    generate_bundle("scanner-safe", &missing_artifact_bundle)?;
+    let manifest_path = missing_artifact_bundle.join("manifest.json");
+    let manifest: Value = read_json_file(&manifest_path)?;
+    let missing_artifact_path = manifest
+        .get("files")
+        .and_then(Value::as_array)
+        .and_then(|files| files.first())
+        .and_then(Value::as_str)
+        .context("generated manifest has at least one file")?;
+    let missing_artifact_file = missing_artifact_bundle.join(missing_artifact_path);
+    fs::remove_file(&missing_artifact_file)
+        .with_context(|| format!("remove {}", missing_artifact_file.display()))?;
+    let missing_artifact_audit = out
+        .join("ci-failure-missing-artifact")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &missing_artifact_bundle,
+        &missing_artifact_audit,
+        "missing_artifact",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-missing-artifact",
+        &audit,
+        "missing_artifact",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-missing-artifact".to_string(),
+        audit_path: normalize_report_path(&missing_artifact_audit),
+        failure_class: "missing_artifact".to_string(),
+    });
+
+    let unexpected_artifact_bundle = out.join("ci-failure-unexpected-artifact").join("bundle");
+    generate_bundle("scanner-safe", &unexpected_artifact_bundle)?;
+    let unexpected_artifact_file = unexpected_artifact_bundle.join("unexpected-artifact.json");
+    fs::write(&unexpected_artifact_file, "{}")
+        .with_context(|| format!("write {}", unexpected_artifact_file.display()))?;
+    let unexpected_artifact_audit = out
+        .join("ci-failure-unexpected-artifact")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &unexpected_artifact_bundle,
+        &unexpected_artifact_audit,
+        "unexpected_artifact",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-unexpected-artifact",
+        &audit,
+        "unexpected_artifact",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-unexpected-artifact".to_string(),
+        audit_path: normalize_report_path(&unexpected_artifact_audit),
+        failure_class: "unexpected_artifact".to_string(),
+    });
+
     let unsupported_profile_bundle = out.join("ci-failure-unsupported-profile").join("bundle");
     generate_bundle("scanner-safe", &unsupported_profile_bundle)?;
     let manifest_path = unsupported_profile_bundle.join("manifest.json");
@@ -1648,6 +1708,7 @@ mod tests {
                         "invalid_manifest",
                         "path_escape",
                         "missing_artifact",
+                        "unexpected_artifact",
                         "unsupported_profile"
                     ]
                 }
@@ -2219,6 +2280,8 @@ mod tests {
             "missing_manifest",
             "invalid_manifest",
             "path_escape",
+            "missing_artifact",
+            "unexpected_artifact",
             "unsupported_profile",
         ] {
             let audit = ci_failure_audit_for_tests(failure_class);
