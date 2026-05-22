@@ -124,5 +124,8 @@ Use repo-local proof only when a reviewer needs public-claim evidence:
 
 ```bash
 cargo xtask verification-pack --out target/uselesskey-verification
-cargo xtask claim-proof --all-stable
 ```
+
+`verification-pack` runs the relevant claim-proof handlers and copies their
+receipts into the pack. Use `cargo xtask claim-proof --claim <id>` only when the
+reviewer needs standalone claim-proof receipts outside the pack.

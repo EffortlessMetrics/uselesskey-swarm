@@ -14,6 +14,10 @@ Build the default pack:
 cargo xtask verification-pack --out target/uselesskey-verification
 ```
 
+The pack command runs the selected claim-proof handlers and copies their
+receipts into the output directory. Use standalone `cargo xtask claim-proof`
+commands only when a reviewer needs receipts outside the pack.
+
 Build a claim-filtered pack:
 
 ```bash
