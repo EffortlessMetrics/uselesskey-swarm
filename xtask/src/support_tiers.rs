@@ -64,15 +64,15 @@ struct SupportRow {
 }
 
 #[derive(Debug)]
-struct WorkflowRow {
-    line: usize,
-    workflow: String,
-    support_tier: String,
-    claim: String,
-    primary_docs: String,
-    proof_commands: String,
-    receipts: String,
-    boundary: String,
+pub(crate) struct WorkflowRow {
+    pub(crate) line: usize,
+    pub(crate) workflow: String,
+    pub(crate) support_tier: String,
+    pub(crate) claim: String,
+    pub(crate) primary_docs: String,
+    pub(crate) proof_commands: String,
+    pub(crate) receipts: String,
+    pub(crate) boundary: String,
 }
 
 #[derive(Debug)]
@@ -417,7 +417,7 @@ fn read_support_rows(root: &Path) -> Result<Vec<SupportRow>> {
     Ok(parse_support_rows(&markdown))
 }
 
-fn read_workflow_rows(root: &Path) -> Result<Vec<WorkflowRow>> {
+pub(crate) fn read_workflow_rows(root: &Path) -> Result<Vec<WorkflowRow>> {
     let path = root.join(WORKFLOW_SUPPORT_MD);
     let markdown = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     Ok(parse_workflow_rows(&markdown))

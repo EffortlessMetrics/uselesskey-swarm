@@ -5,7 +5,7 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
-use crate::target_output;
+use crate::{support_tiers, target_output};
 
 const ACTIVE_GOAL_TOML: &str = ".uselesskey/goals/active.toml";
 const CLAIM_LEDGER_TOML: &str = "policy/claim-ledger.toml";
@@ -123,6 +123,7 @@ struct Report {
     tracked_adrs: Vec<ArtifactSummary>,
     open_adrs: Vec<ArtifactSummary>,
     support_tier_impacts: Vec<ClaimSummary>,
+    workflow_support: Vec<WorkflowSupportSummary>,
     policy_impacts: Vec<ArtifactSummary>,
     missing_links: Vec<String>,
     superseded_artifacts: Vec<ArtifactSummary>,
@@ -184,6 +185,17 @@ struct ClaimSummary {
     proof_commands: Vec<String>,
 }
 
+#[derive(Debug, Serialize)]
+struct WorkflowSupportSummary {
+    workflow: String,
+    support_tier: String,
+    claim: String,
+    primary_docs: Vec<String>,
+    proof_commands: Vec<String>,
+    receipts: Vec<String>,
+    boundary: String,
+}
+
 pub(crate) fn run(root: &Path) -> Result<()> {
     let out_dir = root.join(DEFAULT_OUT_DIR);
     write_report(root, &out_dir)?;
@@ -216,15 +228,22 @@ fn build_report(root: &Path) -> Result<Report> {
     let artifacts = read_doc_artifacts(root)?;
     let goal = read_active_goal(root)?;
     let claims = read_claim_ledger(root)?;
+    let workflows = support_tiers::read_workflow_rows(root)?;
     let rails = read_rails_index(root)?;
     let artifact_index = artifacts
         .artifact
         .iter()
         .map(|artifact| (artifact.id.as_str(), artifact))
         .collect::<BTreeMap<_, _>>();
+    let claim_index = claims
+        .claim
+        .iter()
+        .map(|claim| (claim.id.as_str(), claim))
+        .collect::<BTreeMap<_, _>>();
     let mut missing_links = missing_artifact_links(root, &artifacts, &artifact_index);
     missing_links.extend(missing_goal_links(root, &goal, &artifact_index));
     missing_links.extend(missing_claim_links(&claims, &artifact_index));
+    missing_links.extend(missing_workflow_links(&workflows, &claim_index));
 
     Ok(Report {
         schema_version: "1.0",
@@ -248,6 +267,7 @@ fn build_report(root: &Path) -> Result<Report> {
             .filter(|claim| !claim.status.trim().is_empty())
             .map(summarize_claim)
             .collect(),
+        workflow_support: workflows.iter().map(summarize_workflow_support).collect(),
         policy_impacts: artifacts
             .artifact
             .iter()
@@ -446,6 +466,22 @@ fn missing_claim_links(
     missing.into_iter().collect()
 }
 
+fn missing_workflow_links(
+    workflows: &[support_tiers::WorkflowRow],
+    claim_index: &BTreeMap<&str, &ClaimEntry>,
+) -> Vec<String> {
+    let mut missing = BTreeSet::new();
+    for workflow in workflows {
+        if !claim_index.contains_key(workflow.claim.as_str()) {
+            missing.insert(format!(
+                "workflow `{}` links missing claim `{}`",
+                workflow.workflow, workflow.claim
+            ));
+        }
+    }
+    missing.into_iter().collect()
+}
+
 fn summarize_artifacts(
     artifacts: &DocArtifactLedger,
     kind: &str,
@@ -508,6 +544,18 @@ fn summarize_claim(claim: &ClaimEntry) -> ClaimSummary {
     }
 }
 
+fn summarize_workflow_support(workflow: &support_tiers::WorkflowRow) -> WorkflowSupportSummary {
+    WorkflowSupportSummary {
+        workflow: workflow.workflow.clone(),
+        support_tier: workflow.support_tier.clone(),
+        claim: workflow.claim.clone(),
+        primary_docs: inline_code_values(&workflow.primary_docs),
+        proof_commands: inline_code_values(&workflow.proof_commands),
+        receipts: inline_code_values(&workflow.receipts),
+        boundary: workflow.boundary.clone(),
+    }
+}
+
 fn render_markdown(report: &Report) -> String {
     let mut out = String::new();
     out.push_str("# Source-of-Truth Graph\n\n");
@@ -541,6 +589,7 @@ fn render_markdown(report: &Report) -> String {
         "Support-Tier Impacts",
         &report.support_tier_impacts,
     );
+    render_workflow_support(&mut out, "Workflow Support", &report.workflow_support);
     render_artifacts(&mut out, "Policy Impacts", &report.policy_impacts);
     render_list(&mut out, "Missing Links", &report.missing_links);
     render_artifacts(
@@ -652,6 +701,29 @@ fn render_claims(out: &mut String, title: &str, claims: &[ClaimSummary]) {
     out.push('\n');
 }
 
+fn render_workflow_support(out: &mut String, title: &str, workflows: &[WorkflowSupportSummary]) {
+    out.push_str(&format!("## {title}\n\n"));
+    if workflows.is_empty() {
+        out.push_str("None.\n\n");
+        return;
+    }
+    out.push_str("| Workflow | Tier | Claim | Docs | Proof commands | Receipts | Boundary |\n");
+    out.push_str("| --- | --- | --- | --- | --- | --- | --- |\n");
+    for workflow in workflows {
+        out.push_str(&format!(
+            "| {} | `{}` | `{}` | {} | {} | {} | {} |\n",
+            escape_md(&workflow.workflow),
+            workflow.support_tier,
+            workflow.claim,
+            inline_values(&workflow.primary_docs),
+            inline_commands(&workflow.proof_commands),
+            inline_values(&workflow.receipts),
+            escape_md(&workflow.boundary)
+        ));
+    }
+    out.push('\n');
+}
+
 fn render_list(out: &mut String, title: &str, items: &[String]) {
     out.push_str(&format!("## {title}\n\n"));
     if items.is_empty() {
@@ -686,6 +758,21 @@ fn inline_values(values: &[String]) -> String {
         .join("; ")
 }
 
+fn inline_code_values(value: &str) -> Vec<String> {
+    value
+        .split('`')
+        .enumerate()
+        .filter_map(|(idx, part)| {
+            if idx % 2 == 1 {
+                Some(part.trim().to_string())
+            } else {
+                None
+            }
+        })
+        .filter(|part| !part.is_empty())
+        .collect()
+}
+
 fn escape_md(value: &str) -> String {
     value.replace('|', "\\|")
 }
@@ -715,6 +802,7 @@ mod tests {
         assert_eq!(report.tracked_proposals.len(), 1);
         assert!(report.accepted_proposals.is_empty());
         assert_eq!(report.tracked_adrs.len(), 1);
+        assert_eq!(report.workflow_support.len(), 1);
         assert!(out_dir.join("graph.md").exists());
         assert!(out_dir.join("graph.json").exists());
 
@@ -727,6 +815,8 @@ mod tests {
         assert!(markdown.contains("`USELESSKEY-PROP-0002`"));
         assert!(markdown.contains("## Tracked ADRs"));
         assert!(!markdown.contains("## Open ADRs"));
+        assert!(markdown.contains("## Workflow Support"));
+        assert!(markdown.contains("Installed bundle audit"));
 
         let json: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(out_dir.join("graph.json"))?)?;
@@ -740,6 +830,14 @@ mod tests {
         assert_eq!(json["tracked_proposals"][0]["status"], "proposed");
         assert_eq!(json["tracked_adrs"][0]["id"], "USELESSKEY-ADR-0003");
         assert_eq!(json["open_adrs"][0]["id"], "USELESSKEY-ADR-0003");
+        assert_eq!(
+            json["workflow_support"][0]["workflow"],
+            "Installed bundle audit"
+        );
+        assert_eq!(
+            json["workflow_support"][0]["proof_commands"][0],
+            "cargo xtask no-blob"
+        );
         Ok(())
     }
 
@@ -909,6 +1007,24 @@ status = "advisory"
 spec = "USELESSKEY-SPEC-0023"
 surfaces = ["uselesskey audit-bundle --ci"]
 proof_commands = ["cargo xtask no-blob"]
+"#,
+        )?;
+        write_file(
+            dir.path(),
+            "docs/status/workflow-support.md",
+            r#"# Workflow Support
+
+## Workflow Matrix
+
+| Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| Installed bundle audit | stabilizing installed CLI workflow | `metadata-only-audit-packets` | `docs/how-to/audit.md` | `cargo xtask no-blob` | `target/audit/report.json` | Does not prove release readiness. |
+
+## Support Tier Interpretation
+
+| Tier | Meaning |
+| --- | --- |
+| stabilizing installed CLI workflow | Test tier. |
 "#,
         )?;
         write_file(
