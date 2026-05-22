@@ -56,6 +56,7 @@ Deterministic fixture bundles with documented positive and negative verifier
 paths.
 
 - [contract-packs](contract-packs/README.md) — Generate, verify, prove, and understand scanner-safe, TLS, OIDC/JWKS, and webhook profiles
+- [external examples](../examples/external/README.md) — Downstream-shaped CI, verifier, facade, webhook, OIDC/JWKS, and TLS examples
 
 ## Contributing
 
