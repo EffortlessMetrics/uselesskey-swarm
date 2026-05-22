@@ -629,6 +629,33 @@ mod tests {
     }
 
     #[test]
+    fn report_warns_on_missing_claim_docs() -> Result<()> {
+        let dir = minimal_repo()?;
+        let ledger_path = dir.path().join("policy/claim-ledger.toml");
+        let ledger = fs::read_to_string(&ledger_path)?;
+        fs::write(
+            &ledger_path,
+            ledger.replacen(
+                r#"docs = ["docs/how-to/scanner-safe.md"]"#,
+                r#"docs = ["docs/how-to/missing-claim-doc.md"]"#,
+                1,
+            ),
+        )?;
+
+        let report = build_report(dir.path(), Some("scanner-safe-fixtures"))?;
+
+        assert!(
+            report.warnings.iter().any(|warning| {
+                warning.contains("claim `scanner-safe-fixtures`")
+                    && warning.contains("docs/how-to/missing-claim-doc.md")
+            }),
+            "warnings: {:?}",
+            report.warnings
+        );
+        Ok(())
+    }
+
+    #[test]
     fn markdown_renders_proof_commands_and_boundaries() -> Result<()> {
         let dir = minimal_repo()?;
         let report = build_report(dir.path(), Some("scanner-safe-fixtures"))?;
