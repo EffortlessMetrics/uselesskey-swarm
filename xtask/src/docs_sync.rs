@@ -10,8 +10,16 @@ use serde::Deserialize;
 const METADATA_PATH: &str = "docs/metadata/workspace-docs.json";
 const SUPPORT_MATRIX_PATH: &str = "docs/reference/support-matrix.md";
 const MARKER_PREFIX: &str = "docs-sync:";
-const MARKDOWN_LINK_ROOTS: &[&str] =
-    &["README.md", ".rails", "crates", "docs", "examples", "plans"];
+const MARKDOWN_LINK_ROOTS: &[&str] = &[
+    "README.md",
+    ".github",
+    ".rails",
+    "badges",
+    "crates",
+    "docs",
+    "examples",
+    "plans",
+];
 
 #[derive(Debug, Deserialize)]
 struct DocsMetadata {
@@ -1176,14 +1184,24 @@ mod tests {
     }
 
     #[test]
-    fn local_markdown_links_scan_control_plane_and_crate_roots() -> anyhow::Result<()> {
+    fn local_markdown_links_scan_repo_owned_roots() -> anyhow::Result<()> {
         let dir = tempfile::tempdir()?;
+        fs::create_dir_all(dir.path().join(".github"))?;
         fs::create_dir_all(dir.path().join(".rails/lanes"))?;
+        fs::create_dir_all(dir.path().join("badges"))?;
         fs::create_dir_all(dir.path().join("crates/uselesskey"))?;
         fs::create_dir_all(dir.path().join("plans/release"))?;
         fs::write(
+            dir.path().join(".github/PULL_REQUEST_TEMPLATE.md"),
+            "[missing github target](../docs/missing-github.md)\n",
+        )?;
+        fs::write(
             dir.path().join(".rails/lanes/lane.md"),
             "[missing rails target](../../docs/missing-rails.md)\n",
+        )?;
+        fs::write(
+            dir.path().join("badges/README.md"),
+            "[missing badge target](../docs/missing-badge.md)\n",
         )?;
         fs::write(
             dir.path().join("crates/uselesskey/README.md"),
@@ -1195,9 +1213,11 @@ mod tests {
         )?;
 
         let err = validate_local_markdown_links(dir.path())
-            .expect_err("control-plane Markdown roots should be scanned");
+            .expect_err("repo-owned Markdown roots should be scanned");
         let text = err.to_string();
+        assert!(text.contains("docs/missing-github.md"), "{text}");
         assert!(text.contains("docs/missing-rails.md"), "{text}");
+        assert!(text.contains("docs/missing-badge.md"), "{text}");
         assert!(text.contains("docs/missing-crate.md"), "{text}");
         assert!(text.contains("docs/missing-plan.md"), "{text}");
 
