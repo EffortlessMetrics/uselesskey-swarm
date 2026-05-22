@@ -1415,6 +1415,103 @@ fn audit_bundle_ci_fails_on_expected_profile_mismatch() -> TestResult<()> {
 }
 
 #[test]
+fn audit_bundle_ci_failure_json_reports_missing_manifest() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("missing-manifest");
+    fs::create_dir_all(&bundle_dir).test_context("bundle dir")?;
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+    ]);
+    let assert = audit
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("audit failed: missing_manifest"));
+    let output = assert.get_output();
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+
+    assert_eq!(audit["status"], "fail");
+    assert_eq!(audit["profile"], "unknown");
+    assert_eq!(audit["checks"][0]["status"], "fail");
+    assert_eq!(audit["checks"][0]["failure_class"], "missing_manifest");
+    let detail = audit["checks"][0]["detail"]
+        .as_str()
+        .test_context("failure detail")?;
+    assert!(detail.contains("manifest.json is missing"));
+    assert!(detail.contains("Fix:"));
+    assert_eq!(
+        audit["artifacts"]
+            .as_array()
+            .test_context("artifacts")?
+            .len(),
+        0
+    );
+    assert_eq!(
+        audit["receipts"].as_array().test_context("receipts")?.len(),
+        0
+    );
+    assert!(
+        audit["does_not_prove"]
+            .as_array()
+            .test_context("does_not_prove")?
+            .iter()
+            .any(|value| value == "downstream verifier correctness")
+    );
+    Ok(())
+}
+
+#[test]
+fn audit_bundle_ci_failure_json_reports_unsupported_profile() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("bundle");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let manifest_path = bundle_dir.join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).test_context("manifest")?)
+            .test_context("manifest json")?;
+    manifest["profile"] = serde_json::json!("future-profile");
+    let manifest_bytes = serde_json::to_vec_pretty(&manifest).test_context("manifest bytes")?;
+    fs::write(&manifest_path, manifest_bytes).test_context("mutate manifest")?;
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+    ]);
+    let assert = audit.assert().code(1).stderr(predicate::str::contains(
+        "audit failed: unsupported_profile",
+    ));
+    let output = assert.get_output();
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+
+    assert_eq!(audit["status"], "fail");
+    assert_eq!(audit["profile"], "unknown");
+    assert_eq!(audit["checks"][0]["status"], "fail");
+    assert_eq!(audit["checks"][0]["failure_class"], "unsupported_profile");
+    let detail = audit["checks"][0]["detail"]
+        .as_str()
+        .test_context("failure detail")?;
+    assert!(detail.contains("profile this uselesskey CLI cannot audit"));
+    assert!(detail.contains("Fix:"));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("uk_test_"));
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_summary_outputs_compact_terminal_report() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("webhook");
