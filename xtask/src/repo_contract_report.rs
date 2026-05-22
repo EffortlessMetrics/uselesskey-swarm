@@ -80,6 +80,8 @@ struct ClaimEntry {
     surfaces: Vec<String>,
     #[serde(default)]
     proof_commands: Vec<String>,
+    #[serde(default)]
+    docs: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -242,7 +244,7 @@ fn build_report(root: &Path) -> Result<Report> {
         .collect::<BTreeMap<_, _>>();
     let mut missing_links = missing_artifact_links(root, &artifacts, &artifact_index);
     missing_links.extend(missing_goal_links(root, &goal, &artifact_index));
-    missing_links.extend(missing_claim_links(&claims, &artifact_index));
+    missing_links.extend(missing_claim_links(root, &claims, &artifact_index));
     missing_links.extend(missing_workflow_links(root, &workflows, &claim_index));
 
     Ok(Report {
@@ -451,6 +453,7 @@ fn missing_goal_links(
 }
 
 fn missing_claim_links(
+    root: &Path,
     claims: &ClaimLedger,
     artifact_index: &BTreeMap<&str, &DocArtifact>,
 ) -> Vec<String> {
@@ -461,6 +464,11 @@ fn missing_claim_links(
                 "claim `{}` links missing spec `{}`",
                 claim.id, claim.spec
             ));
+        }
+        for doc in &claim.docs {
+            if is_repo_path(doc) && !root.join(to_path(doc)).exists() {
+                missing.insert(format!("claim `{}` links missing doc `{doc}`", claim.id));
+            }
         }
     }
     missing.into_iter().collect()
@@ -977,6 +985,38 @@ commands = ["cargo xtask repo-contract-report"]
     }
 
     #[test]
+    fn repo_contract_report_records_missing_claim_doc_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(
+            dir.path(),
+            "policy/claim-ledger.toml",
+            r#"schema_version = "1.0"
+
+[[claim]]
+id = "metadata-only-audit-packets"
+title = "Metadata-only audit packets"
+status = "advisory"
+spec = "USELESSKEY-SPEC-0023"
+surfaces = ["uselesskey audit-bundle --ci"]
+proof_commands = ["cargo xtask no-blob"]
+docs = ["docs/how-to/missing-audit.md"]
+"#,
+        )?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| {
+                link.contains("claim `metadata-only-audit-packets`")
+                    && link.contains("docs/how-to/missing-audit.md")
+            }),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
     fn repo_contract_report_records_missing_workflow_doc_links() -> Result<()> {
         let dir = minimal_repo()?;
         write_file(
@@ -1095,6 +1135,7 @@ status = "advisory"
 spec = "USELESSKEY-SPEC-0023"
 surfaces = ["uselesskey audit-bundle --ci"]
 proof_commands = ["cargo xtask no-blob"]
+docs = ["docs/how-to/audit.md"]
 "#,
         )?;
         write_file(
