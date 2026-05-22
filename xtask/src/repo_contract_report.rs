@@ -117,6 +117,7 @@ struct Report {
     active_goal: Option<GoalManifestSummary>,
     goal_manifest: GoalManifestSummary,
     ready_work_items: Vec<WorkItemSummary>,
+    tracked_proposals: Vec<ArtifactSummary>,
     accepted_proposals: Vec<ArtifactSummary>,
     accepted_specs: Vec<ArtifactSummary>,
     open_adrs: Vec<ArtifactSummary>,
@@ -235,6 +236,7 @@ fn build_report(root: &Path) -> Result<Report> {
         } else {
             Vec::new()
         },
+        tracked_proposals: summarize_current_artifacts(&artifacts, "proposal"),
         accepted_proposals: summarize_artifacts(&artifacts, "proposal", "accepted"),
         accepted_specs: summarize_artifacts(&artifacts, "spec", "accepted"),
         open_adrs: artifacts
@@ -461,6 +463,16 @@ fn summarize_artifacts(
         .collect()
 }
 
+fn summarize_current_artifacts(artifacts: &DocArtifactLedger, kind: &str) -> Vec<ArtifactSummary> {
+    artifacts
+        .artifact
+        .iter()
+        .filter(|artifact| artifact.kind == kind)
+        .filter(|artifact| artifact.status != "archived" && artifact.status != "superseded")
+        .map(summarize_artifact)
+        .collect()
+}
+
 fn summarize_artifact(artifact: &DocArtifact) -> ArtifactSummary {
     ArtifactSummary {
         id: artifact.id.clone(),
@@ -525,7 +537,7 @@ fn render_markdown(report: &Report) -> String {
     }
 
     render_work_items(&mut out, "Ready Work Items", &report.ready_work_items);
-    render_artifacts(&mut out, "Accepted Proposals", &report.accepted_proposals);
+    render_artifacts(&mut out, "Tracked Proposals", &report.tracked_proposals);
     render_artifacts(&mut out, "Accepted Specs", &report.accepted_specs);
     render_artifacts(&mut out, "Open ADRs", &report.open_adrs);
     render_claims(
@@ -704,6 +716,8 @@ mod tests {
         assert_eq!(active_goal.id, "test-goal");
         assert_eq!(report.goal_manifest.status, "active");
         assert_eq!(report.ready_work_items.len(), 1);
+        assert_eq!(report.tracked_proposals.len(), 1);
+        assert!(report.accepted_proposals.is_empty());
         assert!(out_dir.join("graph.md").exists());
         assert!(out_dir.join("graph.json").exists());
 
@@ -712,6 +726,8 @@ mod tests {
         assert!(markdown.contains("`RAILS-LANE-0002`"));
         assert!(markdown.contains("## Ready Work Items"));
         assert!(markdown.contains("`repo-contract-report`"));
+        assert!(markdown.contains("## Tracked Proposals"));
+        assert!(markdown.contains("`USELESSKEY-PROP-0002`"));
 
         let json: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(out_dir.join("graph.json"))?)?;
@@ -721,6 +737,8 @@ mod tests {
         assert_eq!(json["active_goal"]["id"], "test-goal");
         assert_eq!(json["goal_manifest"]["status"], "active");
         assert_eq!(json["ready_work_items"][0]["id"], "repo-contract-report");
+        assert_eq!(json["tracked_proposals"][0]["id"], "USELESSKEY-PROP-0002");
+        assert_eq!(json["tracked_proposals"][0]["status"], "proposed");
         Ok(())
     }
 
@@ -853,7 +871,7 @@ updated = "2026-05-21"
 id = "USELESSKEY-PROP-0002"
 kind = "proposal"
 path = "docs/proposals/prop.md"
-status = "accepted"
+status = "proposed"
 
 [[artifact]]
 id = "USELESSKEY-SPEC-0023"
