@@ -537,6 +537,41 @@ fn validate_generated_failure_receipts(
         failure_class: "runtime_material_mismatch".to_string(),
     });
 
+    let profile_validation_bundle = out.join("ci-failure-profile-validation").join("bundle");
+    generate_bundle("scanner-safe", &profile_validation_bundle)?;
+    let manifest_path = profile_validation_bundle.join("manifest.json");
+    let manifest: Value = read_json_file(&manifest_path)?;
+    let profile_validation_path = manifest
+        .get("artifacts")
+        .and_then(Value::as_array)
+        .and_then(|artifacts| artifacts.first())
+        .and_then(|artifact| artifact.get("path"))
+        .and_then(Value::as_str)
+        .context("generated manifest has at least one artifact path")?;
+    let profile_validation_file = profile_validation_bundle.join(profile_validation_path);
+    fs::write(&profile_validation_file, b"profile validation mismatch")
+        .with_context(|| format!("write {}", profile_validation_file.display()))?;
+    let profile_validation_audit = out
+        .join("ci-failure-profile-validation")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &profile_validation_bundle,
+        &profile_validation_audit,
+        "profile_validation_failed",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-profile-validation",
+        &audit,
+        "profile_validation_failed",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-profile-validation".to_string(),
+        audit_path: normalize_report_path(&profile_validation_audit),
+        failure_class: "profile_validation_failed".to_string(),
+    });
+
     let unsupported_profile_bundle = out.join("ci-failure-unsupported-profile").join("bundle");
     generate_bundle("scanner-safe", &unsupported_profile_bundle)?;
     let manifest_path = unsupported_profile_bundle.join("manifest.json");
@@ -1850,6 +1885,7 @@ mod tests {
                         "invalid_receipt",
                         "scanner_safe_mismatch",
                         "runtime_material_mismatch",
+                        "profile_validation_failed",
                         "unsupported_profile"
                     ]
                 }
@@ -2427,6 +2463,7 @@ mod tests {
             "invalid_receipt",
             "scanner_safe_mismatch",
             "runtime_material_mismatch",
+            "profile_validation_failed",
             "unsupported_profile",
         ] {
             let audit = ci_failure_audit_for_tests(failure_class);
