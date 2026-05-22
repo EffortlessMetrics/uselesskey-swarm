@@ -454,6 +454,8 @@ enum NoBlobCmd {
 
 #[derive(Subcommand)]
 enum NoPanicCmd {
+    /// Run the semantic no-panic checker.
+    Check,
     /// Generate a candidate allowlist file under target/policy-proposed/.
     Propose,
     /// Regenerate `policy/no-panic-baseline.toml` from current findings.
@@ -797,6 +799,7 @@ fn main() -> Result<()> {
         },
         Cmd::CheckNoPanicFamily => policy::check_no_panic_family(),
         Cmd::NoPanic { action } => match action {
+            NoPanicCmd::Check => policy::check_no_panic_family(),
             NoPanicCmd::Propose => policy::no_panic_propose(),
             NoPanicCmd::Baseline { reset } => policy::no_panic_baseline(reset),
         },
@@ -10814,6 +10817,21 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
                 ..
             }
         ));
+        Ok(())
+    }
+
+    #[test]
+    fn no_panic_check_alias_parses() -> Result<()> {
+        let alias = Cli::try_parse_from(["xtask", "no-panic", "check"])?;
+        match alias.cmd {
+            Cmd::NoPanic {
+                action: NoPanicCmd::Check,
+            } => {}
+            _ => bail!("expected Cmd::NoPanic check"),
+        }
+
+        let direct = Cli::try_parse_from(["xtask", "check-no-panic-family"])?;
+        assert!(matches!(direct.cmd, Cmd::CheckNoPanicFamily));
         Ok(())
     }
 
