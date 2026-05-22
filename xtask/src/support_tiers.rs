@@ -75,6 +75,13 @@ struct WorkflowRow {
     boundary: String,
 }
 
+#[derive(Debug)]
+struct WorkflowTierDefinition {
+    line: usize,
+    tier: String,
+    meaning: String,
+}
+
 pub(crate) fn run(root: &Path) -> Result<()> {
     let errors = validate(root)?;
     if errors.is_empty() {
@@ -101,6 +108,7 @@ fn validate(root: &Path) -> Result<Vec<String>> {
     let artifacts = read_doc_artifacts(root)?;
     let rows = read_support_rows(root)?;
     let workflow_rows = read_workflow_rows(root)?;
+    let workflow_tiers = read_workflow_tier_definitions(root)?;
     let mut errors = Vec::new();
 
     if ledger.claim.is_empty() {
@@ -114,6 +122,11 @@ fn validate(root: &Path) -> Result<Vec<String>> {
     if workflow_rows.is_empty() {
         errors.push(format!(
             "{WORKFLOW_SUPPORT_MD}: no parseable Workflow Matrix rows found"
+        ));
+    }
+    if workflow_tiers.is_empty() {
+        errors.push(format!(
+            "{WORKFLOW_SUPPORT_MD}: no parseable Support Tier Interpretation rows found"
         ));
     }
 
@@ -245,7 +258,8 @@ fn validate(root: &Path) -> Result<Vec<String>> {
         }
     }
 
-    validate_workflow_rows(&workflow_rows, &claims, root, &mut errors);
+    validate_workflow_tier_definitions(&workflow_tiers, &mut errors);
+    validate_workflow_rows(&workflow_rows, &workflow_tiers, &claims, root, &mut errors);
 
     for claim in ledger
         .claim
@@ -271,15 +285,26 @@ fn validate(root: &Path) -> Result<Vec<String>> {
 
 fn validate_workflow_rows(
     rows: &[WorkflowRow],
+    workflow_tiers: &[WorkflowTierDefinition],
     claims: &BTreeMap<&str, &ClaimEntry>,
     root: &Path,
     errors: &mut Vec<String>,
 ) {
+    let workflow_tier_names = workflow_tiers
+        .iter()
+        .map(|tier| tier.tier.as_str())
+        .collect::<BTreeSet<_>>();
+
     for row in rows {
         if row.support_tier.trim().is_empty() {
             errors.push(format!(
                 "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has an empty support tier",
                 row.line, row.workflow
+            ));
+        } else if !workflow_tier_names.contains(row.support_tier.as_str()) {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` uses undefined support tier `{}`",
+                row.line, row.workflow, row.support_tier
             ));
         }
 
@@ -337,6 +362,27 @@ fn validate_workflow_rows(
     }
 }
 
+fn validate_workflow_tier_definitions(
+    workflow_tiers: &[WorkflowTierDefinition],
+    errors: &mut Vec<String>,
+) {
+    let mut seen = BTreeSet::new();
+    for tier in workflow_tiers {
+        if !seen.insert(tier.tier.as_str()) {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} duplicate workflow support tier `{}`",
+                tier.line, tier.tier
+            ));
+        }
+        if tier.meaning.trim().is_empty() {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} workflow support tier `{}` has an empty meaning",
+                tier.line, tier.tier
+            ));
+        }
+    }
+}
+
 fn read_claim_ledger(root: &Path) -> Result<ClaimLedger> {
     let path = root.join(CLAIM_LEDGER_TOML);
     let text = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
@@ -359,6 +405,12 @@ fn read_workflow_rows(root: &Path) -> Result<Vec<WorkflowRow>> {
     let path = root.join(WORKFLOW_SUPPORT_MD);
     let markdown = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     Ok(parse_workflow_rows(&markdown))
+}
+
+fn read_workflow_tier_definitions(root: &Path) -> Result<Vec<WorkflowTierDefinition>> {
+    let path = root.join(WORKFLOW_SUPPORT_MD);
+    let markdown = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
+    Ok(parse_workflow_tier_definitions(&markdown))
 }
 
 fn parse_support_rows(markdown: &str) -> Vec<SupportRow> {
@@ -447,6 +499,45 @@ fn parse_workflow_rows(markdown: &str) -> Vec<WorkflowRow> {
     }
 
     rows
+}
+
+fn parse_workflow_tier_definitions(markdown: &str) -> Vec<WorkflowTierDefinition> {
+    let mut tiers = Vec::new();
+    let mut in_map = false;
+
+    for (idx, line) in markdown.lines().enumerate() {
+        let trimmed = line.trim();
+        if trimmed == "## Support Tier Interpretation" {
+            in_map = true;
+            continue;
+        }
+        if in_map && trimmed.starts_with("## ") {
+            break;
+        }
+        if !in_map || !trimmed.starts_with('|') {
+            continue;
+        }
+
+        let cells = trimmed
+            .trim_matches('|')
+            .split('|')
+            .map(str::trim)
+            .collect::<Vec<_>>();
+        if cells.len() < 2 {
+            continue;
+        }
+        if cells[0] == "Tier" || cells[0].starts_with("---") {
+            continue;
+        }
+
+        tiers.push(WorkflowTierDefinition {
+            line: idx + 1,
+            tier: strip_inline_code(cells[0]),
+            meaning: cells[1].to_string(),
+        });
+    }
+
+    tiers
 }
 
 fn validate_existing_path(
@@ -654,6 +745,22 @@ docs = ["docs/VERIFICATION.md"]
         assert_error(dir.path(), "references missing path `docs/missing.md`")
     }
 
+    #[test]
+    fn rejects_workflow_row_undefined_support_tier() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support_with_tier(
+            dir.path(),
+            "future workflow tier",
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+        )?;
+        assert_error(
+            dir.path(),
+            "uses undefined support tier `future workflow tier`",
+        )
+    }
+
     fn assert_error(root: &Path, needle: &str) -> Result<()> {
         let errors = validate(root)?;
         assert!(
@@ -770,6 +877,16 @@ updated = "2026-05-21"
         primary_docs: &str,
         proof: &str,
     ) -> Result<()> {
+        write_workflow_support_with_tier(root, "stable bundle workflow", claim, primary_docs, proof)
+    }
+
+    fn write_workflow_support_with_tier(
+        root: &Path,
+        tier: &str,
+        claim: &str,
+        primary_docs: &str,
+        proof: &str,
+    ) -> Result<()> {
         write_file(
             root,
             WORKFLOW_SUPPORT_MD,
@@ -780,9 +897,13 @@ updated = "2026-05-21"
 
 | Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| Scanner-safe bundle handoff | stable bundle workflow | {claim} | {primary_docs} | {proof} | `target/external-adoption-smoke/report.json` | Boundary. |
+| Scanner-safe bundle handoff | {tier} | {claim} | {primary_docs} | {proof} | `target/external-adoption-smoke/report.json` | Boundary. |
 
 ## Support Tier Interpretation
+
+| Tier | Meaning |
+| --- | --- |
+| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |
 "#
             ),
         )
