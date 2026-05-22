@@ -235,6 +235,8 @@ artifacts = [
   "target/uselesskey-audit/bundle-audit.md",
 ]
 docs = [
+  "docs/how-to/share-installed-bundle-audit.md",
+  "docs/how-to/use-uselesskey-in-downstream-ci.md",
   "docs/reference/bundle-audit-json.md",
   "docs/specs/USELESSKEY-SPEC-0014-installed-bundle-audit.md",
   "docs/specs/USELESSKEY-SPEC-0021-material-classification.md",
