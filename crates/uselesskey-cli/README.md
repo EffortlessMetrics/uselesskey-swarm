@@ -140,7 +140,8 @@ cargo run -p uselesskey-cli -- audit-bundle \
   target/oidc-fixtures \
   --ci \
   --expect-profile oidc \
-  --policy strict
+  --policy strict \
+  --out target/oidc-fixtures-audit
 ```
 
 `audit-bundle --ci` is metadata-only reviewer evidence. It reports profile
@@ -148,6 +149,8 @@ names, relative paths, artifact kinds, scanner-safe/runtime-material posture,
 stable failure classes, and bundle consistency status; it does not print or
 copy PEM private keys, JWT values, HMAC secrets, JWK private members, webhook
 request bodies, or generated secret-shaped payloads.
+With `--out`, the same metadata-only evidence is written as durable
+`bundle-audit.json` and `bundle-audit.md` receipts for CI upload or review.
 
 What it does not prove:
 

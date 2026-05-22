@@ -57,8 +57,8 @@ bundle audit output. Presets are named, bounded, and explainable:
 Policy controls should stay tiny. The initial accepted controls are:
 
 ```bash
-uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook
-uselesskey audit-bundle target/uselesskey-webhook --ci --policy strict
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --out target/uselesskey-webhook-audit
+uselesskey audit-bundle target/uselesskey-webhook --ci --policy strict --out target/uselesskey-webhook-audit
 ```
 
 `--expect-profile <profile>` checks that the audited bundle profile matches the
@@ -67,6 +67,8 @@ job the downstream CI intended to run.
 `--policy strict` applies the built-in strict CI preset. It is not a user-defined
 DSL. If a requested behavior needs custom expressions, conditionals, remote
 policy fetches, or repository scanning, it is out of scope for this lane.
+`--out <audit-dir>` is not a policy control, but downstream CI recipes should
+include it when they need uploadable metadata-only receipts.
 
 The policy pack should document the installed-user loop:
 
@@ -74,7 +76,7 @@ The policy pack should document the installed-user loop:
 generate
   -> verify
     -> inspect
-      -> audit --ci --expect-profile <profile> --policy strict
+      -> audit --ci --expect-profile <profile> --policy strict --out <audit-dir>
         -> upload bundle-audit.json and bundle-audit.md
         -> attach reviewer checklist when needed
 ```
@@ -151,7 +153,7 @@ This spec is implemented when:
 Acceptable:
 
 ```text
-uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --out target/uselesskey-webhook-audit
   -> exits 0 when the local audit passes and the manifest profile is webhook
   -> exits non-zero with a stable class when the bundle profile is tls
 ```
@@ -159,7 +161,7 @@ uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook
 Acceptable:
 
 ```text
-uselesskey audit-bundle target/uselesskey-oidc --ci --policy strict
+uselesskey audit-bundle target/uselesskey-oidc --ci --policy strict --out target/uselesskey-oidc-audit
   -> treats path_escape, missing_manifest, missing_receipt, unexpected_artifact,
      scanner_safe_mismatch, runtime_material_mismatch, and unsupported_profile
      as CI failures

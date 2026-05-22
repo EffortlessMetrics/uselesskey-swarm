@@ -53,7 +53,7 @@ uselesskey profiles
 uselesskey bundle --profile oidc --out target/post-release-oidc
 uselesskey verify-bundle target/post-release-oidc
 uselesskey inspect-bundle target/post-release-oidc
-uselesskey audit-bundle target/post-release-oidc --ci --expect-profile oidc --policy strict
+uselesskey audit-bundle target/post-release-oidc --ci --expect-profile oidc --policy strict --out target/post-release-oidc-audit
 ```
 
 Swap `oidc` for `scanner-safe`, `webhook`, or `tls` when the release claim or
