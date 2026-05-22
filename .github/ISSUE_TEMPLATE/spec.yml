@@ -45,6 +45,14 @@ body:
       description: What may be claimed, and what does this not prove?
     validations:
       required: true
+  - type: checkboxes
+    id: release_source_boundary
+    attributes:
+      label: Release/source boundary
+      description: Specs must call out any release authority movement explicitly.
+      options:
+        - label: This spec does not execute release authority; any release/source-boundary change must be separately approved before implementation.
+          required: true
   - type: textarea
     id: acceptance
     attributes:

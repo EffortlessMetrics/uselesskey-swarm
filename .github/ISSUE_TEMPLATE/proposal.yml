@@ -63,6 +63,14 @@ body:
     attributes:
       label: Non-goals
       description: What must remain out of scope?
+  - type: checkboxes
+    id: release_source_boundary
+    attributes:
+      label: Release/source boundary
+      description: Proposals that move release authority need explicit approval before implementation.
+      options:
+        - label: This proposal does not execute release authority; any release/source-boundary change must be separately approved before implementation.
+          required: true
   - type: textarea
     id: exit_criteria
     attributes:

@@ -41,6 +41,14 @@ body:
       description: What must remain out of scope?
     validations:
       required: true
+  - type: checkboxes
+    id: release_source_boundary
+    attributes:
+      label: Release/source boundary
+      description: Confirm whether this slice stays inside the swarm development boundary.
+      options:
+        - label: This slice does not publish crates, create tags, sign artifacts, push to crates.io, create GitHub releases, or move source-sync authority.
+          required: true
   - type: textarea
     id: proof_commands
     attributes:
