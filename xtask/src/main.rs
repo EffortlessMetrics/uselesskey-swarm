@@ -6468,7 +6468,14 @@ fn prepare_mutation_diff_filter(
     }
 }
 
+const MUTATION_ROUTING_LOCK_DIR: &str = "target/mutation-routing.lock";
+
+fn acquire_mutation_routing_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, MUTATION_ROUTING_LOCK_DIR, "mutation-routing")
+}
+
 fn write_mutation_routing_receipt(root: &Path, receipt: &MutationRoutingReceipt) -> Result<()> {
+    let _output_lock = acquire_mutation_routing_output_lock(root)?;
     let out_dir = root.join("target/xtask/mutation-routing");
     write_json_pretty(&out_dir.join("latest.json"), receipt)?;
     fs::write(
@@ -11198,6 +11205,15 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
         assert!(markdown.contains("cargo xtask mutants-pr --changed"));
         assert!(markdown.contains("public owner crate changed"));
         assert!(markdown.contains("Diff filter available: `true`"));
+    }
+
+    #[test]
+    fn mutation_routing_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_mutation_routing_output_lock(dir.path())?;
+
+        assert!(dir.path().join(MUTATION_ROUTING_LOCK_DIR).is_dir());
+        Ok(())
     }
 
     #[test]
