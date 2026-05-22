@@ -280,7 +280,10 @@ fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
         }
         if policy.status == CLAIM_PROOF_POLICY_IMPLEMENTED {
             let claim = claim_by_id.get(policy.claim.as_str()).with_context(|| {
-                format!("claim-proof policy `{}` points to an unknown claim", policy.claim)
+                format!(
+                    "claim-proof policy `{}` points to an unknown claim",
+                    policy.claim
+                )
             })?;
             validate_claim_artifacts_are_named_by_handlers(claim, policy)?;
         }
@@ -543,15 +546,35 @@ fn render_receipt_markdown(receipt: &ClaimProofReceipt) -> String {
         md.push_str(&format!("- Git SHA: `{git_sha}`\n"));
     }
 
+    md.push_str("\n## Claim Artifacts\n\n");
+    if receipt.artifacts.is_empty() {
+        md.push_str("- none\n");
+    } else {
+        for artifact in &receipt.artifacts {
+            md.push_str(&format!("- `{artifact}`\n"));
+        }
+    }
+
     md.push_str("\n## Handlers\n\n");
-    md.push_str("| Handler | Status | Command |\n");
-    md.push_str("| --- | --- | --- |\n");
+    md.push_str("| Handler | Status | Command | Artifacts |\n");
+    md.push_str("| --- | --- | --- | --- |\n");
     for handler in &receipt.handlers {
+        let artifacts = if handler.artifacts.is_empty() {
+            "none".to_string()
+        } else {
+            handler
+                .artifacts
+                .iter()
+                .map(|artifact| format!("`{artifact}`"))
+                .collect::<Vec<_>>()
+                .join("<br>")
+        };
         md.push_str(&format!(
-            "| `{}` | `{}` | `{}` |\n",
+            "| `{}` | `{}` | `{}` | {} |\n",
             handler.handler,
             handler.status,
-            handler.command.join(" ")
+            handler.command.join(" "),
+            artifacts
         ));
     }
 
@@ -1061,6 +1084,46 @@ mod tests {
 
         assert!(markdown.contains("scanner-safe-fixtures"));
         assert!(markdown.contains("Not production key management."));
+        Ok(())
+    }
+
+    #[test]
+    fn receipt_markdown_includes_claim_and_handler_artifacts() -> Result<()> {
+        let receipt = ClaimProofReceipt {
+            schema_version: 1,
+            claim: "generated-badge-endpoints".to_string(),
+            title: "Generated badge endpoints".to_string(),
+            claim_status: "stable".to_string(),
+            status: "pass".to_string(),
+            generated_at: "2026-05-22T00:00:00Z".to_string(),
+            git_sha: Some("abc123".to_string()),
+            boundary: "Badge JSON is generated.".to_string(),
+            handlers: vec![HandlerReceipt {
+                handler: "badges_check".to_string(),
+                command: vec![
+                    "cargo".to_string(),
+                    "xtask".to_string(),
+                    "badges".to_string(),
+                    "--check".to_string(),
+                ],
+                status: "ok".to_string(),
+                artifacts: vec![
+                    "badges/ripr-plus.json".to_string(),
+                    "target/xtask/badges".to_string(),
+                ],
+            }],
+            artifacts: vec![
+                "badges/ripr-plus.json".to_string(),
+                "target/xtask/badges".to_string(),
+            ],
+        };
+
+        let markdown = render_receipt_markdown(&receipt);
+
+        assert!(markdown.contains("## Claim Artifacts"));
+        assert!(markdown.contains("- `badges/ripr-plus.json`"));
+        assert!(markdown.contains("- `target/xtask/badges`"));
+        assert!(markdown.contains("| `badges_check` | `ok` | `cargo xtask badges --check` | `badges/ripr-plus.json`<br>`target/xtask/badges` |"));
         Ok(())
     }
 
