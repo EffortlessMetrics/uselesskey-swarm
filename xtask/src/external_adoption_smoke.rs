@@ -1,14 +1,12 @@
 use std::fs;
-use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
 
-use crate::git_head_sha;
+use crate::{git_head_sha, target_output};
 
 const OUT_DIR: &str = "target/external-adoption-smoke";
 const LOCK_DIR: &str = "target/external-adoption-smoke.lock";
@@ -16,8 +14,6 @@ const WORK_DIR: &str = "target/external-adoption-smoke/work";
 const LOG_DIR: &str = "target/external-adoption-smoke/logs";
 const REPORT_JSON: &str = "target/external-adoption-smoke/report.json";
 const REPORT_MD: &str = "target/external-adoption-smoke/report.md";
-const OUTPUT_LOCK_TIMEOUT: Duration = Duration::from_mins(2);
-const OUTPUT_LOCK_RETRY: Duration = Duration::from_millis(250);
 
 const CLI_PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook"];
 const CI_RECIPE_PROFILES: &[&str] = &["scanner-safe", "oidc", "webhook", "tls"];
@@ -150,7 +146,7 @@ struct ExternalAdoptionStep {
 
 pub fn run(root: &Path, options: RunOptions) -> Result<()> {
     let source = resolve_source(&options)?;
-    let _output_lock = acquire_output_lock(root)?;
+    let _output_lock = target_output::acquire_lock(root, LOCK_DIR, "external-adoption-smoke")?;
     let out_dir = root.join(OUT_DIR);
     reset_target_output(root, &out_dir)?;
     let work_dir = root.join(WORK_DIR);
@@ -964,48 +960,6 @@ fn record_project(
     });
 }
 
-struct OutputLock {
-    path: PathBuf,
-}
-
-impl Drop for OutputLock {
-    fn drop(&mut self) {
-        match fs::remove_dir(&self.path) {
-            Ok(()) => {}
-            Err(err) if err.kind() == ErrorKind::NotFound => {}
-            Err(_) => {}
-        }
-    }
-}
-
-fn acquire_output_lock(root: &Path) -> Result<OutputLock> {
-    let lock_dir = root.join(LOCK_DIR);
-    ensure_target_child(root, &lock_dir)?;
-    let target_dir = root.join("target");
-    fs::create_dir_all(&target_dir)
-        .with_context(|| format!("failed to create {}", target_dir.display()))?;
-
-    let start = Instant::now();
-    loop {
-        match fs::create_dir(&lock_dir) {
-            Ok(()) => return Ok(OutputLock { path: lock_dir }),
-            Err(err) if err.kind() == ErrorKind::AlreadyExists => {
-                if start.elapsed() >= OUTPUT_LOCK_TIMEOUT {
-                    bail!(
-                        "timed out waiting for external-adoption-smoke output lock at {}; remove this directory only if no external-adoption-smoke run is active",
-                        lock_dir.display()
-                    );
-                }
-                thread::sleep(OUTPUT_LOCK_RETRY);
-            }
-            Err(err) => {
-                return Err(err)
-                    .with_context(|| format!("failed to create {}", lock_dir.display()));
-            }
-        }
-    }
-}
-
 fn reset_target_output(root: &Path, out_root: &Path) -> Result<()> {
     ensure_target_child(root, out_root)?;
     if out_root.exists() {
@@ -1271,36 +1225,6 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         let root = std::env::temp_dir().join("uselesskey-external-adoption-test");
 
         ensure_target_child(&root, &root.join("target/external-adoption-smoke"))?;
-        Ok(())
-    }
-
-    #[test]
-    fn external_adoption_output_lock_serializes_access() -> Result<()> {
-        let dir = tempfile::tempdir()?;
-        let first_lock = acquire_output_lock(dir.path())?;
-        let (tx, rx) = std::sync::mpsc::channel();
-        let root = dir.path().to_path_buf();
-        let waiter = std::thread::spawn(move || -> Result<()> {
-            let _second_lock = acquire_output_lock(&root)?;
-            tx.send(())
-                .expect("lock waiter can report successful acquisition");
-            Ok(())
-        });
-
-        match rx.recv_timeout(Duration::from_millis(300)) {
-            Ok(()) => bail!("second external-adoption-smoke output lock acquired too early"),
-            Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {}
-            Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                bail!("lock waiter disconnected before acquiring the output lock")
-            }
-        }
-
-        drop(first_lock);
-        rx.recv_timeout(Duration::from_secs(5))
-            .context("second external-adoption-smoke output lock did not acquire after release")?;
-        waiter
-            .join()
-            .expect("lock waiter thread panicked while acquiring output lock")?;
         Ok(())
     }
 

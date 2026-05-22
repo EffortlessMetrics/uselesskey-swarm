@@ -4,11 +4,13 @@ use std::process::{Command, Stdio};
 
 use anyhow::{Context, Result, bail};
 
-use crate::verification_pack;
+use crate::{target_output, verification_pack};
 
 const USER_PATH_PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook"];
+const LOCK_DIR: &str = "target/user-path-smoke.lock";
 
 pub fn run(root: &Path) -> Result<()> {
+    let _output_lock = target_output::acquire_lock(root, LOCK_DIR, "user-path-smoke")?;
     let out_root = root.join("target/user-path-smoke");
     reset_target_output(root, &out_root)?;
 
