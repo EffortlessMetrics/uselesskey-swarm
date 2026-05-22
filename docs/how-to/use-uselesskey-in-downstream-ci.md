@@ -64,6 +64,11 @@ classes such as:
 Do not parse English prose from logs. Branch on exit status and, when needed,
 the JSON receipt.
 
+When `--ci` is combined with `--out`, `audit-bundle` writes
+`bundle-audit.json` and `bundle-audit.md` for both passing audits and stable
+policy failures. Use an always-run upload step if reviewers need the failure
+packet after CI rejects the bundle.
+
 ## Verify
 
 To run the installed CLI path locally:
@@ -71,7 +76,7 @@ To run the installed CLI path locally:
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
-uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit
 ```
 
 Repo-local proof for the documented downstream path:

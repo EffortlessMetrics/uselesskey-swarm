@@ -1467,6 +1467,72 @@ fn audit_bundle_ci_fails_on_expected_profile_mismatch() -> TestResult<()> {
 }
 
 #[test]
+fn audit_bundle_ci_failure_writes_metadata_only_receipts_when_out_is_set() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("webhook");
+    let audit_dir = dir.path().join("webhook-audit");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--profile",
+        "webhook",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+        "--expect-profile",
+        "tls",
+        "--out",
+        audit_dir.to_str().test_context("utf-8")?,
+    ]);
+    let assert = audit.assert().code(1).stderr(predicate::str::contains(
+        "audit policy failed: profile_validation_failed",
+    ));
+    let output = assert.get_output();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+    assert_eq!(audit["status"], "fail");
+    assert_eq!(audit["profile"], "webhook");
+    assert_eq!(
+        audit["checks"][0]["failure_class"],
+        "profile_validation_failed"
+    );
+    assert_eq!(
+        audit_receipt_files(&audit_dir)?,
+        vec![
+            "bundle-audit.json".to_string(),
+            "bundle-audit.md".to_string()
+        ]
+    );
+
+    let receipt_json =
+        fs::read_to_string(audit_dir.join("bundle-audit.json")).test_context("audit json")?;
+    let receipt_md =
+        fs::read_to_string(audit_dir.join("bundle-audit.md")).test_context("audit markdown")?;
+    let receipt: Value = serde_json::from_str(&receipt_json).test_context("receipt json")?;
+    assert_eq!(receipt["status"], "fail");
+    assert_eq!(
+        receipt["checks"][0]["failure_class"],
+        "profile_validation_failed"
+    );
+    assert!(receipt_md.contains("profile_validation_failed"));
+    assert!(!stdout.contains("whsec_"));
+    assert!(!receipt_json.contains("whsec_"));
+    assert!(!receipt_md.contains("whsec_"));
+    assert!(!receipt_json.contains("BEGIN PRIVATE KEY"));
+    assert!(!receipt_md.contains("BEGIN PRIVATE KEY"));
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_ci_failure_json_reports_missing_manifest() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("missing-manifest");
@@ -1513,6 +1579,57 @@ fn audit_bundle_ci_failure_json_reports_missing_manifest() -> TestResult<()> {
             .iter()
             .any(|value| value == "downstream verifier correctness")
     );
+    Ok(())
+}
+
+#[test]
+fn audit_bundle_ci_build_failure_writes_metadata_only_receipts_when_out_is_set() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("missing-manifest");
+    let audit_dir = dir.path().join("missing-manifest-audit");
+    fs::create_dir_all(&bundle_dir).test_context("bundle dir")?;
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+        "--out",
+        audit_dir.to_str().test_context("utf-8")?,
+    ]);
+    let assert = audit
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("audit failed: missing_manifest"));
+    let output = assert.get_output();
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+    assert_eq!(audit["status"], "fail");
+    assert_eq!(audit["profile"], "unknown");
+    assert_eq!(audit["checks"][0]["failure_class"], "missing_manifest");
+    assert_eq!(
+        audit_receipt_files(&audit_dir)?,
+        vec![
+            "bundle-audit.json".to_string(),
+            "bundle-audit.md".to_string()
+        ]
+    );
+
+    let receipt_json =
+        fs::read_to_string(audit_dir.join("bundle-audit.json")).test_context("audit json")?;
+    let receipt_md =
+        fs::read_to_string(audit_dir.join("bundle-audit.md")).test_context("audit markdown")?;
+    let receipt: Value = serde_json::from_str(&receipt_json).test_context("receipt json")?;
+    assert_eq!(receipt["status"], "fail");
+    assert_eq!(receipt["profile"], "unknown");
+    assert_eq!(receipt["checks"][0]["failure_class"], "missing_manifest");
+    assert!(receipt_md.contains("missing_manifest"));
+    assert!(!stdout.contains("whsec_"));
+    assert!(!receipt_json.contains("whsec_"));
+    assert!(!receipt_md.contains("whsec_"));
+    assert!(!receipt_json.contains("BEGIN PRIVATE KEY"));
+    assert!(!receipt_md.contains("BEGIN PRIVATE KEY"));
     Ok(())
 }
 
