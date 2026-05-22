@@ -5,10 +5,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result};
 use serde::{Deserialize, Serialize};
 
+use crate::target_output;
+
 const ACTIVE_GOAL_TOML: &str = ".uselesskey/goals/active.toml";
 const CLAIM_LEDGER_TOML: &str = "policy/claim-ledger.toml";
 const DOC_ARTIFACTS_TOML: &str = "policy/doc-artifacts.toml";
 const DEFAULT_OUT_DIR: &str = "target/source-of-truth";
+const LOCK_DIR: &str = "target/repo-contract-report.lock";
 
 #[derive(Debug, Deserialize)]
 struct DocArtifactLedger {
@@ -142,6 +145,7 @@ pub(crate) fn run(root: &Path) -> Result<()> {
 }
 
 fn write_report(root: &Path, out_dir: &Path) -> Result<Report> {
+    let _output_lock = acquire_output_lock(root)?;
     let report = build_report(root)?;
     fs::create_dir_all(out_dir).with_context(|| format!("create {}", out_dir.display()))?;
     fs::write(out_dir.join("graph.md"), render_markdown(&report))
@@ -152,6 +156,10 @@ fn write_report(root: &Path, out_dir: &Path) -> Result<Report> {
     )
     .with_context(|| format!("write {}", out_dir.join("graph.json").display()))?;
     Ok(report)
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "repo-contract-report")
 }
 
 fn build_report(root: &Path) -> Result<Report> {
@@ -644,6 +652,15 @@ commands = ["cargo xtask repo-contract-report"]
             "missing links: {:?}",
             report.missing_links
         );
+        Ok(())
+    }
+
+    #[test]
+    fn repo_contract_report_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
         Ok(())
     }
 
