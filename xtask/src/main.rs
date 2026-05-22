@@ -3013,6 +3013,7 @@ fn docs_sync_with_spec_check(check: bool) -> Result<()> {
 }
 
 const PR_LITE_DIR: &str = "target/pr-lite";
+const PR_LITE_LOCK_DIR: &str = "target/pr-lite.lock";
 
 const PR_LITE_CLAIM_BOUNDARY: &[&str] = &[
     "pr-lite is a bounded local approximation of hosted PR CI, not full hosted proof",
@@ -3075,7 +3076,7 @@ fn pr_lite(format: PrLiteFormat) -> Result<()> {
         "pass".to_string()
     };
 
-    write_pr_lite_receipts(&workspace_root.join(PR_LITE_DIR), &receipt)?;
+    write_pr_lite_receipts(&workspace_root, &receipt)?;
 
     match format {
         PrLiteFormat::Human => print_pr_lite_human(&receipt),
@@ -3447,7 +3448,13 @@ fn artifacts_to_strings(artifacts: &[&str]) -> Vec<String> {
     artifacts.iter().map(|path| (*path).to_string()).collect()
 }
 
-fn write_pr_lite_receipts(out_dir: &Path, receipt: &PrLiteReceipt) -> Result<()> {
+fn acquire_pr_lite_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, PR_LITE_LOCK_DIR, "pr-lite")
+}
+
+fn write_pr_lite_receipts(root: &Path, receipt: &PrLiteReceipt) -> Result<()> {
+    let _output_lock = acquire_pr_lite_output_lock(root)?;
+    let out_dir = root.join(PR_LITE_DIR);
     write_json_pretty(&out_dir.join("pr-lite.json"), receipt)?;
     fs::write(out_dir.join("pr-lite.md"), render_pr_lite_markdown(receipt))
         .with_context(|| format!("failed to write {}", out_dir.join("pr-lite.md").display()))
@@ -10997,6 +11004,15 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
     fn pr_lite_examples_touched_normalizes_windows_paths() {
         assert!(pr_lite_examples_touched(&["examples\\demo.rs".to_string()]));
         assert!(!pr_lite_examples_touched(&["docs/guide.md".to_string()]));
+    }
+
+    #[test]
+    fn pr_lite_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_pr_lite_output_lock(dir.path())?;
+
+        assert!(dir.path().join(PR_LITE_LOCK_DIR).is_dir());
+        Ok(())
     }
 
     #[test]
