@@ -797,7 +797,6 @@ docs = ["docs/VERIFICATION.md"]
             "`docs/VERIFICATION.md`",
             "`cargo xtask no-blob`",
             "none",
-            "Boundary.",
             "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
         )?;
         assert_error(
@@ -816,7 +815,6 @@ docs = ["docs/VERIFICATION.md"]
             "`docs/VERIFICATION.md`",
             "`cargo xtask no-blob`",
             "`target/external-adoption-smoke/report.json`",
-            "Boundary.",
             "| stable bundle workflow |  |",
         )?;
         assert_error(
@@ -968,7 +966,6 @@ updated = "2026-05-21"
             primary_docs,
             proof,
             "`target/external-adoption-smoke/report.json`",
-            "Boundary.",
             "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
         )
     }
@@ -980,7 +977,6 @@ updated = "2026-05-21"
         primary_docs: &str,
         proof: &str,
         receipts: &str,
-        boundary: &str,
         tier_definition: &str,
     ) -> Result<()> {
         write_file(
@@ -993,7 +989,7 @@ updated = "2026-05-21"
 
 | Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| Scanner-safe bundle handoff | {tier} | {claim} | {primary_docs} | {proof} | {receipts} | {boundary} |
+| Scanner-safe bundle handoff | {tier} | {claim} | {primary_docs} | {proof} | {receipts} | Boundary. |
 
 ## Support Tier Interpretation
 
