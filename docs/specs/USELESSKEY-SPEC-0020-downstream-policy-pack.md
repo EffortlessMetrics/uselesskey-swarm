@@ -120,6 +120,7 @@ git diff --check
 Docs that add downstream policy recipes must run:
 
 ```bash
+cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 cargo xtask docs-sync --check
 cargo xtask typos
 git diff --check
@@ -141,8 +142,8 @@ This spec is implemented when:
 - `audit-bundle --ci --expect-profile <profile>` fails on profile mismatch;
 - `audit-bundle --ci --policy strict` applies the strict built-in checks;
 - downstream policy docs show a copyable CI recipe and reviewer checklist;
-- external adoption or downstream smoke keeps the policy path live where
-  bounded;
+- external adoption smoke with `--ci-recipes` keeps documented downstream policy
+  recipes live where bounded;
 - no implementation introduces a broad policy language.
 
 ## Acceptance Examples
@@ -184,6 +185,7 @@ uselesskey audit-bundle --policy-url https://example.invalid/policy.rego
 | Profile expectation is machine-checkable | CLI tests for `--expect-profile` |
 | Strict policy uses stable classes | CLI tests for strict pass/fail behavior |
 | Policy docs stay current | `cargo xtask docs-sync --check`; `cargo xtask typos` |
+| Downstream recipes stay executable | `cargo xtask external-adoption-smoke --path . --ci-recipes --format json` |
 | Installed proof remains separate from repo proof | `cargo xtask claim-report --check-public-claims` in closeout |
 
 ## Implementation Mapping
@@ -203,6 +205,15 @@ Spec-only PR:
 
 ```bash
 cargo xtask spec-check --strict
+cargo xtask docs-sync --check
+cargo xtask typos
+git diff --check
+```
+
+Downstream recipe docs PR:
+
+```bash
+cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 cargo xtask docs-sync --check
 cargo xtask typos
 git diff --check
