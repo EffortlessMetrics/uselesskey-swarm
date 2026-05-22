@@ -27,7 +27,7 @@ For clean downstream project examples, use
 Use the installed CLI outside this workspace:
 
 ```bash
-cargo install uselesskey-cli --version 0.9.1
+cargo install uselesskey-cli --version 0.9.1 --locked
 uselesskey profiles
 uselesskey bundle --profile webhook --explain
 ```
