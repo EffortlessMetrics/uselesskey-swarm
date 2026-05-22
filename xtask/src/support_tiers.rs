@@ -294,8 +294,16 @@ fn validate_workflow_rows(
         .iter()
         .map(|tier| tier.tier.as_str())
         .collect::<BTreeSet<_>>();
+    let mut seen_workflows = BTreeSet::new();
 
     for row in rows {
+        if !seen_workflows.insert(row.workflow.as_str()) {
+            errors.push(format!(
+                "{WORKFLOW_SUPPORT_MD}:{} duplicate workflow `{}`",
+                row.line, row.workflow
+            ));
+        }
+
         if row.support_tier.trim().is_empty() {
             errors.push(format!(
                 "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has an empty support tier",
@@ -761,6 +769,16 @@ docs = ["docs/VERIFICATION.md"]
         )
     }
 
+    #[test]
+    fn rejects_duplicate_workflow_row() -> Result<()> {
+        let dir = minimal_repo()?;
+        append_duplicate_workflow_row(dir.path())?;
+        assert_error(
+            dir.path(),
+            "duplicate workflow `Scanner-safe bundle handoff`",
+        )
+    }
+
     fn assert_error(root: &Path, needle: &str) -> Result<()> {
         let errors = validate(root)?;
         assert!(
@@ -907,6 +925,19 @@ updated = "2026-05-21"
 "#
             ),
         )
+    }
+
+    fn append_duplicate_workflow_row(root: &Path) -> Result<()> {
+        let path = root.join(WORKFLOW_SUPPORT_MD.replace('/', std::path::MAIN_SEPARATOR_STR));
+        let text = fs::read_to_string(&path)?;
+        let duplicate = "| Scanner-safe bundle handoff | stable bundle workflow | `scanner-safe-fixtures` | `docs/VERIFICATION.md` | `cargo xtask no-blob` | `target/external-adoption-smoke/report.json` | Boundary. |\n";
+        let updated = text.replacen(
+            "\n## Support Tier Interpretation",
+            &format!("\n{duplicate}\n## Support Tier Interpretation"),
+            1,
+        );
+        fs::write(path, updated)?;
+        Ok(())
     }
 
     fn write_file(root: &Path, rel: &str, content: &str) -> Result<()> {
