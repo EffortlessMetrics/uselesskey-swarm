@@ -396,6 +396,92 @@ commands = ["cargo xtask check-goals"]
     }
 
     #[test]
+    fn rejects_missing_linked_proposal() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_active(
+            dir.path(),
+            work_item(
+                "missing-proposal",
+                "ready",
+                r#"proposal = "USELESSKEY-PROP-9999"
+spec = "USELESSKEY-SPEC-0001"
+plan = "plans/test/implementation-plan.md"
+commands = ["cargo xtask check-goals"]
+"#,
+            ),
+        )?;
+        assert_error(dir.path(), "links missing proposal `USELESSKEY-PROP-9999`")
+    }
+
+    #[test]
+    fn rejects_linked_proposal_with_wrong_kind() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_active(
+            dir.path(),
+            work_item(
+                "wrong-kind-proposal",
+                "ready",
+                r#"proposal = "USELESSKEY-SPEC-0001"
+spec = "USELESSKEY-SPEC-0001"
+plan = "plans/test/implementation-plan.md"
+commands = ["cargo xtask check-goals"]
+"#,
+            ),
+        )?;
+        assert_error(
+            dir.path(),
+            "links `USELESSKEY-SPEC-0001` as proposal, but it is spec",
+        )
+    }
+
+    #[test]
+    fn rejects_missing_plan() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_active(
+            dir.path(),
+            work_item(
+                "missing-plan",
+                "ready",
+                r#"proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0001"
+commands = ["cargo xtask check-goals"]
+"#,
+            ),
+        )?;
+        assert_error(dir.path(), "work_item `missing-plan` missing plan")
+    }
+
+    #[test]
+    fn rejects_duplicate_work_item_id() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_active(
+            dir.path(),
+            format!(
+                "{}{}",
+                work_item(
+                    "duplicate-item",
+                    "ready",
+                    r#"proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0001"
+plan = "plans/test/implementation-plan.md"
+commands = ["cargo xtask check-goals"]
+"#,
+                ),
+                work_item(
+                    "duplicate-item",
+                    "ready",
+                    r#"proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0001"
+plan = "plans/test/implementation-plan.md"
+commands = ["cargo xtask check-goals"]
+"#,
+                )
+            ),
+        )?;
+        assert_error(dir.path(), "work_item `duplicate-item` is duplicated")
+    }
+
+    #[test]
     fn rejects_fake_human_merge_required() -> Result<()> {
         let dir = minimal_repo()?;
         write_active(
