@@ -58,6 +58,8 @@ The claim-proof policy ledger must be validated before handler execution:
 - each handler id may appear at most once per policy row;
 - each handler id must resolve to a known symbolic handler, including
   explicit-version-only handlers such as `cratesio_smoke_version`.
+- implemented policy rows must have handlers whose declared artifacts cover
+  every artifact listed on the linked public claim row.
 - each `stable` public claim must have an implemented `claim_proof` row and be
   included in `--all-stable`.
 
@@ -75,10 +77,11 @@ Initial handler mapping:
 
 | Claim | Handlers |
 | --- | --- |
-| `scanner-safe-fixtures` | `scanner_safe_reference_check`, `no_blob`, `badges_check` |
+| `scanner-safe-fixtures` | `scanner_safe_reference_check`, `bundle_proof_scanner_safe`, `no_blob`, `badges_check` |
 | `ripr-plus-evidence-endpoint` | `badges_check`, `test_efficiency_report` |
 | `tls-contract-pack` | `bundle_proof_tls`, `no_blob` |
 | `oidc-jwks-contract-pack` | `bundle_proof_oidc`, `no_blob` |
+| `webhook-contract-pack` | `bundle_proof_webhook`, `no_blob` |
 | `public-crate-surface-cleanup` | `public_surface`, `publish_check`, `publish_preflight` |
 | `generated-badge-endpoints` | `badges_check` |
 | `external-cratesio-install-smoke` | `cratesio_smoke_version` with explicit version only |
@@ -165,7 +168,7 @@ Valid handler policy:
 claim = "scanner-safe-fixtures"
 status = "implemented"
 include_in_all_stable = true
-handlers = ["scanner_safe_reference_check", "no_blob", "badges_check"]
+handlers = ["scanner_safe_reference_check", "bundle_proof_scanner_safe", "no_blob", "badges_check"]
 ```
 
 Planned handler policy may be recorded in the ledger, but claim-proof must not
@@ -212,6 +215,8 @@ Claim-proof implementation tests must cover:
 - duplicate handler-id rejection;
 - unknown handler-id rejection;
 - implemented policy rows with no handlers;
+- implemented policy rows whose handlers do not name all linked claim
+  artifacts;
 - stable claim without implemented all-stable policy rejection;
 - unknown claim rejection;
 - release-proof claim rejection without explicit version;
