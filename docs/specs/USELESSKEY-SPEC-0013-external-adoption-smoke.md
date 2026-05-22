@@ -84,7 +84,10 @@ Local path mode must create clean temporary projects under the repository's
 `target/external-adoption-smoke/` tree, use the current checkout through path
 dependencies or a local CLI binary, and run only documented user-facing
 commands. Generated fixture payloads and temp project outputs must stay under
-that `target/` subtree.
+that `target/` subtree. Clean-project Cargo build artifacts may share a Cargo
+target directory under `target/external-adoption-smoke/work/cargo-target/` so
+the smoke can reuse dependencies without writing build outputs outside the
+receipt tree.
 
 Published-version mode is an audit/reference mode:
 
@@ -202,6 +205,8 @@ This spec is accepted when:
 - it names the initial Rust test, scanner-safe, TLS, OIDC/JWKS, and webhook
   adoption jobs;
 - it requires generated outputs to stay under `target/`;
+- it permits shared clean-project Cargo build artifacts only under the
+  external-adoption smoke `target/` receipt tree;
 - it keeps installed CLI commands separate from repo-local proof commands;
 - it preserves claim and production-security boundaries.
 
@@ -242,6 +247,7 @@ projects:
 
 outputs:
 - target/external-adoption-smoke/work/webhook-cli/target/uselesskey-webhook
+- target/external-adoption-smoke/work/cargo-target/external-examples
 ```
 
 Valid published-version audit:
@@ -299,8 +305,8 @@ External adoption smoke maps to:
 External adoption smoke is owned by:
 
 - `xtask` command parsing and receipt code for `external-adoption-smoke`;
-- `target/external-adoption-smoke/` for temp projects, generated outputs, and
-  receipts;
+- `target/external-adoption-smoke/` for temp projects, shared Cargo target
+  directories, generated outputs, and receipts;
 - `examples/external/` for clean-project examples once added;
 - `crates/uselesskey-cli` for installed-style profile, bundle, verify, and
   inspect commands;
