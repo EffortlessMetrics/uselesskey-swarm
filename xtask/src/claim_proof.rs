@@ -325,7 +325,7 @@ fn validate_claim_artifacts_are_named_by_handlers(
     for handler in &policy.handlers {
         let spec = handler_spec(handler)
             .with_context(|| format!("claim-proof policy `{}`", policy.claim))?;
-        handler_artifacts.extend(spec.artifacts.into_iter());
+        handler_artifacts.extend(spec.artifacts);
     }
 
     let missing = claim
