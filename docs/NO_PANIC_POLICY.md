@@ -95,6 +95,9 @@ column = 14
 # 1. Run the checker.
 cargo xtask check-no-panic-family
 
+# Equivalent grouped alias for agents and policy workflows.
+cargo xtask no-panic check
+
 # 2a. Refresh the existing baseline after a deliberate burndown PR. This drops
 #     entries/counts that disappeared and refuses to add new debt.
 cargo xtask no-panic baseline
