@@ -120,6 +120,7 @@ pub(crate) fn check(out: &Path) -> Result<()> {
         });
     }
     let failure_reports = validate_generated_failure_receipts(&audit_schema, out, &mut errors)?;
+    validate_failure_class_coverage(&audit_schema, &failure_reports, &mut errors);
 
     let report = BundleSchemaCheckReport {
         schema_version: 1,
@@ -600,6 +601,56 @@ fn validate_generated_failure_receipts(
     });
 
     Ok(reports)
+}
+
+fn validate_failure_class_coverage(
+    audit_schema: &Value,
+    failure_reports: &[BundleSchemaFailureReport],
+    errors: &mut Vec<String>,
+) {
+    let Some(classes) = audit_schema
+        .pointer("/$defs/failure_class/enum")
+        .and_then(Value::as_array)
+    else {
+        errors.push("bundle-audit schema is missing $defs.failure_class.enum".to_string());
+        return;
+    };
+
+    let mut schema_classes = BTreeSet::new();
+    for (idx, class) in classes.iter().enumerate() {
+        let Some(class) = class.as_str() else {
+            errors.push(format!(
+                "bundle-audit schema failure_class enum[{idx}] is not a string"
+            ));
+            continue;
+        };
+        if !schema_classes.insert(class) {
+            errors.push(format!(
+                "bundle-audit schema failure_class enum duplicates `{class}`"
+            ));
+        }
+    }
+
+    let mut generated_classes = BTreeSet::new();
+    for report in failure_reports {
+        let class = report.failure_class.as_str();
+        if !generated_classes.insert(class) {
+            errors.push(format!(
+                "generated CI failure receipts duplicate failure_class `{class}`"
+            ));
+        }
+    }
+
+    for missing in schema_classes.difference(&generated_classes) {
+        errors.push(format!(
+            "bundle-audit failure_class `{missing}` has no generated CI failure receipt"
+        ));
+    }
+    for extra in generated_classes.difference(&schema_classes) {
+        errors.push(format!(
+            "generated CI failure receipt class `{extra}` is not listed in bundle-audit schema"
+        ));
+    }
 }
 
 fn validate_failure_receipt(
@@ -1921,6 +1972,26 @@ mod tests {
         })
     }
 
+    fn failure_report_for_tests(failure_class: &str) -> BundleSchemaFailureReport {
+        BundleSchemaFailureReport {
+            scenario: format!("ci-failure-{failure_class}"),
+            audit_path: format!("target/source-of-truth/{failure_class}.json"),
+            failure_class: failure_class.to_string(),
+        }
+    }
+
+    fn failure_reports_for_schema(schema: &Value) -> Vec<BundleSchemaFailureReport> {
+        schema
+            .pointer("/$defs/failure_class/enum")
+            .and_then(Value::as_array)
+            .expect("test schema has failure_class enum")
+            .iter()
+            .map(|class| {
+                failure_report_for_tests(class.as_str().expect("failure class is a string"))
+            })
+            .collect()
+    }
+
     #[test]
     fn safe_relative_path_rejects_absolute_and_parent_paths() {
         assert!(is_safe_relative_path("receipts/negative-coverage.json"));
@@ -2447,6 +2518,52 @@ mod tests {
             errors
                 .iter()
                 .any(|error| error.contains("runtime_material_count"))
+        );
+    }
+
+    #[test]
+    fn failure_class_coverage_accepts_schema_classes_with_generated_receipts() {
+        let schema = audit_schema_for_tests();
+        let reports = failure_reports_for_schema(&schema);
+        let mut errors = Vec::new();
+
+        validate_failure_class_coverage(&schema, &reports, &mut errors);
+
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
+    fn failure_class_coverage_rejects_missing_generated_receipt() {
+        let schema = audit_schema_for_tests();
+        let reports = vec![failure_report_for_tests("unsupported_profile")];
+        let mut errors = Vec::new();
+
+        validate_failure_class_coverage(&schema, &reports, &mut errors);
+
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("bundle-audit failure_class `missing_manifest`")
+                    && error.contains("no generated CI failure receipt")
+            }),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn failure_class_coverage_rejects_receipt_class_outside_schema() {
+        let schema = audit_schema_for_tests();
+        let mut reports = failure_reports_for_schema(&schema);
+        reports.push(failure_report_for_tests("future_failure"));
+        let mut errors = Vec::new();
+
+        validate_failure_class_coverage(&schema, &reports, &mut errors);
+
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("generated CI failure receipt class `future_failure`")
+                    && error.contains("not listed in bundle-audit schema")
+            }),
+            "{errors:?}"
         );
     }
 
