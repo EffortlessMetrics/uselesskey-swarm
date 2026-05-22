@@ -28,6 +28,20 @@ keep generated material in test process memory or under `target/`.
 | TLS chain regression | [tls-chain-regression.md](tls-chain-regression.md) |
 | Scanner-safe placeholder audit | [scanner-safe-placeholder-audit.md](scanner-safe-placeholder-audit.md) |
 
+## What This Proves
+
+When this repo's proof command passes:
+
+```bash
+cargo xtask external-adoption-smoke --path . --ci-recipes --format json
+```
+
+the recipe pack has been exercised from downstream-style workspaces. The proof
+checks that the bundle recipes generate, verify, and audit scanner-safe, OIDC,
+webhook, and TLS bundles under `target/`; that library regression recipes
+compile and run against the checkout; and that audit outputs are metadata-only
+reviewer receipts.
+
 ## Reviewer Packet
 
 Upload only metadata-only audit receipts:
@@ -48,4 +62,3 @@ downstream repository has a separate reviewed policy for those payloads.
 - It does not prove downstream verifier correctness.
 - It does not prove release readiness.
 - It does not give permission to bypass scanner policy.
-
