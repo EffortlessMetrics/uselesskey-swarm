@@ -853,11 +853,13 @@ fn bundle_read_commands_accept_positional_bundle_dir_and_keep_flag_forms() -> Te
 
 #[test]
 fn bundle_read_commands_reject_duplicate_bundle_dir_inputs() -> TestResult<()> {
-    let mut cmd = Command::cargo_bin("uselesskey").test_context("bin exists")?;
-    cmd.args(["verify-bundle", "target/one", "--path", "target/two"]);
-    cmd.assert().failure().stderr(predicate::str::contains(
-        "the argument '[BUNDLE_DIR]' cannot be used with '--path <BUNDLE_DIR>'",
-    ));
+    for command in ["verify-bundle", "inspect-bundle", "audit-bundle"] {
+        let mut cmd = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+        cmd.args([command, "target/one", "--path", "target/two"]);
+        cmd.assert().failure().stderr(predicate::str::contains(
+            "the argument '[BUNDLE_DIR]' cannot be used with '--path <BUNDLE_DIR>'",
+        ));
+    }
     Ok(())
 }
 
