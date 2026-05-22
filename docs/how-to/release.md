@@ -10,6 +10,13 @@ public-source boundary until a separate release-authority lane moves it. Before
 starting release prep from swarm work, read
 [`docs/release/source-release-handoff.md`](../release/source-release-handoff.md).
 
+For the current v0.10.0 swarm handoff, start with
+[`docs/release/v0.10.0-readiness-record.md`](../release/v0.10.0-readiness-record.md).
+That packet records the release-candidate user-path proof, hosted CI, known
+non-blockers, and explicit non-actions. It is release review input only; the
+source repository still owns version finalization, source sync, publish,
+signing, tags, and GitHub release creation.
+
 Release readiness is gated by:
 
 - `cargo xtask spec-check --strict`
