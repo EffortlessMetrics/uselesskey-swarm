@@ -285,6 +285,61 @@ fn validate_generated_failure_receipts(
         failure_class: "missing_manifest".to_string(),
     });
 
+    let invalid_manifest_bundle = out.join("ci-failure-invalid-manifest").join("bundle");
+    fs::create_dir_all(&invalid_manifest_bundle)
+        .with_context(|| format!("create {}", invalid_manifest_bundle.display()))?;
+    fs::write(invalid_manifest_bundle.join("manifest.json"), "{ not json")
+        .with_context(|| format!("write {}", invalid_manifest_bundle.display()))?;
+    let invalid_manifest_audit = out
+        .join("ci-failure-invalid-manifest")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &invalid_manifest_bundle,
+        &invalid_manifest_audit,
+        "invalid_manifest",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-invalid-manifest",
+        &audit,
+        "invalid_manifest",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-invalid-manifest".to_string(),
+        audit_path: normalize_report_path(&invalid_manifest_audit),
+        failure_class: "invalid_manifest".to_string(),
+    });
+
+    let path_escape_bundle = out.join("ci-failure-path-escape").join("bundle");
+    generate_bundle("scanner-safe", &path_escape_bundle)?;
+    let manifest_path = path_escape_bundle.join("manifest.json");
+    let mut manifest: Value = read_json_file(&manifest_path)?;
+    let files = manifest
+        .get_mut("files")
+        .and_then(Value::as_array_mut)
+        .context("generated manifest has files array")?;
+    let first_file = files
+        .first_mut()
+        .context("generated manifest has at least one file")?;
+    *first_file = Value::String("../escape.json".to_string());
+    write_json_pretty(&manifest_path, &manifest)?;
+    let path_escape_audit = out.join("ci-failure-path-escape").join("bundle-audit.json");
+    let audit =
+        generate_bundle_audit_failure(&path_escape_bundle, &path_escape_audit, "path_escape")?;
+    validate_failure_receipt(
+        "ci-failure-path-escape",
+        &audit,
+        "path_escape",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-path-escape".to_string(),
+        audit_path: normalize_report_path(&path_escape_audit),
+        failure_class: "path_escape".to_string(),
+    });
+
     let unsupported_profile_bundle = out.join("ci-failure-unsupported-profile").join("bundle");
     generate_bundle("scanner-safe", &unsupported_profile_bundle)?;
     let manifest_path = unsupported_profile_bundle.join("manifest.json");
@@ -1590,6 +1645,8 @@ mod tests {
                 "failure_class": {
                     "enum": [
                         "missing_manifest",
+                        "invalid_manifest",
+                        "path_escape",
                         "missing_artifact",
                         "unsupported_profile"
                     ]
@@ -2156,19 +2213,20 @@ mod tests {
     }
 
     #[test]
-    fn failure_receipt_validator_accepts_ci_failure_shape() {
+    fn failure_receipt_validator_accepts_ci_failure_shapes() {
         let schema = audit_schema_for_tests();
-        let audit = ci_failure_audit_for_tests("missing_manifest");
-        let mut errors = Vec::new();
-        validate_failure_receipt(
-            "ci-failure-missing-manifest",
-            &audit,
+        for failure_class in [
             "missing_manifest",
-            &schema,
-            &mut errors,
-        );
+            "invalid_manifest",
+            "path_escape",
+            "unsupported_profile",
+        ] {
+            let audit = ci_failure_audit_for_tests(failure_class);
+            let mut errors = Vec::new();
+            validate_failure_receipt("ci-failure", &audit, failure_class, &schema, &mut errors);
 
-        assert!(errors.is_empty(), "{errors:?}");
+            assert!(errors.is_empty(), "{failure_class}: {errors:?}");
+        }
     }
 
     #[test]
