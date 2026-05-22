@@ -229,6 +229,9 @@ fn generate_bundle_audit_failure(
     audit_path: &Path,
     expected_failure_class: &str,
 ) -> Result<Value> {
+    let audit_dir = audit_path
+        .parent()
+        .context("generated failure audit path has parent directory")?;
     let mut cmd = Command::new("cargo");
     cmd.args([
         "run",
@@ -240,6 +243,8 @@ fn generate_bundle_audit_failure(
     ]);
     cmd.arg(bundle_dir);
     cmd.arg("--ci");
+    cmd.arg("--out");
+    cmd.arg(audit_dir);
     eprintln!(" RUN {:?}", cmd);
     let output = cmd.output().context("failed to spawn audit-bundle --ci")?;
     if output.status.success() {
@@ -252,13 +257,26 @@ fn generate_bundle_audit_failure(
     if !stderr.contains(&format!("audit failed: {expected_failure_class}")) {
         bail!("audit-bundle --ci stderr did not mention `{expected_failure_class}`: {stderr}");
     }
-    let audit: Value = serde_json::from_slice(&output.stdout)
+    let stdout_audit: Value = serde_json::from_slice(&output.stdout)
         .with_context(|| format!("parse CI failure audit JSON for {}", bundle_dir.display()))?;
-    if let Some(parent) = audit_path.parent() {
-        fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+    let durable_audit = read_json_file(audit_path)
+        .with_context(|| format!("read durable CI failure audit {}", audit_path.display()))?;
+    if durable_audit != stdout_audit {
+        bail!(
+            "durable CI failure audit {} did not match stdout JSON",
+            audit_path.display()
+        );
     }
-    write_json_pretty(audit_path, &audit)?;
-    Ok(audit)
+    let markdown_path = audit_path.with_extension("md");
+    let markdown = fs::read_to_string(&markdown_path)
+        .with_context(|| format!("read durable CI failure audit {}", markdown_path.display()))?;
+    if !markdown.contains(expected_failure_class) {
+        bail!(
+            "durable CI failure audit markdown {} did not mention `{expected_failure_class}`",
+            markdown_path.display()
+        );
+    }
+    Ok(durable_audit)
 }
 
 fn validate_generated_failure_receipts(
