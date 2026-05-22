@@ -7,12 +7,13 @@ use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
-use crate::{read_json_file, write_json_pretty};
+use crate::{read_json_file, target_output, write_json_pretty};
 
 const BUNDLE_MANIFEST_SCHEMA_JSON: &str = "docs/schemas/bundle-manifest.schema.json";
 const NEGATIVE_COVERAGE_SCHEMA_JSON: &str = "docs/schemas/negative-coverage.schema.json";
 const BUNDLE_AUDIT_SCHEMA_JSON: &str = "docs/schemas/bundle-audit.schema.json";
 const NEGATIVE_FIXTURES_TOML: &str = "policy/negative-fixtures.toml";
+const LOCK_DIR: &str = "target/bundle-schema-check.lock";
 const PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook", "runtime"];
 
 #[derive(Debug, Serialize)]
@@ -66,6 +67,7 @@ struct NegativeFixturePolicyEntry {
 }
 
 pub(crate) fn check(out: &Path) -> Result<()> {
+    let _output_lock = acquire_output_lock(Path::new("."))?;
     prepare_output_dir(out)?;
 
     let manifest_schema: Value = read_json_file(Path::new(BUNDLE_MANIFEST_SCHEMA_JSON))?;
@@ -158,6 +160,10 @@ pub(crate) fn check(out: &Path) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "check-bundle-schemas")
 }
 
 fn prepare_output_dir(out: &Path) -> Result<()> {
@@ -1999,6 +2005,15 @@ mod tests {
         assert!(!is_safe_relative_path("../secret.pem"));
         assert!(!is_safe_relative_path("/tmp/secret.pem"));
         assert!(!is_safe_relative_path("C:/tmp/secret.pem"));
+    }
+
+    #[test]
+    fn bundle_schema_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
+        Ok(())
     }
 
     #[test]
