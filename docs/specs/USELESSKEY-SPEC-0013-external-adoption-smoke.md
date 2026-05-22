@@ -32,7 +32,7 @@ lanes. Those prove the repository, but a new user experiences the product from
 outside the repo:
 
 ```text
-cargo install uselesskey-cli
+cargo install uselesskey-cli --locked
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 cargo test
 ```
