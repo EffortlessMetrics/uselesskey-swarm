@@ -553,7 +553,7 @@ For each new scenario, the following step implementations may need to be added t
 
 ### World State Extensions
 
-The [`UselessWorld`](../../crates/uselesskey-bdd/tests/bdd.rs:9) struct may need additional fields:
+The `UselessWorld` struct in [`crates/uselesskey-bdd/tests/bdd.rs`](../../crates/uselesskey-bdd/tests/bdd.rs) may need additional fields:
 
 ```rust
 // JWT-related fields

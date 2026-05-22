@@ -33,7 +33,7 @@ The project has 12 BDD feature files in [`crates/uselesskey-bdd/features/`](../.
 
 The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../crates/uselesskey-bdd/tests/bdd.rs) using the Cucumber framework:
 
-- **World Structure**: [`UselessWorld`](../../crates/uselesskey-bdd/tests/bdd.rs:9) struct maintains state across scenario steps
+- **World Structure**: `UselessWorld` in [`crates/uselesskey-bdd/tests/bdd.rs`](../../crates/uselesskey-bdd/tests/bdd.rs) maintains state across scenario steps
 - **Step Definitions**: Given/When/Then steps for each key type and operation
 - **Execution**: Run via `cargo xtask bdd`
 
@@ -69,7 +69,7 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 - **HMAC formats**: No tests for raw bytes output
 
 #### X.509 Feature Gaps
-- **CRL (Certificate Revocation List) support**: [`chain_negative.rs`](../../crates/uselesskey-x509/src/chain_negative.rs:24) defines `RevokedLeaf` variant but no BDD tests
+- **CRL (Certificate Revocation List) support**: [`chain_negative.rs`](../../crates/uselesskey-x509/src/chain_negative.rs) defines the `RevokedLeaf` variant but no BDD tests
 - **Hostname mismatch chain variant**: Defined in code but no BDD tests
 - **Expired intermediate variant**: Only one BDD scenario, could be expanded
 - **X.509 chain negative variants**: Missing tests for `RevokedLeaf`, `HostnameMismatch`
