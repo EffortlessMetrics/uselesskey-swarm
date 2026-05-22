@@ -6,10 +6,11 @@ use anyhow::{Context, Result};
 use regex::Regex;
 use serde::Serialize;
 
-use crate::write_json_pretty;
+use crate::{target_output, write_json_pretty};
 
 const REPORT_JSON: &str = "target/ripr/reports/test-efficiency.json";
 const REPORT_MD: &str = "target/ripr/reports/test-efficiency.md";
+const LOCK_DIR: &str = "target/test-efficiency-report.lock";
 
 const REASON_KEYS: &[&str] = &[
     "assertion_may_not_match_detected_owner",
@@ -66,6 +67,7 @@ pub(crate) fn test_efficiency_report_cmd() -> Result<()> {
 }
 
 pub(crate) fn write_test_efficiency_report(root: &Path) -> Result<()> {
+    let _output_lock = acquire_output_lock(root)?;
     let report = build_report(root)?;
     let json_path = root.join(REPORT_JSON);
     let md_path = root.join(REPORT_MD);
@@ -81,6 +83,10 @@ pub(crate) fn write_test_efficiency_report(root: &Path) -> Result<()> {
         md_path.display()
     );
     Ok(())
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "test-efficiency-report")
 }
 
 fn build_report(root: &Path) -> Result<TestEfficiencyReport> {
@@ -460,5 +466,14 @@ mod tests {
 
         assert_eq!(entry.class, "useful_but_broad");
         assert!(entry.reasons.contains(&"broad_oracle"));
+    }
+
+    #[test]
+    fn test_efficiency_report_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
+        Ok(())
     }
 }
