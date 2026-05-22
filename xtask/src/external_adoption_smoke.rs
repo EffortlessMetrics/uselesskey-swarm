@@ -15,7 +15,7 @@ const REPORT_JSON: &str = "target/external-adoption-smoke/report.json";
 const REPORT_MD: &str = "target/external-adoption-smoke/report.md";
 
 const CLI_PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook"];
-const CI_RECIPE_PROFILES: &[&str] = &["webhook", "tls", "oidc"];
+const CI_RECIPE_PROFILES: &[&str] = &["scanner-safe", "webhook", "tls", "oidc"];
 const RUST_TEST_FIXTURES_EXAMPLE: ExternalExample = ExternalExample {
     name: "rust-test-fixtures",
     source_dir: "examples/external/rust-test-fixtures",
@@ -1104,7 +1104,10 @@ mod tests {
 
     #[test]
     fn external_adoption_ci_recipe_profiles_are_bounded() {
-        assert_eq!(CI_RECIPE_PROFILES, ["webhook", "tls", "oidc"]);
+        assert_eq!(
+            CI_RECIPE_PROFILES,
+            ["scanner-safe", "webhook", "tls", "oidc"]
+        );
     }
 
     #[test]
