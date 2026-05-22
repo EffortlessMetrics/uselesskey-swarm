@@ -479,6 +479,64 @@ fn validate_generated_failure_receipts(
         failure_class: "invalid_receipt".to_string(),
     });
 
+    let scanner_safe_mismatch_bundle = out.join("ci-failure-scanner-safe-mismatch").join("bundle");
+    generate_bundle("scanner-safe", &scanner_safe_mismatch_bundle)?;
+    let scanner_safe_receipt_file =
+        scanner_safe_mismatch_bundle.join("receipts/audit-surface.json");
+    let mut receipt: Value = read_json_file(&scanner_safe_receipt_file)?;
+    receipt["scanner_safe_count"] = Value::from(0);
+    write_json_pretty(&scanner_safe_receipt_file, &receipt)?;
+    let scanner_safe_mismatch_audit = out
+        .join("ci-failure-scanner-safe-mismatch")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &scanner_safe_mismatch_bundle,
+        &scanner_safe_mismatch_audit,
+        "scanner_safe_mismatch",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-scanner-safe-mismatch",
+        &audit,
+        "scanner_safe_mismatch",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-scanner-safe-mismatch".to_string(),
+        audit_path: normalize_report_path(&scanner_safe_mismatch_audit),
+        failure_class: "scanner_safe_mismatch".to_string(),
+    });
+
+    let runtime_material_mismatch_bundle = out
+        .join("ci-failure-runtime-material-mismatch")
+        .join("bundle");
+    generate_bundle("scanner-safe", &runtime_material_mismatch_bundle)?;
+    let runtime_material_receipt_file =
+        runtime_material_mismatch_bundle.join("receipts/audit-surface.json");
+    let mut receipt: Value = read_json_file(&runtime_material_receipt_file)?;
+    receipt["runtime_material_count"] = Value::from(1);
+    write_json_pretty(&runtime_material_receipt_file, &receipt)?;
+    let runtime_material_mismatch_audit = out
+        .join("ci-failure-runtime-material-mismatch")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &runtime_material_mismatch_bundle,
+        &runtime_material_mismatch_audit,
+        "runtime_material_mismatch",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-runtime-material-mismatch",
+        &audit,
+        "runtime_material_mismatch",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-runtime-material-mismatch".to_string(),
+        audit_path: normalize_report_path(&runtime_material_mismatch_audit),
+        failure_class: "runtime_material_mismatch".to_string(),
+    });
+
     let unsupported_profile_bundle = out.join("ci-failure-unsupported-profile").join("bundle");
     generate_bundle("scanner-safe", &unsupported_profile_bundle)?;
     let manifest_path = unsupported_profile_bundle.join("manifest.json");
@@ -1790,6 +1848,8 @@ mod tests {
                         "unexpected_artifact",
                         "missing_receipt",
                         "invalid_receipt",
+                        "scanner_safe_mismatch",
+                        "runtime_material_mismatch",
                         "unsupported_profile"
                     ]
                 }
@@ -2365,6 +2425,8 @@ mod tests {
             "unexpected_artifact",
             "missing_receipt",
             "invalid_receipt",
+            "scanner_safe_mismatch",
+            "runtime_material_mismatch",
             "unsupported_profile",
         ] {
             let audit = ci_failure_audit_for_tests(failure_class);
