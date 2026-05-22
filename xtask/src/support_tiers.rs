@@ -165,6 +165,30 @@ fn validate(root: &Path) -> Result<Vec<String>> {
             continue;
         };
 
+        let row_proofs = inline_code_values(&row.proof);
+        let claim_proofs = claim
+            .proof_commands
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+
+        for proof in &row_proofs {
+            if !claim_proofs.contains(proof.as_str()) {
+                errors.push(format!(
+                    "{SUPPORT_TIERS_MD}:{} surface `{}` lists proof command `{}` that is not in claim `{}`",
+                    row.line, row.surface, proof, claim.id
+                ));
+            }
+        }
+        for proof in &claim.proof_commands {
+            if !row_proofs.iter().any(|row_proof| row_proof == proof) {
+                errors.push(format!(
+                    "{SUPPORT_TIERS_MD}:{} surface `{}` omits claim-ledger proof command `{}` for claim `{}`",
+                    row.line, row.surface, proof, claim.id
+                ));
+            }
+        }
+
         if PROOF_REQUIRED_TIERS.contains(&row.tier.as_str()) {
             if row.proof.trim().is_empty() || row.proof.trim() == "none" {
                 errors.push(format!(
@@ -402,6 +426,49 @@ docs = ["docs/VERIFICATION.md"]
         let dir = minimal_repo()?;
         write_support_tiers(dir.path(), "Stabilizing", "`scanner-safe-fixtures`", "none")?;
         assert_error(dir.path(), "tier requires visible proof commands")
+    }
+
+    #[test]
+    fn rejects_support_row_unbacked_proof_command() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_support_tiers(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`; `cargo xtask fake-proof`",
+        )?;
+        assert_error(
+            dir.path(),
+            "lists proof command `cargo xtask fake-proof` that is not in claim `scanner-safe-fixtures`",
+        )
+    }
+
+    #[test]
+    fn rejects_support_row_missing_claim_proof_command() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            r#"
+[[claim]]
+id = "scanner-safe-fixtures"
+title = "Scanner-safe fixtures"
+status = "stable"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["README"]
+proof_commands = ["cargo xtask no-blob", "cargo xtask badges --check"]
+docs = ["docs/VERIFICATION.md"]
+"#,
+        )?;
+        write_support_tiers(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`",
+        )?;
+        assert_error(
+            dir.path(),
+            "omits claim-ledger proof command `cargo xtask badges --check` for claim `scanner-safe-fixtures`",
+        )
     }
 
     fn assert_error(root: &Path, needle: &str) -> Result<()> {
