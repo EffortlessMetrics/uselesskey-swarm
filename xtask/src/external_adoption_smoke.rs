@@ -15,7 +15,7 @@ const REPORT_JSON: &str = "target/external-adoption-smoke/report.json";
 const REPORT_MD: &str = "target/external-adoption-smoke/report.md";
 
 const CLI_PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook"];
-const CI_RECIPE_PROFILES: &[&str] = &["scanner-safe", "webhook", "tls", "oidc"];
+const CI_RECIPE_PROFILES: &[&str] = &["scanner-safe", "oidc", "webhook", "tls"];
 const RUST_TEST_FIXTURES_EXAMPLE: ExternalExample = ExternalExample {
     name: "rust-test-fixtures",
     source_dir: "examples/external/rust-test-fixtures",
@@ -1106,7 +1106,19 @@ mod tests {
     fn external_adoption_ci_recipe_profiles_are_bounded() {
         assert_eq!(
             CI_RECIPE_PROFILES,
-            ["scanner-safe", "webhook", "tls", "oidc"]
+            ["scanner-safe", "oidc", "webhook", "tls"]
+        );
+    }
+
+    #[test]
+    fn external_adoption_ci_recipe_profiles_match_actions_matrix() {
+        let example = include_str!(
+            "../../examples/external/ci-recipes/github-actions-bundle-verify-audit.yml.example"
+        );
+
+        assert_eq!(
+            actions_matrix_profiles(example),
+            CI_RECIPE_PROFILES.to_vec()
         );
     }
 
@@ -1281,6 +1293,21 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         assert!(markdown.contains("installed-style CLI smoke does not claim provider"));
         assert!(markdown.contains("cli-bundle-webhook"));
         assert!(markdown.contains("target/audit-webhook"));
+    }
+
+    fn actions_matrix_profiles(example: &str) -> Vec<&str> {
+        let line = example
+            .lines()
+            .find(|line| line.trim_start().starts_with("profile: ["))
+            .expect("actions recipe has profile matrix");
+        let (_, profiles) = line
+            .split_once('[')
+            .expect("matrix line has opening bracket");
+        let (profiles, _) = profiles
+            .split_once(']')
+            .expect("matrix line has closing bracket");
+
+        profiles.split(',').map(str::trim).collect()
     }
 
     #[test]
