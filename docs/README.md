@@ -76,6 +76,13 @@ Validation lanes and the claim boundaries behind them.
 
 Release-candidate proof and public promise evidence.
 
+- [v0.10.0-readiness-record.md](release/v0.10.0-readiness-record.md) - v0.10.0 release-readiness proof, hosted CI, non-blockers, and release-boundary handoff
+- [v0.10.0-public-surface-inventory.md](release/v0.10.0-public-surface-inventory.md) - v0.10.0 release-facing surfaces, user commands, proof, risk, and owners
+- [v0.10.0-version-snippet-reconciliation.md](release/v0.10.0-version-snippet-reconciliation.md) - v0.10.0 current-stable versus release-candidate snippet decisions
+- [v0.10.0-installed-cli-smoke.md](release/v0.10.0-installed-cli-smoke.md) - v0.10.0 installed CLI smoke evidence for doctor, bundle, verify, inspect, and audit
+- [v0.10.0-facade-release-smoke.md](release/v0.10.0-facade-release-smoke.md) - v0.10.0 facade example smoke evidence
+- [v0.10.0-package-dry-run.md](release/v0.10.0-package-dry-run.md) - v0.10.0 package dry-run and packaged-content evidence
+- [source-release-handoff.md](release/source-release-handoff.md) - Swarm-to-source handoff checklist and release-authority boundary
 - [evidence-matrix-v0.9.0.md](release/evidence-matrix-v0.9.0.md) — v0.9.0 command-backed claim, verification-pack, PR-lite, and webhook proof matrix
 - [evidence-matrix-v0.9.1.md](release/evidence-matrix-v0.9.1.md) — v0.9.1 adoption-confidence patch proof matrix
 - [post-release-audit-v0.9.1.md](release/post-release-audit-v0.9.1.md) — v0.9.1 crates.io, docs.rs, adoption-regression, and claim-proof audit
