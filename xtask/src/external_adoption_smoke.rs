@@ -567,7 +567,17 @@ fn run_ci_recipe_profile(
 
 fn verify_ci_audit_receipt(audit_dir: &Path, expected_profile: &str) -> Result<()> {
     let receipt_path = audit_dir.join("bundle-audit.json");
-    verify_ci_audit_json(&receipt_path, expected_profile, "CI recipe audit")
+    verify_ci_audit_json(&receipt_path, expected_profile, "CI recipe audit")?;
+
+    let markdown_path = audit_dir.join("bundle-audit.md");
+    if !markdown_path.is_file() {
+        bail!(
+            "CI recipe audit markdown receipt missing for {expected_profile}: {}",
+            markdown_path.display()
+        );
+    }
+
+    Ok(())
 }
 
 fn verify_ci_audit_json(audit_path: &Path, expected_profile: &str, label: &str) -> Result<()> {
