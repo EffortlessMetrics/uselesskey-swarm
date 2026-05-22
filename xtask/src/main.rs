@@ -4913,6 +4913,8 @@ fn main() {
 }
 
 fn impacted_evidence(base: Option<String>) -> Result<()> {
+    let root = workspace_root_path();
+    let _output_lock = acquire_impacted_evidence_output_lock(&root)?;
     let base_ref = base.unwrap_or_else(resolve_base_ref);
     let changed_paths = git_changed_files(&base_ref)?;
     let ripr_json = read_optional_ripr_pr_json(&Path::new(RIPR_PR_DIR).join("repo-exposure.json"))?;
@@ -4925,6 +4927,12 @@ fn impacted_evidence(base: Option<String>) -> Result<()> {
     );
     eprintln!("impacted-evidence: wrote {}", artifact_path.display());
     Ok(())
+}
+
+const IMPACTED_EVIDENCE_LOCK_DIR: &str = "target/impacted-evidence.lock";
+
+fn acquire_impacted_evidence_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, IMPACTED_EVIDENCE_LOCK_DIR, "impacted-evidence")
 }
 
 fn impacted_evidence_report(base_ref: &str, changed_paths: &[String]) -> ImpactedEvidenceReport {
@@ -8096,6 +8104,15 @@ mod tests {
         assert_eq!(report.owner_crates, vec!["uselesskey-core".to_string()]);
         assert!(report.requires_targeted_mutation);
         assert_eq!(report.reasons, vec!["core-derivation".to_string()]);
+    }
+
+    #[test]
+    fn impacted_evidence_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_impacted_evidence_output_lock(dir.path())?;
+
+        assert!(dir.path().join(IMPACTED_EVIDENCE_LOCK_DIR).is_dir());
+        Ok(())
     }
 
     #[test]
