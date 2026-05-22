@@ -23,6 +23,11 @@ uselesskey profile webhook --explain
 uselesskey bundle --profile webhook --explain
 ```
 
+The CLI also exposes `runtime` for local experiments that need generated
+private or symmetric fixture material. `runtime` is not a claim-backed contract
+pack and should not be used as release, support-tier, scanner-safe, provider
+compatibility, or downstream verifier proof.
+
 Interface split:
 
 - installed CLI users generate, verify, audit, and inspect bundles with `uselesskey`;
@@ -44,6 +49,23 @@ Every generated bundle should stay under `target/` or another ignored build
 directory. Commit docs and receipts only when the repo has an explicit tracked
 receipt path. Do not commit generated PEM, DER, JWT, key, Kubernetes Secret, or
 Vault payload files.
+
+## Runtime Profile Boundary
+
+Use `--profile runtime` only when a local test needs runtime private key,
+symmetric, token, or mixed fixture material that the scanner-safe and contract
+pack profiles intentionally avoid:
+
+```bash
+uselesskey bundle --profile runtime --out target/uselesskey-runtime
+uselesskey verify-bundle target/uselesskey-runtime
+uselesskey audit-bundle target/uselesskey-runtime --out target/uselesskey-runtime-audit
+```
+
+This proves only local bundle consistency for generated runtime material. It
+does not support a public claim in `policy/claim-ledger.toml`, does not appear
+as a stable contract pack in `docs/status/SUPPORT_TIERS.md`, and does not make
+runtime payloads safe to commit or attach for review.
 
 ## Scanner-Safe Baseline
 

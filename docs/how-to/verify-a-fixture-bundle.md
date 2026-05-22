@@ -20,7 +20,9 @@ The older `--path target/uselesskey-oidc` form remains supported for scripts
 that already use it.
 
 Swap `oidc` for `scanner-safe`, `webhook`, or `tls` when that is the workflow
-under test. Keep the output under `target/`.
+under test. Use `runtime` only for local experiments that need generated runtime
+private or symmetric material; it is not a claim-backed contract pack. Keep the
+output under `target/`.
 
 ## What It Proves
 
