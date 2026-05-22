@@ -11,9 +11,9 @@ const METADATA_PATH: &str = "docs/metadata/workspace-docs.json";
 const SUPPORT_MATRIX_PATH: &str = "docs/reference/support-matrix.md";
 const MARKER_PREFIX: &str = "docs-sync:";
 const MARKDOWN_LINK_ROOTS: &[&str] = &[
-    "README.md",
     ".github",
     ".rails",
+    ".uselesskey",
     "badges",
     "crates",
     "docs",
@@ -666,11 +666,13 @@ fn validate_metadata_integrity(root: &Path, metadata: &DocsMetadata) -> Result<(
 
 fn validate_local_markdown_links(root: &Path) -> Result<()> {
     let mut markdown_files = Vec::new();
+    collect_root_markdown_files(root, &mut markdown_files)?;
     for entry in MARKDOWN_LINK_ROOTS {
         collect_markdown_files(&root.join(entry), &mut markdown_files)
             .with_context(|| format!("scan Markdown links under {entry}"))?;
     }
     markdown_files.sort();
+    markdown_files.dedup();
 
     let mut errors = Vec::new();
     for path in markdown_files {
@@ -704,6 +706,23 @@ fn validate_local_markdown_links(root: &Path) -> Result<()> {
             "local Markdown link validation failed:\n- {}",
             errors.join("\n- ")
         );
+    }
+
+    Ok(())
+}
+
+fn collect_root_markdown_files(root: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    let mut entries = fs::read_dir(root)
+        .with_context(|| format!("read repository root {}", root.display()))?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .with_context(|| format!("read repository root entry under {}", root.display()))?;
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
+        let path = entry.path();
+        if path.is_file() && path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+            out.push(path);
+        }
     }
 
     Ok(())
@@ -1188,9 +1207,14 @@ mod tests {
         let dir = tempfile::tempdir()?;
         fs::create_dir_all(dir.path().join(".github"))?;
         fs::create_dir_all(dir.path().join(".rails/lanes"))?;
+        fs::create_dir_all(dir.path().join(".uselesskey/goals"))?;
         fs::create_dir_all(dir.path().join("badges"))?;
         fs::create_dir_all(dir.path().join("crates/uselesskey"))?;
         fs::create_dir_all(dir.path().join("plans/release"))?;
+        fs::write(
+            dir.path().join("AGENTS.md"),
+            "[missing root target](docs/missing-root.md)\n",
+        )?;
         fs::write(
             dir.path().join(".github/PULL_REQUEST_TEMPLATE.md"),
             "[missing github target](../docs/missing-github.md)\n",
@@ -1198,6 +1222,10 @@ mod tests {
         fs::write(
             dir.path().join(".rails/lanes/lane.md"),
             "[missing rails target](../../docs/missing-rails.md)\n",
+        )?;
+        fs::write(
+            dir.path().join(".uselesskey/goals/README.md"),
+            "[missing goal target](../../docs/missing-goal.md)\n",
         )?;
         fs::write(
             dir.path().join("badges/README.md"),
@@ -1215,8 +1243,10 @@ mod tests {
         let err = validate_local_markdown_links(dir.path())
             .expect_err("repo-owned Markdown roots should be scanned");
         let text = err.to_string();
+        assert!(text.contains("docs/missing-root.md"), "{text}");
         assert!(text.contains("docs/missing-github.md"), "{text}");
         assert!(text.contains("docs/missing-rails.md"), "{text}");
+        assert!(text.contains("docs/missing-goal.md"), "{text}");
         assert!(text.contains("docs/missing-badge.md"), "{text}");
         assert!(text.contains("docs/missing-crate.md"), "{text}");
         assert!(text.contains("docs/missing-plan.md"), "{text}");
