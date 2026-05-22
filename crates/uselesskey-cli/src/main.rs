@@ -236,6 +236,117 @@ impl AuditBundleArgs {
     }
 }
 
+#[cfg(test)]
+mod bundle_input_arg_tests {
+    use super::*;
+
+    #[test]
+    fn verify_bundle_accepts_positional_path_and_aliases() -> Result<()> {
+        for argv in [
+            vec!["uselesskey", "verify-bundle", "target/uselesskey-oidc"],
+            vec![
+                "uselesskey",
+                "verify-bundle",
+                "--path",
+                "target/uselesskey-oidc",
+            ],
+            vec![
+                "uselesskey",
+                "verify-bundle",
+                "--bundle-dir",
+                "target/uselesskey-oidc",
+            ],
+        ] {
+            let cli = Cli::try_parse_from(argv)?;
+            let Commands::VerifyBundle(args) = cli.command else {
+                bail!("expected verify-bundle command");
+            };
+
+            assert_eq!(args.bundle_dir()?, Path::new("target/uselesskey-oidc"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn inspect_bundle_accepts_positional_path_and_aliases() -> Result<()> {
+        for argv in [
+            vec!["uselesskey", "inspect-bundle", "target/uselesskey-oidc"],
+            vec![
+                "uselesskey",
+                "inspect-bundle",
+                "--path",
+                "target/uselesskey-oidc",
+            ],
+            vec![
+                "uselesskey",
+                "inspect-bundle",
+                "--bundle-dir",
+                "target/uselesskey-oidc",
+            ],
+        ] {
+            let cli = Cli::try_parse_from(argv)?;
+            let Commands::InspectBundle(args) = cli.command else {
+                bail!("expected inspect-bundle command");
+            };
+
+            assert_eq!(args.bundle_dir()?, Path::new("target/uselesskey-oidc"));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn audit_bundle_accepts_path_aliases_with_ci_policy_flags() -> Result<()> {
+        for argv in [
+            vec![
+                "uselesskey",
+                "audit-bundle",
+                "target/uselesskey-oidc",
+                "--ci",
+                "--expect-profile",
+                "oidc",
+                "--policy",
+                "strict",
+            ],
+            vec![
+                "uselesskey",
+                "audit-bundle",
+                "--path",
+                "target/uselesskey-oidc",
+                "--ci",
+                "--expect-profile",
+                "oidc",
+                "--policy",
+                "strict",
+            ],
+            vec![
+                "uselesskey",
+                "audit-bundle",
+                "--bundle-dir",
+                "target/uselesskey-oidc",
+                "--ci",
+                "--expect-profile",
+                "oidc",
+                "--policy",
+                "strict",
+            ],
+        ] {
+            let cli = Cli::try_parse_from(argv)?;
+            let Commands::AuditBundle(args) = cli.command else {
+                bail!("expected audit-bundle command");
+            };
+
+            assert_eq!(args.bundle_dir()?, Path::new("target/uselesskey-oidc"));
+            assert!(args.ci);
+            assert_eq!(args.expect_profile.as_deref(), Some("oidc"));
+            assert_eq!(args.policy, Some(AuditPolicy::Strict));
+        }
+
+        Ok(())
+    }
+}
+
 #[derive(clap::Args, Debug)]
 #[command(after_help = "Examples:
   uselesskey doctor
