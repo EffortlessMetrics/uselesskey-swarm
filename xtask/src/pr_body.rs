@@ -14,6 +14,7 @@ const DEFAULT_OUT: &str = "target/source-of-truth/pr-body.md";
 struct GoalManifest {
     id: String,
     title: String,
+    status: String,
     #[serde(default, rename = "work_item")]
     work_items: Vec<WorkItem>,
 }
@@ -88,6 +89,12 @@ fn write_pr_body(root: &Path, work_item_id: &str, out: &Path) -> Result<String> 
 
 fn generate_pr_body(root: &Path, work_item_id: &str) -> Result<String> {
     let goal: GoalManifest = read_toml(root, ACTIVE_GOAL_TOML)?;
+    if goal.status != "active" {
+        bail!(
+            "{ACTIVE_GOAL_TOML} has status `{}`; pr-body requires status `active`",
+            goal.status
+        );
+    }
     let artifacts = read_artifact_index(root)?;
     let claims: ClaimLedger = read_toml(root, CLAIM_LEDGER_TOML)?;
     let work_item = goal
@@ -426,7 +433,26 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn pr_body_rejects_archived_goal_manifest() -> Result<()> {
+        let dir = minimal_repo_with_goal_status("archived")?;
+        let err = generate_pr_body(dir.path(), "goal-manifest-checker")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains(".uselesskey/goals/active.toml has status `archived`"),
+            "{err}"
+        );
+        assert!(err.contains("requires status `active`"), "{err}");
+        Ok(())
+    }
+
     fn minimal_repo() -> Result<tempfile::TempDir> {
+        minimal_repo_with_goal_status("active")
+    }
+
+    fn minimal_repo_with_goal_status(status: &str) -> Result<tempfile::TempDir> {
         let dir = tempfile::tempdir()?;
         write_file(
             dir.path(),
@@ -505,10 +531,11 @@ surfaces = ["uselesskey audit-bundle --ci"]
         write_file(
             dir.path(),
             ACTIVE_GOAL_TOML,
-            r#"schema_version = "1.0"
+            &format!(
+                r#"schema_version = "1.0"
 id = "source-of-truth-control-plane"
 title = "Source-of-truth control plane"
-status = "active"
+status = "{status}"
 owner = "codex"
 created = "2026-05-21"
 objective = "Test objective."
@@ -521,7 +548,8 @@ proposal = "USELESSKEY-PROP-0002"
 spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = ["cargo xtask check-goals", "git diff --check"]
-"#,
+"#
+            ),
         )?;
         Ok(dir)
     }
