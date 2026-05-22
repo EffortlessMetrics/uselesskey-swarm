@@ -13,8 +13,8 @@ approval.
 | Preset | Use it when | Copy this |
 | --- | --- | --- |
 | `default` | you want local audit JSON without stricter CI expectations | `uselesskey audit-bundle target/uselesskey-webhook --ci` |
-| `strict` | CI should fail on audit drift for one expected profile | `uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict` |
-| `reviewer` | you need files to attach to a security or platform review | `uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit` |
+| `strict` | CI should fail on audit drift for one expected profile and write uploadable receipts | `uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit` |
+| `reviewer` | you need files to attach to a security or platform review | `uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` |
 
 ## Copyable Recipe Pack
 
@@ -43,7 +43,8 @@ uselesskey audit-bundle \
   target/uselesskey-webhook \
   --ci \
   --expect-profile webhook \
-  --policy strict
+  --policy strict \
+  --out target/uselesskey-webhook-audit
 ```
 
 The strict preset exits non-zero when the installed bundle audit reports a
@@ -54,6 +55,10 @@ stable failure class such as `missing_manifest`, `path_escape`,
 
 Use `--expect-profile <profile>` so a reused CI step cannot accidentally audit
 the wrong bundle.
+
+Keep `--out` in CI. It writes `bundle-audit.json` and `bundle-audit.md` for
+passing audits and stable policy failures, which lets an always-run artifact
+upload step preserve the same metadata-only packet reviewers inspect.
 
 ## Reviewer Packet
 
@@ -82,7 +87,7 @@ organization has a separate reviewed policy for those files.
 A reviewer should check:
 
 - the CI job generated the intended profile;
-- `audit-bundle --ci --expect-profile <profile> --policy strict` passed;
+- `audit-bundle --ci --expect-profile <profile> --policy strict --out <audit-dir>` passed;
 - `bundle-audit.json` and `bundle-audit.md` were uploaded as CI artifacts;
 - generated fixture payloads stayed under `target/` or another ignored output
   directory;
