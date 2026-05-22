@@ -43,6 +43,7 @@ Task-oriented instructions for common workflows.
 - [downstream-fixture-policy.md](how-to/downstream-fixture-policy.md) — Policy pack for downstream bots and reviewers
 - [use-uselesskey-in-downstream-ci.md](how-to/use-uselesskey-in-downstream-ci.md) — Installed CLI bundle audit in downstream CI
 - [use-uselesskey-in-github-actions.md](how-to/use-uselesskey-in-github-actions.md) — GitHub Actions recipes for bundle audit receipts
+- [use-downstream-policy-pack.md](how-to/use-downstream-policy-pack.md) - Downstream policy presets, CI recipe pack, and metadata-only reviewer packets
 - [adapter-template.md](how-to/adapter-template.md) — Scaffolding and validating new adapter crates
 - [test-oidc-jwks-validation.md](how-to/test-oidc-jwks-validation.md) — Using the OIDC/JWKS contract pack in validator tests
 - [test-jwt-negative-validation.md](how-to/test-jwt-negative-validation.md) — Using JWT-shaped negatives for policy rejection tests
