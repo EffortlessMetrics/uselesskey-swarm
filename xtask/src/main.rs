@@ -855,6 +855,8 @@ fn bundle_snapshot(
     }
     cmd.include_closed_paths = include_closed_paths;
 
+    let workspace_root = workspace_root_path();
+    let _output_lock = pr_bundles::acquire_output_lock(&workspace_root)?;
     let snapshot = pr_bundles::snapshot_cmd(&cmd)?;
 
     println!(
@@ -878,6 +880,8 @@ fn bundle_ledger(
         cmd.output_path = Some(path.clone());
     }
 
+    let workspace_root = workspace_root_path();
+    let _output_lock = pr_bundles::acquire_output_lock(&workspace_root)?;
     let report = pr_bundles::ledger_cmd(&cmd)?;
     let json_path =
         json_out.unwrap_or_else(|| PathBuf::from("target/xtask/pr-bundles/ledger.json"));
