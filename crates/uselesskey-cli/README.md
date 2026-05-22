@@ -46,6 +46,8 @@ The workspace ships both compiled build-time examples:
 
 Use the bundle workflow when a downstream test suite wants a deterministic
 directory of related fixture artifacts plus a manifest it can verify in CI.
+Examples in this README use `cargo run -p uselesskey-cli --` from a checkout;
+installed users can run the same subcommands as `uselesskey ...`.
 
 ```bash
 cargo run -p uselesskey-cli -- bundle \
@@ -86,13 +88,31 @@ The `export` subcommands verify the bundle first, then render handoff payloads
 for downstream tools. They write local files only; they do not call Kubernetes,
 Vault, cloud APIs, or long-running secret stores.
 
+Discover the installed bundle profiles before choosing a pack:
+
+```bash
+cargo run -p uselesskey-cli -- profiles
+cargo run -p uselesskey-cli -- profile webhook --explain
+cargo run -p uselesskey-cli -- bundle --profile webhook --explain
+```
+
 `scanner-safe` is the default bundle profile. It emits public key material,
 public certificate material, scanner-safe symmetric JWK shape data, and
 near-miss token shapes. Use `--profile runtime` when a downstream test really
 needs runtime-generated private or symmetric fixture material in the bundle.
 
-Use `--profile oidc` when a downstream OIDC/JWKS validator needs a focused
-contract pack:
+Use these profiles for task-first contract packs:
+
+| Profile | Use when you need |
+| --- | --- |
+| `scanner-safe` | baseline scanner-safe fixtures, receipts, and export metadata |
+| `oidc` | OIDC/JWKS validator fixtures and JWT-shaped negatives |
+| `webhook` | HMAC webhook signature positives and negatives |
+| `tls` | TLS certificate chain positives and rejection fixtures |
+| `runtime` | local runtime fixture material that must stay under an output directory such as `target/` |
+
+For example, use `--profile oidc` when a downstream OIDC/JWKS validator needs a
+focused contract pack:
 
 ```bash
 cargo run -p uselesskey-cli -- bundle \
@@ -111,3 +131,27 @@ The OIDC profile emits:
 - `tokens/valid-rs256.json`
 - `tokens/negative-alg-none.json`
 - `tokens/negative-bad-audience.json`
+
+For downstream CI gates, add an explicit profile expectation and the built-in
+strict policy preset:
+
+```bash
+cargo run -p uselesskey-cli -- audit-bundle \
+  target/oidc-fixtures \
+  --ci \
+  --expect-profile oidc \
+  --policy strict
+```
+
+`audit-bundle --ci` is metadata-only reviewer evidence. It reports profile
+names, relative paths, artifact kinds, scanner-safe/runtime-material posture,
+stable failure classes, and bundle consistency status; it does not print or
+copy PEM private keys, JWT values, HMAC secrets, JWK private members, webhook
+request bodies, or generated secret-shaped payloads.
+
+What it does not prove:
+
+- production security or production secret custody;
+- provider compatibility;
+- downstream verifier correctness;
+- release readiness or broader repo public claims by itself.
