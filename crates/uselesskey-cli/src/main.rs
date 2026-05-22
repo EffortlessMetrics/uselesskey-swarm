@@ -808,13 +808,13 @@ fn verify_bundle_manifest(bundle_dir: &Path, manifest: &BundleManifest) -> Resul
                 path.display()
             );
         }
-        expected_files.push(file_name);
         expected_artifacts.push(bundle_artifact_record(
             entry,
             bundle_format,
-            expected_files.last().expect("just pushed"),
+            &file_name,
             profile,
         ));
+        expected_files.push(file_name);
     }
     let fixture_files = expected_files.clone();
     let mut expected_receipts = Vec::new();
