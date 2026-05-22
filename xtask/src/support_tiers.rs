@@ -182,8 +182,16 @@ fn validate(root: &Path) -> Result<Vec<String>> {
         .iter()
         .map(|row| row.claim.as_str())
         .collect::<BTreeSet<_>>();
+    let mut seen_surfaces = BTreeSet::new();
 
     for row in &rows {
+        if !seen_surfaces.insert(row.surface.as_str()) {
+            errors.push(format!(
+                "{SUPPORT_TIERS_MD}:{} duplicate support surface `{}`",
+                row.line, row.surface
+            ));
+        }
+
         if !VALID_TIERS.contains(&row.tier.as_str()) {
             errors.push(format!(
                 "{SUPPORT_TIERS_MD}:{} surface `{}` has invalid tier `{}`",
@@ -715,6 +723,16 @@ docs = ["docs/VERIFICATION.md"]
     }
 
     #[test]
+    fn rejects_duplicate_support_surface() -> Result<()> {
+        let dir = minimal_repo()?;
+        append_duplicate_support_row(dir.path())?;
+        assert_error(
+            dir.path(),
+            "duplicate support surface `Scanner-safe fixtures`",
+        )
+    }
+
+    #[test]
     fn rejects_workflow_row_unknown_claim() -> Result<()> {
         let dir = minimal_repo()?;
         write_workflow_support(
@@ -925,6 +943,19 @@ updated = "2026-05-21"
 "#
             ),
         )
+    }
+
+    fn append_duplicate_support_row(root: &Path) -> Result<()> {
+        let path = root.join(SUPPORT_TIERS_MD.replace('/', std::path::MAIN_SEPARATOR_STR));
+        let text = fs::read_to_string(&path)?;
+        let duplicate = "| Scanner-safe fixtures | Stable | `scanner-safe-fixtures` | `cargo xtask no-blob` | `docs/VERIFICATION.md` | Boundary. | `pr` |\n";
+        let updated = text.replacen(
+            "\n## Explicit Non-Support",
+            &format!("\n{duplicate}\n## Explicit Non-Support"),
+            1,
+        );
+        fs::write(path, updated)?;
+        Ok(())
     }
 
     fn append_duplicate_workflow_row(root: &Path) -> Result<()> {
