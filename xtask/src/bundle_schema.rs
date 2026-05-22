@@ -19,8 +19,10 @@ const PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook", "runtime"]
 struct BundleSchemaCheckReport {
     schema_version: u32,
     profiles_checked: usize,
+    failure_receipts_checked: usize,
     schemas_checked: Vec<String>,
     profile_reports: Vec<BundleSchemaProfileReport>,
+    failure_reports: Vec<BundleSchemaFailureReport>,
     errors: Vec<String>,
 }
 
@@ -34,6 +36,13 @@ struct BundleSchemaProfileReport {
     artifact_count: usize,
     receipt_count: usize,
     negative_count: usize,
+}
+
+#[derive(Debug, Serialize)]
+struct BundleSchemaFailureReport {
+    scenario: String,
+    audit_path: String,
+    failure_class: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -110,16 +119,19 @@ pub(crate) fn check(out: &Path) -> Result<()> {
                 .unwrap_or(0) as usize,
         });
     }
+    let failure_reports = validate_generated_failure_receipts(&audit_schema, out, &mut errors)?;
 
     let report = BundleSchemaCheckReport {
         schema_version: 1,
         profiles_checked: profile_reports.len(),
+        failure_receipts_checked: failure_reports.len(),
         schemas_checked: vec![
             BUNDLE_MANIFEST_SCHEMA_JSON.to_string(),
             NEGATIVE_COVERAGE_SCHEMA_JSON.to_string(),
             BUNDLE_AUDIT_SCHEMA_JSON.to_string(),
         ],
         profile_reports,
+        failure_reports,
         errors,
     };
 
@@ -203,6 +215,174 @@ fn generate_bundle_audit(bundle_dir: &Path, audit_dir: &Path) -> Result<()> {
     cmd.arg(audit_dir);
     run_quiet_command(&mut cmd)
         .with_context(|| format!("audit generated bundle {}", bundle_dir.display()))
+}
+
+fn generate_bundle_audit_failure(
+    bundle_dir: &Path,
+    audit_path: &Path,
+    expected_failure_class: &str,
+) -> Result<Value> {
+    let mut cmd = Command::new("cargo");
+    cmd.args([
+        "run",
+        "-p",
+        "uselesskey-cli",
+        "--",
+        "audit-bundle",
+        "--path",
+    ]);
+    cmd.arg(bundle_dir);
+    cmd.arg("--ci");
+    eprintln!(" RUN {:?}", cmd);
+    let output = cmd.output().context("failed to spawn audit-bundle --ci")?;
+    if output.status.success() {
+        bail!(
+            "audit-bundle --ci unexpectedly passed for {}",
+            bundle_dir.display()
+        );
+    }
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    if !stderr.contains(&format!("audit failed: {expected_failure_class}")) {
+        bail!("audit-bundle --ci stderr did not mention `{expected_failure_class}`: {stderr}");
+    }
+    let audit: Value = serde_json::from_slice(&output.stdout)
+        .with_context(|| format!("parse CI failure audit JSON for {}", bundle_dir.display()))?;
+    if let Some(parent) = audit_path.parent() {
+        fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
+    }
+    write_json_pretty(audit_path, &audit)?;
+    Ok(audit)
+}
+
+fn validate_generated_failure_receipts(
+    audit_schema: &Value,
+    out: &Path,
+    errors: &mut Vec<String>,
+) -> Result<Vec<BundleSchemaFailureReport>> {
+    let mut reports = Vec::new();
+
+    let missing_manifest_bundle = out.join("ci-failure-missing-manifest").join("bundle");
+    fs::create_dir_all(&missing_manifest_bundle)
+        .with_context(|| format!("create {}", missing_manifest_bundle.display()))?;
+    let missing_manifest_audit = out
+        .join("ci-failure-missing-manifest")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &missing_manifest_bundle,
+        &missing_manifest_audit,
+        "missing_manifest",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-missing-manifest",
+        &audit,
+        "missing_manifest",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-missing-manifest".to_string(),
+        audit_path: normalize_report_path(&missing_manifest_audit),
+        failure_class: "missing_manifest".to_string(),
+    });
+
+    let unsupported_profile_bundle = out.join("ci-failure-unsupported-profile").join("bundle");
+    generate_bundle("scanner-safe", &unsupported_profile_bundle)?;
+    let manifest_path = unsupported_profile_bundle.join("manifest.json");
+    let mut manifest: Value = read_json_file(&manifest_path)?;
+    manifest["profile"] = Value::String("future-profile".to_string());
+    write_json_pretty(&manifest_path, &manifest)?;
+    let unsupported_profile_audit = out
+        .join("ci-failure-unsupported-profile")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &unsupported_profile_bundle,
+        &unsupported_profile_audit,
+        "unsupported_profile",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-unsupported-profile",
+        &audit,
+        "unsupported_profile",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-unsupported-profile".to_string(),
+        audit_path: normalize_report_path(&unsupported_profile_audit),
+        failure_class: "unsupported_profile".to_string(),
+    });
+
+    Ok(reports)
+}
+
+fn validate_failure_receipt(
+    scenario: &str,
+    audit: &Value,
+    expected_failure_class: &str,
+    audit_schema: &Value,
+    errors: &mut Vec<String>,
+) {
+    let mut local_errors = Vec::new();
+    validate_bundle_audit(audit_schema, audit, &mut local_errors);
+    for error in local_errors {
+        errors.push(format!("{scenario}: {error}"));
+    }
+    if audit.get("status").and_then(Value::as_str) != Some("fail") {
+        errors.push(format!(
+            "{scenario}: expected status `fail`, found {:?}",
+            audit.get("status")
+        ));
+    }
+    if audit.get("profile").and_then(Value::as_str) != Some("unknown") {
+        errors.push(format!(
+            "{scenario}: expected profile `unknown`, found {:?}",
+            audit.get("profile")
+        ));
+    }
+    if audit.get("manifest_version").and_then(Value::as_u64) != Some(0) {
+        errors.push(format!(
+            "{scenario}: expected manifest_version 0, found {:?}",
+            audit.get("manifest_version")
+        ));
+    }
+    for (field, expected) in [
+        ("artifact_count", 0_u64),
+        ("receipt_count", 0),
+        ("scanner_safe_count", 0),
+        ("runtime_material_count", 0),
+    ] {
+        if audit.get(field).and_then(Value::as_u64) != Some(expected) {
+            errors.push(format!(
+                "{scenario}: expected {field} {expected}, found {:?}",
+                audit.get(field)
+            ));
+        }
+    }
+    for field in [
+        "files",
+        "artifacts",
+        "receipts",
+        "missing_files",
+        "unexpected_files",
+    ] {
+        if array_len(audit.get(field)) != 0 {
+            errors.push(format!(
+                "{scenario}: expected empty {field}, found {:?}",
+                audit.get(field)
+            ));
+        }
+    }
+    let failure_class = audit
+        .get("checks")
+        .and_then(Value::as_array)
+        .and_then(|checks| checks.first())
+        .and_then(|check| check.get("failure_class"))
+        .and_then(Value::as_str);
+    if failure_class != Some(expected_failure_class) {
+        errors.push(format!(
+            "{scenario}: expected failure_class `{expected_failure_class}`, found {failure_class:?}"
+        ));
+    }
 }
 
 fn run_quiet_command(cmd: &mut Command) -> Result<()> {
@@ -1317,6 +1497,10 @@ fn render_bundle_schema_check_markdown(report: &BundleSchemaCheckReport) -> Stri
         "- Profiles checked: {}\n",
         report.profiles_checked
     ));
+    out.push_str(&format!(
+        "- CI failure receipts checked: {}\n",
+        report.failure_receipts_checked
+    ));
     out.push_str(&format!("- Errors: {}\n\n", report.errors.len()));
     out.push_str("## Schemas\n\n");
     for schema in &report.schemas_checked {
@@ -1335,6 +1519,15 @@ fn render_bundle_schema_check_markdown(report: &BundleSchemaCheckReport) -> Stri
             profile.audit_path
         ));
     }
+    out.push_str("\n## CI Failure Receipts\n\n");
+    out.push_str("| Scenario | Failure class | Audit receipt |\n");
+    out.push_str("| --- | --- | --- |\n");
+    for failure in &report.failure_reports {
+        out.push_str(&format!(
+            "| `{}` | `{}` | `{}` |\n",
+            failure.scenario, failure.failure_class, failure.audit_path
+        ));
+    }
     if !report.errors.is_empty() {
         out.push_str("\n## Errors\n\n");
         for error in &report.errors {
@@ -1348,6 +1541,90 @@ fn render_bundle_schema_check_markdown(report: &BundleSchemaCheckReport) -> Stri
 mod tests {
     use super::*;
     use serde_json::json;
+
+    fn audit_schema_for_tests() -> Value {
+        json!({
+            "required": [
+                "version",
+                "status",
+                "bundle_path",
+                "profile",
+                "manifest_version",
+                "manifest_path",
+                "artifact_count",
+                "receipt_count",
+                "scanner_safe_count",
+                "runtime_material_count",
+                "files",
+                "artifacts",
+                "receipts",
+                "missing_files",
+                "unexpected_files",
+                "checks",
+                "boundaries",
+                "does_not_prove"
+            ],
+            "properties": {
+                "status": { "enum": ["pass", "fail"] }
+            },
+            "$defs": {
+                "artifact": {
+                    "required": [
+                        "path",
+                        "kind",
+                        "format",
+                        "scanner_safe",
+                        "runtime_material",
+                        "description"
+                    ]
+                },
+                "receipt": {
+                    "required": ["path", "kind", "profile", "description"]
+                },
+                "check": {
+                    "required": ["name", "status", "failure_class", "detail"],
+                    "properties": {
+                        "status": { "enum": ["pass", "fail"] }
+                    }
+                },
+                "failure_class": {
+                    "enum": [
+                        "missing_manifest",
+                        "missing_artifact",
+                        "unsupported_profile"
+                    ]
+                }
+            }
+        })
+    }
+
+    fn ci_failure_audit_for_tests(failure_class: &str) -> Value {
+        json!({
+            "version": 1,
+            "status": "fail",
+            "bundle_path": "target/uselesskey-test",
+            "profile": "unknown",
+            "manifest_version": 0,
+            "manifest_path": "manifest.json",
+            "artifact_count": 0,
+            "receipt_count": 0,
+            "scanner_safe_count": 0,
+            "runtime_material_count": 0,
+            "files": [],
+            "artifacts": [],
+            "receipts": [],
+            "missing_files": [],
+            "unexpected_files": [],
+            "checks": [{
+                "name": "bundle-audit",
+                "status": "fail",
+                "failure_class": failure_class,
+                "detail": "stable failure detail"
+            }],
+            "boundaries": ["metadata-only"],
+            "does_not_prove": ["downstream verifier correctness"]
+        })
+    }
 
     #[test]
     fn safe_relative_path_rejects_absolute_and_parent_paths() {
@@ -1830,55 +2107,7 @@ mod tests {
 
     #[test]
     fn bundle_audit_validator_rejects_count_drift() {
-        let schema = json!({
-            "required": [
-                "version",
-                "status",
-                "bundle_path",
-                "profile",
-                "manifest_version",
-                "manifest_path",
-                "artifact_count",
-                "receipt_count",
-                "scanner_safe_count",
-                "runtime_material_count",
-                "files",
-                "artifacts",
-                "receipts",
-                "missing_files",
-                "unexpected_files",
-                "checks",
-                "boundaries",
-                "does_not_prove"
-            ],
-            "properties": {
-                "status": { "enum": ["pass", "fail"] }
-            },
-            "$defs": {
-                "artifact": {
-                    "required": [
-                        "path",
-                        "kind",
-                        "format",
-                        "scanner_safe",
-                        "runtime_material",
-                        "description"
-                    ]
-                },
-                "receipt": {
-                    "required": ["path", "kind", "profile", "description"]
-                },
-                "check": {
-                    "required": ["name", "status", "failure_class", "detail"],
-                    "properties": {
-                        "status": { "enum": ["pass", "fail"] }
-                    }
-                },
-                "failure_class": {
-                    "enum": ["missing_artifact"]
-                }
-            }
-        });
+        let schema = audit_schema_for_tests();
         let audit = json!({
             "version": 1,
             "status": "pass",
@@ -1923,6 +2152,44 @@ mod tests {
             errors
                 .iter()
                 .any(|error| error.contains("runtime_material_count"))
+        );
+    }
+
+    #[test]
+    fn failure_receipt_validator_accepts_ci_failure_shape() {
+        let schema = audit_schema_for_tests();
+        let audit = ci_failure_audit_for_tests("missing_manifest");
+        let mut errors = Vec::new();
+        validate_failure_receipt(
+            "ci-failure-missing-manifest",
+            &audit,
+            "missing_manifest",
+            &schema,
+            &mut errors,
+        );
+
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
+    fn failure_receipt_validator_rejects_wrong_failure_class() {
+        let schema = audit_schema_for_tests();
+        let audit = ci_failure_audit_for_tests("unsupported_profile");
+        let mut errors = Vec::new();
+        validate_failure_receipt(
+            "ci-failure-missing-manifest",
+            &audit,
+            "missing_manifest",
+            &schema,
+            &mut errors,
+        );
+
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("expected failure_class `missing_manifest`")
+                    && error.contains("unsupported_profile")
+            }),
+            "{errors:?}"
         );
     }
 }
