@@ -430,14 +430,10 @@ fn public_claim_errors(root: &Path, report: &ClaimReport) -> Result<Vec<String>>
         .map(|row| row.id.as_str())
         .collect::<BTreeSet<_>>();
 
-    for claim in report
-        .claims
-        .iter()
-        .filter(|claim| claim.status == "stable")
-    {
+    for claim in &report.claims {
         if !row_ids.contains(claim.id.as_str()) {
             errors.push(format!(
-                "stable claim `{}` is missing from docs/status/PUBLIC_CLAIMS.md",
+                "ledger claim `{}` is missing from docs/status/PUBLIC_CLAIMS.md",
                 claim.id
             ));
         }
@@ -573,7 +569,7 @@ mod tests {
         let dir = minimal_repo()?;
         let report = build_report(dir.path(), None)?;
 
-        assert_eq!(report.claims.len(), 2);
+        assert_eq!(report.claims.len(), 3);
         let claim = &report.claims[0];
         assert_eq!(claim.id, "scanner-safe-fixtures");
         assert_eq!(claim.status, "stable");
@@ -645,16 +641,16 @@ mod tests {
     }
 
     #[test]
-    fn public_claims_check_requires_stable_claim_rows() -> Result<()> {
+    fn public_claims_check_requires_all_ledger_claim_rows() -> Result<()> {
         let dir = minimal_repo()?;
-        write_public_claims(dir.path(), "tls-contract-pack")?;
+        write_public_claims(dir.path(), "ripr-pr-review-evidence")?;
         let report = build_report(dir.path(), None)?;
         let errors = public_claim_errors(dir.path(), &report)?;
 
         assert!(
             errors
                 .iter()
-                .any(|error| error.contains("stable claim `tls-contract-pack` is missing")),
+                .any(|error| error.contains("ledger claim `ripr-pr-review-evidence` is missing")),
             "errors: {errors:?}"
         );
         Ok(())
@@ -738,6 +734,18 @@ artifacts = ["target/release-evidence/tls/proof.json"]
 docs = ["docs/how-to/tls.md"]
 release_lanes = ["minor"]
 boundary = "TLS fixtures do not prove production PKI."
+
+[[claim]]
+id = "ripr-pr-review-evidence"
+title = "ripr PR review evidence"
+status = "advisory"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["docs/ci/test-evidence-lanes.md"]
+proof_commands = ["cargo xtask ripr-pr --check"]
+artifacts = ["target/ripr/pr/review.md"]
+docs = ["docs/how-to/scanner-safe.md"]
+release_lanes = ["pr"]
+boundary = "PR evidence is advisory and diff-scoped."
 "#,
         )?;
         write_public_claims(dir.path(), "")?;
@@ -779,6 +787,7 @@ status = "accepted"
         let mut rows = vec![
             "| `scanner-safe-fixtures` | Scanner-safe fixtures | `stable` | `cargo xtask scanner-safe-reference --check`; `cargo xtask badges --check` | Boundary. |",
             "| `tls-contract-pack` | TLS contract pack | `stable` | `cargo xtask bundle-proof --profile tls --out target/release-evidence/tls` | Boundary. |",
+            "| `ripr-pr-review-evidence` | ripr PR review evidence | `advisory` | `cargo xtask ripr-pr --check` | Boundary. |",
         ];
         rows.retain(|row| !row.contains(&format!("`{omit_id}`")));
 
