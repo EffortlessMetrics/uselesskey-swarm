@@ -57,11 +57,11 @@ uselesskey inspect-bundle target/uselesskey-webhook
 uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
 ```
 
-Use `--ci --expect-profile <profile> --policy strict` when the audit is part
-of a downstream CI gate:
+Use `--ci --expect-profile <profile> --policy strict --out <audit-dir>` when
+the audit is part of a downstream CI gate:
 
 ```bash
-uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit
 ```
 
 Rust test authors start with the facade crate:

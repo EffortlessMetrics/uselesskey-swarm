@@ -81,7 +81,7 @@ fn profile_command_summary_has_copyable_webhook_paths() -> TestResult<()> {
         "Audit: uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit"
     ));
     assert!(out.contains(
-        "CI audit: uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict"
+        "CI audit: uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit"
     ));
     assert!(out.contains("Inspect: uselesskey inspect-bundle target/uselesskey-webhook"));
     assert!(
@@ -111,7 +111,7 @@ fn bundle_explain_has_copyable_webhook_paths_without_writing_bundle() -> TestRes
     );
     assert!(out.contains("Audit: uselesskey audit-bundle target/uselesskey-webhook"));
     assert!(out.contains(
-        "CI audit: uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict"
+        "CI audit: uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit"
     ));
     assert!(out.contains("Does not prove"));
     assert!(out.contains("provider compatibility"));

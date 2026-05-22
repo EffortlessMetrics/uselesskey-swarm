@@ -16,7 +16,7 @@ or cryptographic assurance.
 | test negative verifier paths | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` | [test-oidc-jwks-validation.md](test-oidc-jwks-validation.md) |
 | collect review evidence | `uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` | [verify-a-fixture-bundle.md](verify-a-fixture-bundle.md) |
 | keep runtime material disposable | `uselesskey bundle --profile tls --out target/uselesskey-tls` | [test-tls-chain-validation.md](test-tls-chain-validation.md) |
-| fail CI on installed bundle drift | `uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict` | [use-uselesskey-in-downstream-ci.md](use-uselesskey-in-downstream-ci.md) |
+| fail CI on installed bundle drift | `uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit` | [use-uselesskey-in-downstream-ci.md](use-uselesskey-in-downstream-ci.md) |
 | prove public claims from a repo checkout | `cargo xtask verification-pack --out target/uselesskey-verification` | [verify-uselesskey-public-claims.md](verify-uselesskey-public-claims.md) |
 
 For clean downstream project examples, use
