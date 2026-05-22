@@ -52,15 +52,15 @@ struct DocArtifact {
 }
 
 #[derive(Debug)]
-struct SupportRow {
-    line: usize,
-    surface: String,
-    tier: String,
-    claim: String,
-    proof: String,
-    docs: String,
-    boundary: String,
-    release_lane: String,
+pub(crate) struct SupportRow {
+    pub(crate) line: usize,
+    pub(crate) surface: String,
+    pub(crate) tier: String,
+    pub(crate) claim: String,
+    pub(crate) proof: String,
+    pub(crate) docs: String,
+    pub(crate) boundary: String,
+    pub(crate) release_lane: String,
 }
 
 #[derive(Debug)]
@@ -411,7 +411,7 @@ fn read_doc_artifacts(root: &Path) -> Result<DocArtifactLedger> {
     toml::from_str(&text).with_context(|| format!("parse {DOC_ARTIFACTS_TOML}"))
 }
 
-fn read_support_rows(root: &Path) -> Result<Vec<SupportRow>> {
+pub(crate) fn read_support_rows(root: &Path) -> Result<Vec<SupportRow>> {
     let path = root.join(SUPPORT_TIERS_MD);
     let markdown = fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))?;
     Ok(parse_support_rows(&markdown))
