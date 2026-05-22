@@ -126,7 +126,7 @@ When a release operator is ready to sync source:
 
 ## What This Does Not Prove
 
-- It does not prove a release candidate is ready.
+- It does not prove the source-repo release candidate is ready after sync.
 - It does not prove crates.io state.
 - It does not prove docs.rs state.
 - It does not authorize a version bump, tag, publish, or GitHub release.

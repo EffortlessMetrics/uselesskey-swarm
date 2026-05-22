@@ -26,6 +26,7 @@ Release readiness is gated by:
 - `cargo xtask pr-lite`
 - `cargo xtask pr`
 - `cargo xtask publish-preflight`
+- `cargo xtask publish-check`
 
 ## Publish order
 
