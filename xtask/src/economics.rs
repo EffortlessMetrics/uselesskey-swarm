@@ -7,9 +7,12 @@ use std::time::Instant;
 use anyhow::{Context, Result, bail};
 use serde::Serialize;
 
+use crate::target_output;
+
 const ECONOMICS_JSON_PATH: &str = "target/xtask/economics/latest.json";
 const ECONOMICS_MARKDOWN_PATH: &str = "target/xtask/economics/latest.md";
 const ECONOMICS_DOCS_PATH: &str = "docs/reference/dependency-economics.md";
+const LOCK_DIR: &str = "target/economics.lock";
 
 struct Lane {
     use_case: &'static str,
@@ -87,6 +90,8 @@ struct CommandRun {
 }
 
 pub fn economics_cmd() -> Result<()> {
+    let root = crate::workspace_root_path();
+    let _output_lock = acquire_output_lock(&root)?;
     let mut entries = Vec::with_capacity(LANES.len());
     let mut failed = false;
 
@@ -168,6 +173,10 @@ pub fn economics_cmd() -> Result<()> {
     }
 
     Ok(())
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "economics")
 }
 
 fn dependency_count(package: &str) -> Result<usize> {
@@ -373,5 +382,14 @@ mod tests {
         assert!(!markdown.contains("first check"));
         assert!(!markdown.contains("repeat check"));
         assert!(!markdown.contains("dep count"));
+    }
+
+    #[test]
+    fn economics_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
+        Ok(())
     }
 }
