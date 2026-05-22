@@ -5,7 +5,9 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 
-use crate::{claim_proof, claim_report, contract_packs, git_head_sha};
+use crate::{claim_proof, claim_report, contract_packs, git_head_sha, target_output};
+
+const LOCK_DIR: &str = "target/verification-pack.lock";
 
 #[derive(Debug, Deserialize)]
 struct ClaimLedger {
@@ -26,6 +28,7 @@ pub(crate) fn run(root: &Path, out: &Path, claim: Option<&str>) -> Result<()> {
         validate_claim_id(claim)?;
     }
 
+    let _output_lock = acquire_output_lock(root)?;
     let out_dir = prepare_out_dir(root, out)?;
     let ledger = read_ledger(root)?;
     let all_stable_claim_ids = if claim.is_some() {
@@ -87,6 +90,10 @@ pub(crate) fn run(root: &Path, out: &Path, claim: Option<&str>) -> Result<()> {
     ensure_no_forbidden_payload_paths(&out_dir)?;
     println!("verification-pack: wrote {}", rel_path(root, &out_dir));
     Ok(())
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "verification-pack")
 }
 
 fn read_ledger(root: &Path) -> Result<ClaimLedger> {
@@ -443,6 +450,15 @@ mod tests {
 
         assert_eq!(prepared, out);
         assert!(!prepared.join("old.txt").exists());
+        Ok(())
+    }
+
+    #[test]
+    fn verification_pack_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
         Ok(())
     }
 
