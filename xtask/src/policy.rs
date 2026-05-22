@@ -23,6 +23,7 @@ const NEGATIVE_FIXTURE_MATRIX_MD: &str = "docs/status/negative-fixture-matrix.md
 const CLAIM_LEDGER_TOML: &str = "policy/claim-ledger.toml";
 const BUNDLE_MANIFEST_SCHEMA_JSON: &str = "docs/schemas/bundle-manifest.schema.json";
 const NEGATIVE_COVERAGE_SCHEMA_JSON: &str = "docs/schemas/negative-coverage.schema.json";
+const VALID_BUNDLE_PROFILES: &[&str] = &["scanner-safe", "oidc", "tls", "webhook", "runtime"];
 
 const TARGET_DIR: &str = "target";
 const PROPOSED_DIR: &str = "target/policy-proposed";
@@ -1464,12 +1465,13 @@ fn validate_negative_fixture_entry(
             entry.stable_id
         ));
     }
-    if entry.bundle_exposed == Some(true) && entry.bundle_profiles.is_empty() {
-        errors.push(format!(
-            "{NEGATIVE_FIXTURES_TOML}: `{}` bundle_profiles is required when bundle_exposed=true",
-            entry.stable_id
-        ));
-    }
+    validate_bundle_profiles(entry, errors);
+    validate_required_vec(
+        &entry.does_not_prove,
+        &entry.stable_id,
+        "does_not_prove",
+        errors,
+    );
 
     if entry.status == "implemented" {
         validate_required_text(
@@ -1486,12 +1488,6 @@ fn validate_negative_fixture_entry(
         );
         validate_required_vec(&entry.docs, &entry.stable_id, "docs", errors);
         validate_required_vec(&entry.tests, &entry.stable_id, "tests", errors);
-        validate_required_vec(
-            &entry.does_not_prove,
-            &entry.stable_id,
-            "does_not_prove",
-            errors,
-        );
         for doc in &entry.docs {
             if !Path::new(doc).exists() {
                 errors.push(format!(
@@ -1510,6 +1506,45 @@ fn validate_negative_fixture_entry(
         }
     } else {
         validate_required_text(entry.reason.as_deref(), &entry.stable_id, "reason", errors);
+    }
+}
+
+fn validate_bundle_profiles(entry: &NegativeFixtureEntry, errors: &mut Vec<String>) {
+    if entry.bundle_exposed == Some(true) && entry.bundle_profiles.is_empty() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` bundle_profiles is required when bundle_exposed=true",
+            entry.stable_id
+        ));
+    }
+    if entry.bundle_exposed == Some(false) && !entry.bundle_profiles.is_empty() {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` bundle_profiles must be empty when bundle_exposed=false",
+            entry.stable_id
+        ));
+    }
+
+    let mut seen = BTreeSet::new();
+    for profile in &entry.bundle_profiles {
+        let profile = profile.trim();
+        if profile.is_empty() {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` has an empty bundle_profile",
+                entry.stable_id
+            ));
+            continue;
+        }
+        if !VALID_BUNDLE_PROFILES.contains(&profile) {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` bundle_profile `{profile}` is not a known bundle profile",
+                entry.stable_id
+            ));
+        }
+        if !seen.insert(profile) {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` has duplicate bundle_profile `{profile}`",
+                entry.stable_id
+            ));
+        }
     }
 }
 
@@ -2537,6 +2572,96 @@ mod tests {
             errors
                 .iter()
                 .any(|error| error.contains("missing-claim") && error.contains(CLAIM_LEDGER_TOML))
+        );
+    }
+
+    #[test]
+    fn accepted_negative_fixture_requires_claim_boundary() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "webhook_near_miss_signature".into(),
+            family: "webhook".into(),
+            status: "accepted_planned".into(),
+            scanner_safe: Some(false),
+            runtime_material: Some(true),
+            bundle_exposed: Some(false),
+            claim: Some("webhook-contract-pack".into()),
+            reason: Some("accepted taxonomy class".into()),
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["webhook-contract-pack"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(errors.iter().any(|error| error.contains("does_not_prove")));
+    }
+
+    #[test]
+    fn negative_fixture_bundle_profiles_must_be_known_and_unique() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "jwks_duplicate_kid".into(),
+            family: "jwks".into(),
+            status: "implemented".into(),
+            owner_crate: Some("uselesskey-jwk".into()),
+            public_surface: Some("NegativeJwks::DuplicateKid".into()),
+            docs: vec!["docs/reference/failure-atlas.md".into()],
+            tests: vec!["cargo test -p uselesskey-jwk --all-features".into()],
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(true),
+            bundle_profiles: vec![
+                "oidc".into(),
+                "oidc".into(),
+                "unknown-profile".into(),
+                "".into(),
+            ],
+            claim: Some("oidc-jwks-contract-pack".into()),
+            does_not_prove: vec!["provider compatibility".into()],
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["oidc-jwks-contract-pack"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("duplicate bundle_profile `oidc`"))
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("bundle_profile `unknown-profile`"))
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("empty bundle_profile"))
+        );
+    }
+
+    #[test]
+    fn negative_fixture_bundle_profiles_require_bundle_exposure() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "token_near_miss".into(),
+            family: "jwt_token".into(),
+            status: "implemented".into(),
+            owner_crate: Some("uselesskey-token".into()),
+            public_surface: Some("NegativeToken::NearMissApiKey".into()),
+            docs: vec!["docs/reference/failure-atlas.md".into()],
+            tests: vec!["cargo test -p uselesskey-token --all-features".into()],
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(false),
+            bundle_profiles: vec!["scanner-safe".into()],
+            claim: Some("scanner-safe-fixtures".into()),
+            does_not_prove: vec!["scanner evasion".into()],
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["scanner-safe-fixtures"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("bundle_profiles must be empty"))
         );
     }
 
