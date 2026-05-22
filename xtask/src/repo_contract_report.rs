@@ -924,6 +924,40 @@ commands = ["cargo xtask repo-contract-report"]
     }
 
     #[test]
+    fn repo_contract_report_records_missing_workflow_claim_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(
+            dir.path(),
+            "docs/status/workflow-support.md",
+            r#"# Workflow Support
+
+## Workflow Matrix
+
+| Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| Installed bundle audit | stabilizing installed CLI workflow | `missing-claim` | `docs/how-to/audit.md` | `cargo xtask no-blob` | `target/audit/report.json` | Does not prove release readiness. |
+
+## Support Tier Interpretation
+
+| Tier | Meaning |
+| --- | --- |
+| stabilizing installed CLI workflow | Test tier. |
+"#,
+        )?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| {
+                link.contains("workflow `Installed bundle audit`") && link.contains("missing-claim")
+            }),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
     fn repo_contract_report_output_lock_is_target_local() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let _lock = acquire_output_lock(dir.path())?;
