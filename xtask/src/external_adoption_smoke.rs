@@ -576,7 +576,27 @@ fn verify_ci_audit_receipt(audit_dir: &Path, expected_profile: &str) -> Result<(
             markdown_path.display()
         );
     }
+    verify_ci_audit_markdown(&markdown_path, expected_profile)?;
 
+    Ok(())
+}
+
+fn verify_ci_audit_markdown(markdown_path: &Path, expected_profile: &str) -> Result<()> {
+    let markdown = fs::read_to_string(markdown_path)
+        .with_context(|| format!("read {}", markdown_path.display()))?;
+    for expected in [
+        "# uselesskey Bundle Audit",
+        &format!("- Profile: {expected_profile}"),
+        "- Receipt type: durable metadata-only reviewer/CI receipt",
+        "- Payload posture: raw generated fixture payloads are not copied into this receipt",
+    ] {
+        if !markdown.contains(expected) {
+            bail!(
+                "CI recipe audit markdown receipt missing `{expected}` for {}",
+                markdown_path.display()
+            );
+        }
+    }
     Ok(())
 }
 
@@ -1322,7 +1342,7 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
     fn external_adoption_accepts_ci_audit_receipt_pair() -> Result<()> {
         let dir = tempfile::tempdir()?;
         write_ci_audit_json(dir.path(), "oidc")?;
-        fs::write(dir.path().join("bundle-audit.md"), "# Bundle Audit\n")?;
+        write_ci_audit_markdown(dir.path(), "oidc")?;
 
         verify_ci_audit_receipt(dir.path(), "oidc")
     }
@@ -1340,6 +1360,34 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         Ok(())
     }
 
+    #[test]
+    fn external_adoption_rejects_ci_audit_placeholder_markdown_receipt() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ci_audit_json(dir.path(), "oidc")?;
+        fs::write(dir.path().join("bundle-audit.md"), "# Bundle Audit\n")?;
+
+        let err = match verify_ci_audit_receipt(dir.path(), "oidc") {
+            Ok(()) => bail!("CI audit placeholder markdown was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("# uselesskey Bundle Audit"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_audit_wrong_profile_markdown_receipt() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ci_audit_json(dir.path(), "oidc")?;
+        write_ci_audit_markdown(dir.path(), "webhook")?;
+
+        let err = match verify_ci_audit_receipt(dir.path(), "oidc") {
+            Ok(()) => bail!("CI audit markdown with wrong profile was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("- Profile: oidc"));
+        Ok(())
+    }
+
     fn write_ci_audit_json(dir: &Path, profile: &str) -> Result<()> {
         fs::write(
             dir.join("bundle-audit.json"),
@@ -1347,6 +1395,24 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                 "status": "pass",
                 "profile": profile,
             }))?,
+        )?;
+        Ok(())
+    }
+
+    fn write_ci_audit_markdown(dir: &Path, profile: &str) -> Result<()> {
+        fs::write(
+            dir.join("bundle-audit.md"),
+            format!(
+                concat!(
+                    "# uselesskey Bundle Audit\n\n",
+                    "- Status: pass\n",
+                    "- Bundle: target/uselesskey-{}\n",
+                    "- Profile: {}\n",
+                    "- Receipt type: durable metadata-only reviewer/CI receipt\n",
+                    "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                ),
+                profile, profile
+            ),
         )?;
         Ok(())
     }
