@@ -197,6 +197,10 @@ pub fn generate_bearer_token(seed: Seed) -> String {
 
 /// Generate an OAuth access token fixture in JWT shape (`header.payload.signature`).
 pub fn generate_oauth_access_token(label: &str, seed: Seed) -> String {
+    oauth_access_token_parts(label, seed).into_token()
+}
+
+fn oauth_access_token_parts(label: &str, seed: Seed) -> JwtParts {
     let header = URL_SAFE_NO_PAD.encode(r#"{"alg":"RS256","typ":"JWT"}"#);
     let mut rng = ChaCha20Rng::from_seed(*seed.bytes());
 
@@ -212,13 +216,17 @@ pub fn generate_oauth_access_token(label: &str, seed: Seed) -> String {
         "exp": 2_000_000_000u64,
     });
     let payload_json = serde_json::to_vec(&payload).expect("payload JSON");
-    let payload_segment = URL_SAFE_NO_PAD.encode(payload_json);
+    let payload = URL_SAFE_NO_PAD.encode(payload_json);
 
     let mut signature = [0u8; OAUTH_SIGNATURE_BYTES];
     rng.fill_bytes(&mut signature);
-    let signature_segment = URL_SAFE_NO_PAD.encode(signature);
+    let signature = URL_SAFE_NO_PAD.encode(signature);
 
-    format!("{header}.{payload_segment}.{signature_segment}")
+    JwtParts {
+        header,
+        payload,
+        signature,
+    }
 }
 
 fn malformed_jwt_segment_count(label: &str, seed: Seed) -> String {
@@ -318,21 +326,7 @@ struct JwtParts {
 
 impl JwtParts {
     fn generated(label: &str, seed: Seed) -> Self {
-        let token = generate_oauth_access_token(label, seed);
-        let mut parts = token.split('.');
-        let header = parts.next().expect("JWT header segment").to_string();
-        let payload = parts.next().expect("JWT payload segment").to_string();
-        let signature = parts.next().expect("JWT signature segment").to_string();
-        assert!(
-            parts.next().is_none(),
-            "JWT should have exactly three segments"
-        );
-
-        Self {
-            header,
-            payload,
-            signature,
-        }
+        oauth_access_token_parts(label, seed)
     }
 
     fn with_header_segment(mut self, header: String) -> Self {
@@ -397,9 +391,9 @@ mod tests {
     use uselesskey_core::Seed;
 
     use super::{
-        API_KEY_PREFIX, API_KEY_RANDOM_LEN, BEARER_RANDOM_BYTES, NEAR_MISS_API_KEY_PREFIX,
-        NegativeToken, SCANNER_SAFE_INVALID_TOKEN_SEGMENT, TokenKind, authorization_scheme,
-        generate_api_key, generate_bearer_token, generate_negative_token,
+        API_KEY_PREFIX, API_KEY_RANDOM_LEN, BEARER_RANDOM_BYTES, JwtParts,
+        NEAR_MISS_API_KEY_PREFIX, NegativeToken, SCANNER_SAFE_INVALID_TOKEN_SEGMENT, TokenKind,
+        authorization_scheme, generate_api_key, generate_bearer_token, generate_negative_token,
         generate_oauth_access_token, generate_token, random_base62,
     };
 
@@ -434,6 +428,16 @@ mod tests {
         let json: serde_json::Value = serde_json::from_slice(&payload).expect("parse payload");
         assert_eq!(json["sub"], "issuer");
         assert_eq!(json["iss"], "uselesskey");
+    }
+
+    #[test]
+    fn jwt_parts_generated_matches_public_oauth_token() {
+        let seed = Seed::new([42u8; 32]);
+
+        assert_eq!(
+            JwtParts::generated("svc", seed).into_token(),
+            generate_oauth_access_token("svc", seed)
+        );
     }
 
     #[test]
