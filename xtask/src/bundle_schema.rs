@@ -400,6 +400,85 @@ fn validate_generated_failure_receipts(
         failure_class: "unexpected_artifact".to_string(),
     });
 
+    let missing_receipt_bundle = out.join("ci-failure-missing-receipt").join("bundle");
+    generate_bundle("scanner-safe", &missing_receipt_bundle)?;
+    let manifest_path = missing_receipt_bundle.join("manifest.json");
+    let mut manifest: Value = read_json_file(&manifest_path)?;
+    let missing_receipt_path = {
+        let receipts = manifest
+            .get_mut("receipts")
+            .and_then(Value::as_array_mut)
+            .context("generated manifest has receipts array")?;
+        let receipt_index = receipts
+            .iter()
+            .position(|receipt| {
+                receipt.get("kind").and_then(Value::as_str) == Some("audit-surface")
+            })
+            .context("generated manifest has audit-surface receipt")?;
+        let receipt_path = receipts[receipt_index]
+            .get("path")
+            .and_then(Value::as_str)
+            .context("generated audit-surface receipt has path")?
+            .to_string();
+        receipts.remove(receipt_index);
+        receipt_path
+    };
+    let files = manifest
+        .get_mut("files")
+        .and_then(Value::as_array_mut)
+        .context("generated manifest has files array")?;
+    files.retain(|file| file.as_str() != Some(missing_receipt_path.as_str()));
+    write_json_pretty(&manifest_path, &manifest)?;
+    let missing_receipt_file = missing_receipt_bundle.join(&missing_receipt_path);
+    fs::remove_file(&missing_receipt_file)
+        .with_context(|| format!("remove {}", missing_receipt_file.display()))?;
+    let missing_receipt_audit = out
+        .join("ci-failure-missing-receipt")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &missing_receipt_bundle,
+        &missing_receipt_audit,
+        "missing_receipt",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-missing-receipt",
+        &audit,
+        "missing_receipt",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-missing-receipt".to_string(),
+        audit_path: normalize_report_path(&missing_receipt_audit),
+        failure_class: "missing_receipt".to_string(),
+    });
+
+    let invalid_receipt_bundle = out.join("ci-failure-invalid-receipt").join("bundle");
+    generate_bundle("scanner-safe", &invalid_receipt_bundle)?;
+    let invalid_receipt_file = invalid_receipt_bundle.join("receipts/audit-surface.json");
+    fs::write(&invalid_receipt_file, "{ not json")
+        .with_context(|| format!("write {}", invalid_receipt_file.display()))?;
+    let invalid_receipt_audit = out
+        .join("ci-failure-invalid-receipt")
+        .join("bundle-audit.json");
+    let audit = generate_bundle_audit_failure(
+        &invalid_receipt_bundle,
+        &invalid_receipt_audit,
+        "invalid_receipt",
+    )?;
+    validate_failure_receipt(
+        "ci-failure-invalid-receipt",
+        &audit,
+        "invalid_receipt",
+        audit_schema,
+        errors,
+    );
+    reports.push(BundleSchemaFailureReport {
+        scenario: "ci-failure-invalid-receipt".to_string(),
+        audit_path: normalize_report_path(&invalid_receipt_audit),
+        failure_class: "invalid_receipt".to_string(),
+    });
+
     let unsupported_profile_bundle = out.join("ci-failure-unsupported-profile").join("bundle");
     generate_bundle("scanner-safe", &unsupported_profile_bundle)?;
     let manifest_path = unsupported_profile_bundle.join("manifest.json");
@@ -1709,6 +1788,8 @@ mod tests {
                         "path_escape",
                         "missing_artifact",
                         "unexpected_artifact",
+                        "missing_receipt",
+                        "invalid_receipt",
                         "unsupported_profile"
                     ]
                 }
@@ -2282,6 +2363,8 @@ mod tests {
             "path_escape",
             "missing_artifact",
             "unexpected_artifact",
+            "missing_receipt",
+            "invalid_receipt",
             "unsupported_profile",
         ] {
             let audit = ci_failure_audit_for_tests(failure_class);
