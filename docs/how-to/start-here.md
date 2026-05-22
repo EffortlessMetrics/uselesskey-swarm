@@ -19,6 +19,9 @@ or cryptographic assurance.
 | fail CI on installed bundle drift | `uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict` | [use-uselesskey-in-downstream-ci.md](use-uselesskey-in-downstream-ci.md) |
 | prove public claims from a repo checkout | `cargo xtask verification-pack --out target/uselesskey-verification` | [verify-uselesskey-public-claims.md](verify-uselesskey-public-claims.md) |
 
+For clean downstream project examples, use
+[`../../examples/external/README.md`](../../examples/external/README.md).
+
 ## Install the CLI
 
 Use the installed CLI outside this workspace:
