@@ -243,7 +243,7 @@ fn build_report(root: &Path) -> Result<Report> {
     let mut missing_links = missing_artifact_links(root, &artifacts, &artifact_index);
     missing_links.extend(missing_goal_links(root, &goal, &artifact_index));
     missing_links.extend(missing_claim_links(&claims, &artifact_index));
-    missing_links.extend(missing_workflow_links(&workflows, &claim_index));
+    missing_links.extend(missing_workflow_links(root, &workflows, &claim_index));
 
     Ok(Report {
         schema_version: "1.0",
@@ -467,6 +467,7 @@ fn missing_claim_links(
 }
 
 fn missing_workflow_links(
+    root: &Path,
     workflows: &[support_tiers::WorkflowRow],
     claim_index: &BTreeMap<&str, &ClaimEntry>,
 ) -> Vec<String> {
@@ -477,6 +478,17 @@ fn missing_workflow_links(
                 "workflow `{}` links missing claim `{}`",
                 workflow.workflow, workflow.claim
             ));
+        }
+        for doc in inline_code_values(&workflow.primary_docs)
+            .into_iter()
+            .filter(|path| is_repo_path(path))
+        {
+            if !root.join(to_path(&doc)).exists() {
+                missing.insert(format!(
+                    "workflow `{}` links missing doc `{doc}`",
+                    workflow.workflow
+                ));
+            }
         }
     }
     missing.into_iter().collect()
@@ -773,6 +785,13 @@ fn inline_code_values(value: &str) -> Vec<String> {
         .collect()
 }
 
+fn is_repo_path(path: &str) -> bool {
+    path.starts_with("docs/")
+        || path.starts_with("badges/")
+        || path.starts_with("policy/")
+        || path.starts_with("examples/")
+}
+
 fn escape_md(value: &str) -> String {
     value.replace('|', "\\|")
 }
@@ -958,6 +977,41 @@ commands = ["cargo xtask repo-contract-report"]
     }
 
     #[test]
+    fn repo_contract_report_records_missing_workflow_doc_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(
+            dir.path(),
+            "docs/status/workflow-support.md",
+            r#"# Workflow Support
+
+## Workflow Matrix
+
+| Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| Installed bundle audit | stabilizing installed CLI workflow | `metadata-only-audit-packets` | `docs/how-to/missing-audit.md` | `cargo xtask no-blob` | `target/audit/report.json` | Does not prove release readiness. |
+
+## Support Tier Interpretation
+
+| Tier | Meaning |
+| --- | --- |
+| stabilizing installed CLI workflow | Test tier. |
+"#,
+        )?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| {
+                link.contains("workflow `Installed bundle audit`")
+                    && link.contains("docs/how-to/missing-audit.md")
+            }),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
     fn repo_contract_report_output_lock_is_target_local() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let _lock = acquire_output_lock(dir.path())?;
@@ -1061,6 +1115,7 @@ proof_commands = ["cargo xtask no-blob"]
 | stabilizing installed CLI workflow | Test tier. |
 "#,
         )?;
+        write_file(dir.path(), "docs/how-to/audit.md", "# Audit\n")?;
         write_file(
             dir.path(),
             "plans/source-of-truth-control-plane/implementation-plan.md",
