@@ -10,9 +10,12 @@ use anyhow::{Context, Result, bail};
 use chrono::Utc;
 use serde::{Deserialize, Serialize};
 
+use crate::target_output;
+
 const DEFAULT_SNAPSHOT_PATH: &str = "target/xtask/pr-bundles/snapshot.json";
 const DEFAULT_LEDGER_PATH: &str = "target/xtask/pr-bundles/ledger.md";
 const DEFAULT_WORKTREE_PREFIX: &str = "uselesskey-bundle";
+const LOCK_DIR: &str = "target/pr-bundles.lock";
 
 const PRIMARY_BUNDLE_SIZE: usize = 4;
 const ATTACH_THRESHOLD: f64 = 0.68;
@@ -386,6 +389,10 @@ pub fn ledger_cmd(cmd: &LedgerCommand) -> Result<LedgerReport> {
         write_text(path, &markdown)?;
     }
     Ok(LedgerReport { markdown, analysis })
+}
+
+pub fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "pr-bundles")
 }
 
 #[allow(
@@ -2926,6 +2933,15 @@ mod tests {
             cmd.output_path,
             Some(PathBuf::from("target/xtask/pr-bundles/ledger.md"))
         );
+    }
+
+    #[test]
+    fn pr_bundles_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
+        Ok(())
     }
 
     // ---------------------------------------------------------------
