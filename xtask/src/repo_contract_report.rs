@@ -120,6 +120,7 @@ struct Report {
     tracked_proposals: Vec<ArtifactSummary>,
     accepted_proposals: Vec<ArtifactSummary>,
     accepted_specs: Vec<ArtifactSummary>,
+    tracked_adrs: Vec<ArtifactSummary>,
     open_adrs: Vec<ArtifactSummary>,
     support_tier_impacts: Vec<ClaimSummary>,
     policy_impacts: Vec<ArtifactSummary>,
@@ -239,13 +240,8 @@ fn build_report(root: &Path) -> Result<Report> {
         tracked_proposals: summarize_current_artifacts(&artifacts, "proposal"),
         accepted_proposals: summarize_artifacts(&artifacts, "proposal", "accepted"),
         accepted_specs: summarize_artifacts(&artifacts, "spec", "accepted"),
-        open_adrs: artifacts
-            .artifact
-            .iter()
-            .filter(|artifact| artifact.kind == "adr")
-            .filter(|artifact| artifact.status != "archived" && artifact.status != "superseded")
-            .map(summarize_artifact)
-            .collect(),
+        tracked_adrs: summarize_current_artifacts(&artifacts, "adr"),
+        open_adrs: summarize_current_artifacts(&artifacts, "adr"),
         support_tier_impacts: claims
             .claim
             .iter()
@@ -539,7 +535,7 @@ fn render_markdown(report: &Report) -> String {
     render_work_items(&mut out, "Ready Work Items", &report.ready_work_items);
     render_artifacts(&mut out, "Tracked Proposals", &report.tracked_proposals);
     render_artifacts(&mut out, "Accepted Specs", &report.accepted_specs);
-    render_artifacts(&mut out, "Open ADRs", &report.open_adrs);
+    render_artifacts(&mut out, "Tracked ADRs", &report.tracked_adrs);
     render_claims(
         &mut out,
         "Support-Tier Impacts",
@@ -718,6 +714,7 @@ mod tests {
         assert_eq!(report.ready_work_items.len(), 1);
         assert_eq!(report.tracked_proposals.len(), 1);
         assert!(report.accepted_proposals.is_empty());
+        assert_eq!(report.tracked_adrs.len(), 1);
         assert!(out_dir.join("graph.md").exists());
         assert!(out_dir.join("graph.json").exists());
 
@@ -728,6 +725,8 @@ mod tests {
         assert!(markdown.contains("`repo-contract-report`"));
         assert!(markdown.contains("## Tracked Proposals"));
         assert!(markdown.contains("`USELESSKEY-PROP-0002`"));
+        assert!(markdown.contains("## Tracked ADRs"));
+        assert!(!markdown.contains("## Open ADRs"));
 
         let json: serde_json::Value =
             serde_json::from_str(&fs::read_to_string(out_dir.join("graph.json"))?)?;
@@ -739,6 +738,8 @@ mod tests {
         assert_eq!(json["ready_work_items"][0]["id"], "repo-contract-report");
         assert_eq!(json["tracked_proposals"][0]["id"], "USELESSKEY-PROP-0002");
         assert_eq!(json["tracked_proposals"][0]["status"], "proposed");
+        assert_eq!(json["tracked_adrs"][0]["id"], "USELESSKEY-ADR-0003");
+        assert_eq!(json["open_adrs"][0]["id"], "USELESSKEY-ADR-0003");
         Ok(())
     }
 
