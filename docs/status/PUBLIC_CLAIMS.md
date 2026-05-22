@@ -50,7 +50,7 @@ claim boundary for public wording.
 
 | Claim ID | Claim | Status | Proof commands | Boundary |
 | --- | --- | --- | --- | --- |
-| `scanner-safe-fixtures` | Scanner-safe fixtures | `stable` | `cargo xtask scanner-safe-reference --check`; `cargo xtask no-blob`; `cargo xtask badges --check` | Scanner-safe fixture material does not mean every encoded export is safe to commit. |
+| `scanner-safe-fixtures` | Scanner-safe fixtures | `stable` | `cargo xtask scanner-safe-reference --check`; `cargo xtask bundle-proof --profile scanner-safe --out target/release-evidence/scanner-safe`; `cargo xtask no-blob`; `cargo xtask badges --check` | Scanner-safe fixture material does not mean every encoded export is safe to commit. |
 | `ripr-plus-evidence-endpoint` | `ripr+` evidence endpoint | `stable` | `cargo xtask badges --check`; `cargo xtask test-efficiency-report` | `ripr+` is repo-scoped static evidence, not coverage or correctness proof. |
 | `tls-contract-pack` | TLS contract pack | `stable` | `cargo xtask bundle-proof --profile tls --out target/release-evidence/tls`; `cargo xtask no-blob` | TLS fixtures prove the documented pack paths and negatives, not mTLS, revocation, CT, browser trust stores, or production CA custody. |
 | `oidc-jwks-contract-pack` | OIDC/JWKS contract pack | `stable` | `cargo xtask bundle-proof --profile oidc --out target/release-evidence/oidc`; `cargo xtask no-blob` | OIDC/JWKS fixtures prove key-set and token-shape contract paths, not production signing-key custody or full OpenID provider behavior. |

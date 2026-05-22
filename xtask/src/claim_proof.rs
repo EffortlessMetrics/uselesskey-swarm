@@ -384,6 +384,22 @@ fn handler_spec(handler: &str) -> Result<HandlerSpec> {
                 "target/ripr/reports/test-efficiency.md",
             ],
         },
+        "bundle_proof_scanner_safe" => HandlerSpec {
+            id: "bundle_proof_scanner_safe",
+            argv: vec![
+                "cargo",
+                "xtask",
+                "bundle-proof",
+                "--profile",
+                "scanner-safe",
+                "--out",
+                "target/release-evidence/scanner-safe",
+            ],
+            artifacts: vec![
+                "target/release-evidence/scanner-safe/scanner-safe-bundle-proof.json",
+                "target/release-evidence/scanner-safe/scanner-safe-bundle-proof.md",
+            ],
+        },
         "bundle_proof_tls" => HandlerSpec {
             id: "bundle_proof_tls",
             argv: vec![
@@ -435,7 +451,10 @@ fn handler_spec(handler: &str) -> Result<HandlerSpec> {
         "public_surface" => HandlerSpec {
             id: "public_surface",
             argv: vec!["cargo", "xtask", "public-surface"],
-            artifacts: vec![],
+            artifacts: vec![
+                "target/xtask/public-surface/latest.json",
+                "target/xtask/public-surface/latest.md",
+            ],
         },
         "publish_check" => HandlerSpec {
             id: "publish_check",
@@ -836,6 +855,30 @@ mod tests {
     }
 
     #[test]
+    fn scanner_safe_bundle_proof_handler_names_receipts() -> Result<()> {
+        let spec = handler_spec("bundle_proof_scanner_safe")?;
+
+        assert_eq!(
+            spec.argv,
+            vec![
+                "cargo",
+                "xtask",
+                "bundle-proof",
+                "--profile",
+                "scanner-safe",
+                "--out",
+                "target/release-evidence/scanner-safe",
+            ]
+        );
+        assert!(
+            spec.artifacts
+                .contains(&"target/release-evidence/scanner-safe/scanner-safe-bundle-proof.json")
+        );
+        assert!(!spec.argv.iter().any(|part| part.contains("&&")));
+        Ok(())
+    }
+
+    #[test]
     fn webhook_handler_runs_bundle_proof_without_shell() -> Result<()> {
         let spec = handler_spec("bundle_proof_webhook")?;
 
@@ -856,6 +899,22 @@ mod tests {
                 .contains(&"target/release-evidence/webhook/webhook-contract-pack-proof.json")
         );
         assert!(!spec.argv.iter().any(|part| part.contains("&&")));
+        Ok(())
+    }
+
+    #[test]
+    fn public_surface_handler_names_receipts() -> Result<()> {
+        let spec = handler_spec("public_surface")?;
+
+        assert_eq!(spec.argv, vec!["cargo", "xtask", "public-surface"]);
+        assert!(
+            spec.artifacts
+                .contains(&"target/xtask/public-surface/latest.json")
+        );
+        assert!(
+            spec.artifacts
+                .contains(&"target/xtask/public-surface/latest.md")
+        );
         Ok(())
     }
 
