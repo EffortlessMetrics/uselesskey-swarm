@@ -5479,6 +5479,7 @@ fn resolve_base_ref() -> String {
 const RIPR_PR_DIR: &str = "target/ripr/pr";
 const RIPR_PR_LOCK_DIR: &str = "target/ripr-pr.lock";
 const RIPR_REVIEW_DIR: &str = "target/ripr/review";
+const RIPR_REVIEW_LOCK_DIR: &str = "target/ripr-review.lock";
 
 const RIPR_CLAIM_BOUNDARY: &[&str] = &[
     "ripr is static oracle-exposure evidence for changed behavior",
@@ -5855,6 +5856,7 @@ fn ripr_review_comments(check: bool) -> Result<()> {
         return check_ripr_review_contract(&out_dir);
     }
 
+    let _output_lock = acquire_ripr_review_output_lock(&workspace_root)?;
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
     let base_ref = resolve_base_ref();
@@ -5904,6 +5906,10 @@ fn ripr_review_comments(check: bool) -> Result<()> {
         out_dir.join("comments.md").display()
     );
     Ok(())
+}
+
+fn acquire_ripr_review_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, RIPR_REVIEW_LOCK_DIR, "ripr-review")
 }
 
 fn check_ripr_review_contract(out_dir: &Path) -> Result<()> {
@@ -8043,6 +8049,15 @@ mod tests {
         let _lock = acquire_ripr_pr_output_lock(dir.path())?;
 
         assert!(dir.path().join(RIPR_PR_LOCK_DIR).is_dir());
+        Ok(())
+    }
+
+    #[test]
+    fn ripr_review_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_ripr_review_output_lock(dir.path())?;
+
+        assert!(dir.path().join(RIPR_REVIEW_LOCK_DIR).is_dir());
         Ok(())
     }
 
