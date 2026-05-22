@@ -325,6 +325,79 @@ standalone_reason = "test"
     }
 
     #[test]
+    fn rejects_missing_linked_plan() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_file(dir.path(), "docs/specs/a.md", "USELESSKEY-SPEC-0001")?;
+        write_ledger(
+            dir.path(),
+            r#"
+[[artifact]]
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+path = "docs/specs/a.md"
+status = "accepted"
+owner = "repo-infra"
+standalone_reason = "test"
+linked_plan = "plans/missing/implementation-plan.md"
+"#,
+        )?;
+        assert_error(
+            dir.path(),
+            "links missing plan `plans/missing/implementation-plan.md`",
+        )
+    }
+
+    #[test]
+    fn rejects_linked_proposal_with_wrong_kind() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_file(dir.path(), "docs/specs/a.md", "USELESSKEY-SPEC-0001")?;
+        write_file(dir.path(), "docs/specs/b.md", "USELESSKEY-SPEC-0002")?;
+        write_ledger(
+            dir.path(),
+            r#"
+[[artifact]]
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+path = "docs/specs/a.md"
+status = "accepted"
+owner = "repo-infra"
+linked_proposal = "USELESSKEY-SPEC-0002"
+
+[[artifact]]
+id = "USELESSKEY-SPEC-0002"
+kind = "spec"
+path = "docs/specs/b.md"
+status = "accepted"
+owner = "repo-infra"
+standalone_reason = "test"
+"#,
+        )?;
+        assert_error(
+            dir.path(),
+            "links `USELESSKEY-SPEC-0002` as proposal, but it is spec",
+        )
+    }
+
+    #[test]
+    fn rejects_superseded_without_replacement() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_file(dir.path(), "docs/specs/a.md", "USELESSKEY-SPEC-0001")?;
+        write_ledger(
+            dir.path(),
+            r#"
+[[artifact]]
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+path = "docs/specs/a.md"
+status = "superseded"
+owner = "repo-infra"
+standalone_reason = "test"
+"#,
+        )?;
+        assert_error(dir.path(), "superseded artifact requires replaced_by")
+    }
+
+    #[test]
     fn accepts_standalone_reason() -> Result<()> {
         let dir = tempfile::tempdir()?;
         write_file(dir.path(), "docs/specs/a.md", "USELESSKEY-SPEC-0001")?;
