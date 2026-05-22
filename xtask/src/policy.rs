@@ -5,7 +5,7 @@
 
 use std::collections::{BTreeMap, BTreeSet, HashMap};
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail};
@@ -1488,14 +1488,7 @@ fn validate_negative_fixture_entry(
         );
         validate_required_vec(&entry.docs, &entry.stable_id, "docs", errors);
         validate_required_vec(&entry.tests, &entry.stable_id, "tests", errors);
-        for doc in &entry.docs {
-            if !Path::new(doc).exists() {
-                errors.push(format!(
-                    "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` does not exist",
-                    entry.stable_id
-                ));
-            }
-        }
+        validate_negative_fixture_docs(entry, errors);
         for command in &entry.tests {
             if !(command.starts_with("cargo test ") || command.starts_with("cargo xtask ")) {
                 errors.push(format!(
@@ -1507,6 +1500,35 @@ fn validate_negative_fixture_entry(
     } else {
         validate_required_text(entry.reason.as_deref(), &entry.stable_id, "reason", errors);
     }
+}
+
+fn validate_negative_fixture_docs(entry: &NegativeFixtureEntry, errors: &mut Vec<String>) {
+    let root = workspace_root_path();
+    for doc in &entry.docs {
+        if !doc.starts_with("docs/") {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` must start with `docs/`",
+                entry.stable_id
+            ));
+            continue;
+        }
+        if !root
+            .join(doc.replace('/', std::path::MAIN_SEPARATOR_STR))
+            .exists()
+        {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` does not exist",
+                entry.stable_id
+            ));
+        }
+    }
+}
+
+fn workspace_root_path() -> PathBuf {
+    Path::new(env!("CARGO_MANIFEST_DIR")).parent().map_or_else(
+        || PathBuf::from(env!("CARGO_MANIFEST_DIR")),
+        |parent| parent.to_path_buf(),
+    )
 }
 
 fn validate_bundle_profiles(entry: &NegativeFixtureEntry, errors: &mut Vec<String>) {
@@ -2572,6 +2594,51 @@ mod tests {
             errors
                 .iter()
                 .any(|error| error.contains("missing-claim") && error.contains(CLAIM_LEDGER_TOML))
+        );
+    }
+
+    #[test]
+    fn implemented_negative_fixture_docs_must_be_repo_local_and_exist() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "jwt_missing_kid".into(),
+            family: "jwt_token".into(),
+            status: "implemented".into(),
+            owner_crate: Some("uselesskey-token".into()),
+            public_surface: Some("NegativeToken::MissingKid".into()),
+            docs: vec![
+                "docs/reference/failure-atlas.md".into(),
+                "README.md".into(),
+                "docs/reference/missing-negative-fixture-doc.md".into(),
+            ],
+            tests: vec!["cargo test -p uselesskey-token --all-features".into()],
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(false),
+            claim: Some("jwt-token-negative-fixtures".into()),
+            does_not_prove: vec!["provider compatibility".into()],
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["jwt-token-negative-fixtures"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("docs path `README.md` must start with `docs/`")),
+            "errors: {errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("docs/reference/missing-negative-fixture-doc.md")
+                    && error.contains("does not exist")
+            }),
+            "errors: {errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .all(|error| !error.contains("docs/reference/failure-atlas.md")),
+            "errors: {errors:?}"
         );
     }
 
