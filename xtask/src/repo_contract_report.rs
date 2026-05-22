@@ -230,6 +230,7 @@ fn build_report(root: &Path) -> Result<Report> {
     let artifacts = read_doc_artifacts(root)?;
     let goal = read_active_goal(root)?;
     let claims = read_claim_ledger(root)?;
+    let support_rows = support_tiers::read_support_rows(root)?;
     let workflows = support_tiers::read_workflow_rows(root)?;
     let rails = read_rails_index(root)?;
     let artifact_index = artifacts
@@ -245,6 +246,7 @@ fn build_report(root: &Path) -> Result<Report> {
     let mut missing_links = missing_artifact_links(root, &artifacts, &artifact_index);
     missing_links.extend(missing_goal_links(root, &goal, &artifact_index));
     missing_links.extend(missing_claim_links(root, &claims, &artifact_index));
+    missing_links.extend(missing_support_links(root, &support_rows, &claim_index));
     missing_links.extend(missing_workflow_links(root, &workflows, &claim_index));
 
     Ok(Report {
@@ -468,6 +470,34 @@ fn missing_claim_links(
         for doc in &claim.docs {
             if is_repo_path(doc) && !root.join(to_path(doc)).exists() {
                 missing.insert(format!("claim `{}` links missing doc `{doc}`", claim.id));
+            }
+        }
+    }
+    missing.into_iter().collect()
+}
+
+fn missing_support_links(
+    root: &Path,
+    rows: &[support_tiers::SupportRow],
+    claim_index: &BTreeMap<&str, &ClaimEntry>,
+) -> Vec<String> {
+    let mut missing = BTreeSet::new();
+    for row in rows {
+        if !claim_index.contains_key(row.claim.as_str()) {
+            missing.insert(format!(
+                "support surface `{}` links missing claim `{}`",
+                row.surface, row.claim
+            ));
+        }
+        for doc in inline_code_values(&row.docs)
+            .into_iter()
+            .filter(|path| is_repo_path(path))
+        {
+            if !root.join(to_path(&doc)).exists() {
+                missing.insert(format!(
+                    "support surface `{}` links missing doc `{doc}`",
+                    row.surface
+                ));
             }
         }
     }
@@ -1017,6 +1047,64 @@ docs = ["docs/how-to/missing-audit.md"]
     }
 
     #[test]
+    fn repo_contract_report_records_missing_support_claim_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(
+            dir.path(),
+            "docs/status/SUPPORT_TIERS.md",
+            r#"# Support Tiers
+
+## Claim Support Map
+
+| Surface | Tier | Claim | Proof command | Docs | Boundary | Release lane |
+| --- | --- | --- | --- | --- | --- | --- |
+| Metadata-only audit packets | Stabilizing | `missing-claim` | `cargo xtask no-blob` | `docs/how-to/audit.md` | Does not prove release readiness. | `minor` |
+"#,
+        )?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| {
+                link.contains("support surface `Metadata-only audit packets`")
+                    && link.contains("missing-claim")
+            }),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn repo_contract_report_records_missing_support_doc_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(
+            dir.path(),
+            "docs/status/SUPPORT_TIERS.md",
+            r#"# Support Tiers
+
+## Claim Support Map
+
+| Surface | Tier | Claim | Proof command | Docs | Boundary | Release lane |
+| --- | --- | --- | --- | --- | --- | --- |
+| Metadata-only audit packets | Stabilizing | `metadata-only-audit-packets` | `cargo xtask no-blob` | `docs/how-to/missing-audit.md` | Does not prove release readiness. | `minor` |
+"#,
+        )?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| {
+                link.contains("support surface `Metadata-only audit packets`")
+                    && link.contains("docs/how-to/missing-audit.md")
+            }),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
     fn repo_contract_report_records_missing_workflow_doc_links() -> Result<()> {
         let dir = minimal_repo()?;
         write_file(
@@ -1136,6 +1224,18 @@ spec = "USELESSKEY-SPEC-0023"
 surfaces = ["uselesskey audit-bundle --ci"]
 proof_commands = ["cargo xtask no-blob"]
 docs = ["docs/how-to/audit.md"]
+"#,
+        )?;
+        write_file(
+            dir.path(),
+            "docs/status/SUPPORT_TIERS.md",
+            r#"# Support Tiers
+
+## Claim Support Map
+
+| Surface | Tier | Claim | Proof command | Docs | Boundary | Release lane |
+| --- | --- | --- | --- | --- | --- | --- |
+| Metadata-only audit packets | Stabilizing | `metadata-only-audit-packets` | `cargo xtask no-blob` | `docs/how-to/audit.md` | Does not prove release readiness. | `minor` |
 "#,
         )?;
         write_file(
