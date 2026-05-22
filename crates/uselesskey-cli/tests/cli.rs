@@ -127,7 +127,9 @@ fn top_level_help_routes_installed_users_to_self_check_and_audit() -> TestResult
     assert!(out.contains("Start here:"));
     assert!(out.contains("uselesskey doctor"));
     assert!(out.contains("uselesskey profiles"));
-    assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --ci"));
+    assert!(out.contains(
+        "uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit"
+    ));
     assert!(out.contains("Generate a deterministic fixture bundle"));
     assert!(out.contains("Check installed CLI readiness"));
     assert!(out.contains("Repo public-claim proof is separate from installed CLI setup."));
@@ -142,7 +144,9 @@ fn bundle_help_shows_installed_generate_verify_inspect_audit_loop() -> TestResul
     assert!(out.contains("uselesskey bundle --profile webhook --out target/uselesskey-webhook"));
     assert!(out.contains("uselesskey verify-bundle target/uselesskey-webhook"));
     assert!(out.contains("uselesskey inspect-bundle target/uselesskey-webhook"));
-    assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --ci"));
+    assert!(out.contains(
+        "uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit"
+    ));
     assert!(out.contains("keep generated payloads under target/"));
     assert!(out.contains("Explain the profile"));
     Ok(())
@@ -155,10 +159,15 @@ fn audit_bundle_help_explains_ci_receipts_and_boundaries() -> TestResult<()> {
     assert!(out.contains("Emit metadata-only bundle audit receipts"));
     assert!(out.contains("--path <BUNDLE_DIR>"));
     assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --out"));
-    assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --ci"));
+    assert!(out.contains(
+        "uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit"
+    ));
+    assert!(out.contains(
+        "uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit"
+    ));
     assert!(out.contains("--expect-profile <PROFILE>"));
     assert!(out.contains("--policy <POLICY>"));
-    assert!(out.contains("Emit CI-oriented JSON"));
+    assert!(out.contains("uploadable metadata-only receipts"));
     assert!(out.contains("stable audit failure classes"));
     assert!(out.contains("not prove production security"));
     assert!(out.contains("provider compatibility"));
@@ -199,7 +208,9 @@ fn doctor_text_reports_installed_cli_checks_only() -> TestResult<()> {
     assert!(report.contains("Next steps:"));
     assert!(report.contains("uselesskey profiles"));
     assert!(report.contains("uselesskey bundle --profile webhook --out target/uselesskey-webhook"));
-    assert!(report.contains("uselesskey audit-bundle target/uselesskey-webhook --ci"));
+    assert!(report.contains(
+        "uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit"
+    ));
     assert!(report.contains("installed CLI concerns only"));
     assert!(report.contains("repo-local workflows"));
     assert!(!report.contains("cargo xtask"));
@@ -255,7 +266,7 @@ fn doctor_json_reports_known_profiles_and_boundaries() -> TestResult<()> {
     for step in [
         "uselesskey profiles",
         "uselesskey bundle --profile webhook --out target/uselesskey-webhook",
-        "uselesskey audit-bundle target/uselesskey-webhook --ci",
+        "uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit",
     ] {
         assert!(
             next_steps.iter().any(|value| value.as_str() == Some(step)),
