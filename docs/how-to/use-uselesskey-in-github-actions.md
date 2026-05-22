@@ -124,8 +124,13 @@ explicitly asks for raw fixture payloads. Keep generated bundles under
             target/uselesskey-tls-audit/bundle-audit.md
             target/uselesskey-oidc-audit/bundle-audit.json
             target/uselesskey-oidc-audit/bundle-audit.md
-          if-no-files-found: ignore
+          if-no-files-found: error
 ```
+
+Treat missing audit receipts as a broken CI recipe. `audit-bundle --ci --out`
+writes metadata-only receipts for passing audits and stable policy failures, so
+an absent `bundle-audit.json` or `bundle-audit.md` usually means the audit step
+did not run or used an older command shape.
 
 ## What This Proves
 
