@@ -545,7 +545,7 @@ fn run_ci_recipe_profile(
         .args(["--policy", "strict"])
         .arg("--ci")
         .current_dir(&project_dir);
-    run_command_step(
+    let audit_stdout = run_command_step(
         receipt,
         &format!("ci-recipe-audit-{profile}"),
         audit,
@@ -554,6 +554,7 @@ fn run_ci_recipe_profile(
         &[bundle_artifact.as_str(), audit_artifact.as_str()],
     )?;
 
+    verify_ci_audit_json(&audit_stdout, profile, "CI recipe audit stdout")?;
     verify_ci_audit_receipt(&audit_dir, profile)?;
     record_project(
         receipt,
