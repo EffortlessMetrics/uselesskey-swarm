@@ -38,6 +38,7 @@ mod receipt;
 mod repo_contract_report;
 mod spec_check;
 mod support_tiers;
+mod target_output;
 mod test_efficiency;
 mod user_path_smoke;
 mod verification_pack;
