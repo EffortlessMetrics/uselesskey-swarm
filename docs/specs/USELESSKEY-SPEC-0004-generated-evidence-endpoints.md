@@ -86,6 +86,11 @@ artifacts as README badge data.
 This spec does not require bot-driven badge refreshes before endpoint behavior
 has settled.
 
+In `uselesskey-swarm`, the badge endpoint workflow is manual-dispatch only.
+This keeps generated badge refreshes available while preventing stale
+GITHUB_TOKEN-authored PRs from accumulating without the normalized
+`Uselesskey Rust Small Result` check.
+
 ## Required Evidence
 
 Endpoint drift proof:
