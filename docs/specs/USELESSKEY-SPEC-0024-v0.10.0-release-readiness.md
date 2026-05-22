@@ -55,7 +55,7 @@ The v0.10.0 release-readiness lane prepares release evidence only. It must:
   pretending that unpublished versions are installable;
 - prove the installed CLI user path from a release-candidate checkout:
   `doctor`, `bundle`, `verify-bundle`, `inspect-bundle`, and
-  `audit-bundle --ci --expect-profile --policy strict`;
+  `audit-bundle --ci --expect-profile --policy strict --out <audit-dir>`;
 - prove facade examples against the release-candidate checkout;
 - validate package contents through dry-run packaging and blob checks;
 - write a readiness record with proof commands, hosted CI, known non-blockers,
@@ -146,7 +146,8 @@ uselesskey audit-bundle \
   target/uselesskey-oidc \
   --ci \
   --expect-profile oidc \
-  --policy strict
+  --policy strict \
+  --out target/uselesskey-oidc-audit
 ```
 
 Acceptable snippet reconciliation:

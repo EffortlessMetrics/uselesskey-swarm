@@ -23,12 +23,14 @@ CI gate:
 
 ```bash
 uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
-uselesskey audit-bundle target/uselesskey-webhook --ci
+uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
 ```
 
 It writes `bundle-audit.json` and `bundle-audit.md` when `--out` is provided.
 Those receipts contain bundle metadata, artifact classifications, stable failure
-classes, checks, and boundaries. They do not copy raw fixture payloads.
+classes, checks, and boundaries. They do not copy raw fixture payloads. `--ci`
+also emits machine-readable JSON on stdout; keep `--out` with it when a CI job
+needs durable reviewer receipts.
 
 Use summary mode when a terminal or CI log only needs the compact decision:
 
