@@ -6,9 +6,13 @@ use std::time::Instant;
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
 
-use crate::{bundle_proof, external_adoption_smoke, git_head_sha, no_blob_gate, user_path_smoke};
+use crate::{
+    bundle_proof, external_adoption_smoke, git_head_sha, no_blob_gate, target_output,
+    user_path_smoke,
+};
 
 const OUT_DIR: &str = "target/adoption-regression";
+const LOCK_DIR: &str = "target/adoption-regression.lock";
 const BUNDLE_PROOF_DIR: &str = "target/adoption-regression/bundle-proof";
 const RUNTIME_MATRIX_DIR: &str = "target/adoption-regression/runtime-matrix";
 
@@ -54,6 +58,7 @@ struct AdoptionRegressionStep {
 }
 
 pub fn run(root: &Path, options: RunOptions) -> Result<()> {
+    let _output_lock = acquire_output_lock(root)?;
     let out_dir = root.join(OUT_DIR);
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
@@ -87,6 +92,10 @@ pub fn run(root: &Path, options: RunOptions) -> Result<()> {
     }
 
     result
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "adoption-regression")
 }
 
 fn run_steps(
@@ -515,11 +524,21 @@ mod tests {
     fn adoption_regression_artifact_paths_are_target_scoped() {
         for path in receipt_artifacts(true).into_iter().chain([
             OUT_DIR.to_string(),
+            LOCK_DIR.to_string(),
             BUNDLE_PROOF_DIR.to_string(),
             RUNTIME_MATRIX_DIR.to_string(),
         ]) {
             assert!(path.starts_with("target/"));
         }
+    }
+
+    #[test]
+    fn adoption_regression_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
+        Ok(())
     }
 
     #[test]
