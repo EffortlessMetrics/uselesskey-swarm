@@ -15,6 +15,11 @@ Use [local-validation.md](local-validation.md) when reporting local PR evidence
 or deciding what `pr-lite`, hosted CI, targeted mutation, and release evidence
 each prove.
 
+## Recent Handoffs
+
+- [2026-05-21-v0-10-0-release-readiness-closeout.md](2026-05-21-v0-10-0-release-readiness-closeout.md) - Release-readiness closeout and next release-boundary handoff.
+- [2026-05-21-source-of-truth-control-plane-closeout.md](2026-05-21-source-of-truth-control-plane-closeout.md) - Source-of-truth control-plane closeout and carried product surfaces.
+
 ## Required Shape
 
 Use [the handoff template](../templates/handoff.md). A handoff should include:
