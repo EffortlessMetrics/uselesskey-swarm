@@ -154,6 +154,12 @@ fn write_closeout(root: &Path, goal_id: &str, date: &str) -> Result<CloseoutOutp
             goal.id
         );
     }
+    if goal.status != "active" {
+        bail!(
+            "{ACTIVE_GOAL_TOML} has status `{}`; closeout requires status `active`",
+            goal.status
+        );
+    }
 
     let slug = slugify(goal_id);
     let closeout_rel = format!("{HANDOFF_DIR}/{date}-{slug}-closeout.md");
@@ -758,7 +764,26 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn closeout_rejects_archived_goal_manifest() -> Result<()> {
+        let dir = minimal_repo_with_goal_status("archived")?;
+
+        let err = write_closeout(dir.path(), "test-goal", "2026-05-21")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains(".uselesskey/goals/active.toml has status `archived`"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
     fn minimal_repo() -> Result<tempfile::TempDir> {
+        minimal_repo_with_goal_status("active")
+    }
+
+    fn minimal_repo_with_goal_status(goal_status: &str) -> Result<tempfile::TempDir> {
         let dir = tempfile::tempdir()?;
         write_file(
             dir.path(),
@@ -819,13 +844,11 @@ surfaces = ["uselesskey audit-bundle --ci"]
 proof_commands = ["cargo xtask no-blob"]
 "#,
         )?;
-        write_file(
-            dir.path(),
-            ACTIVE_GOAL_TOML,
+        let active_goal = format!(
             r#"schema_version = "1.0"
 id = "test-goal"
 title = "Test goal"
-status = "active"
+status = "{goal_status}"
 owner = "codex"
 created = "2026-05-21"
 objective = "Test objective."
@@ -847,7 +870,8 @@ spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = ["cargo xtask next"]
 "#,
-        )?;
+        );
+        write_file(dir.path(), ACTIVE_GOAL_TOML, &active_goal)?;
         Ok(dir)
     }
 
