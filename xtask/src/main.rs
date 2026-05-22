@@ -5477,6 +5477,7 @@ fn resolve_base_ref() -> String {
 }
 
 const RIPR_PR_DIR: &str = "target/ripr/pr";
+const RIPR_PR_LOCK_DIR: &str = "target/ripr-pr.lock";
 const RIPR_REVIEW_DIR: &str = "target/ripr/review";
 
 const RIPR_CLAIM_BOUNDARY: &[&str] = &[
@@ -5492,6 +5493,7 @@ fn ripr_pr(check: bool) -> Result<()> {
 
     let base_ref = resolve_base_ref();
     let workspace_root = workspace_root_path();
+    let _output_lock = acquire_ripr_pr_output_lock(&workspace_root)?;
     let out_dir = workspace_root.join(RIPR_PR_DIR);
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
@@ -5608,12 +5610,17 @@ fn ripr_pr_summary(check: bool) -> Result<()> {
         return Ok(());
     }
 
+    let _output_lock = acquire_ripr_pr_output_lock(&workspace_root)?;
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create {}", out_dir.display()))?;
     fs::write(&summary_path, markdown)
         .with_context(|| format!("failed to write {}", summary_path.display()))?;
     println!("ripr-pr-summary: wrote {}", summary_path.display());
     Ok(())
+}
+
+fn acquire_ripr_pr_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, RIPR_PR_LOCK_DIR, "ripr-pr")
 }
 
 fn render_pr_evidence_summary_for_root(workspace_root: &Path) -> Result<String> {
@@ -8028,6 +8035,15 @@ mod tests {
         assert!(summary.contains("- Status: `skipped`"));
         assert!(summary.contains("ripr missing"));
         assert!(dir.path().join("review.md").exists());
+    }
+
+    #[test]
+    fn ripr_pr_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_ripr_pr_output_lock(dir.path())?;
+
+        assert!(dir.path().join(RIPR_PR_LOCK_DIR).is_dir());
+        Ok(())
     }
 
     #[test]
