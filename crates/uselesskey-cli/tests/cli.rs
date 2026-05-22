@@ -1427,9 +1427,10 @@ fn audit_bundle_ci_failure_json_reports_missing_manifest() -> TestResult<()> {
         bundle_dir.to_str().test_context("utf-8")?,
         "--ci",
     ]);
-    let assert = audit.assert().code(1).stderr(predicate::str::contains(
-        "audit failed: missing_manifest",
-    ));
+    let assert = audit
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("audit failed: missing_manifest"));
     let output = assert.get_output();
     let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
 
@@ -1450,10 +1451,7 @@ fn audit_bundle_ci_failure_json_reports_missing_manifest() -> TestResult<()> {
         0
     );
     assert_eq!(
-        audit["receipts"]
-            .as_array()
-            .test_context("receipts")?
-            .len(),
+        audit["receipts"].as_array().test_context("receipts")?.len(),
         0
     );
     assert!(
