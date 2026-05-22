@@ -1,7 +1,7 @@
 use std::collections::{BTreeMap, BTreeSet};
 use std::fmt::Write;
 use std::fs;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 
 use anyhow::{Context, Result, bail};
@@ -10,6 +10,7 @@ use serde::Deserialize;
 const METADATA_PATH: &str = "docs/metadata/workspace-docs.json";
 const SUPPORT_MATRIX_PATH: &str = "docs/reference/support-matrix.md";
 const MARKER_PREFIX: &str = "docs-sync:";
+const MARKDOWN_LINK_ROOTS: &[&str] = &["README.md", "docs", "examples"];
 
 #[derive(Debug, Deserialize)]
 struct DocsMetadata {
@@ -135,6 +136,7 @@ fn run_docs_sync(check: bool) -> Result<()> {
     let metadata = load_metadata(&root)?;
     validate_support_matrix(&root, &metadata)?;
     validate_metadata_integrity(&root, &metadata)?;
+    validate_local_markdown_links(&root)?;
 
     let mut rewritten_targets = Vec::new();
     let mut inventory = BTreeMap::<String, Vec<String>>::new();
@@ -653,6 +655,143 @@ fn validate_metadata_integrity(root: &Path, metadata: &DocsMetadata) -> Result<(
     Ok(())
 }
 
+fn validate_local_markdown_links(root: &Path) -> Result<()> {
+    let mut markdown_files = Vec::new();
+    for entry in MARKDOWN_LINK_ROOTS {
+        collect_markdown_files(&root.join(entry), &mut markdown_files)
+            .with_context(|| format!("scan Markdown links under {entry}"))?;
+    }
+    markdown_files.sort();
+
+    let mut errors = Vec::new();
+    for path in markdown_files {
+        let raw = fs::read_to_string(&path)
+            .with_context(|| format!("read Markdown file {}", path.display()))?;
+        let parent = path.parent().unwrap_or(root);
+        let source = path
+            .strip_prefix(root)
+            .map(normalize_path_string)
+            .unwrap_or_else(|_| path.display().to_string());
+
+        for raw_target in extract_inline_markdown_targets(&raw) {
+            let Some(target) = normalize_local_markdown_target(&raw_target) else {
+                continue;
+            };
+            let resolved = if let Some(root_relative) = target.strip_prefix('/') {
+                root.join(root_relative)
+            } else {
+                parent.join(&target)
+            };
+            if !resolved.exists() {
+                errors.push(format!("{source}: unresolved link target `{raw_target}`"));
+            }
+        }
+    }
+
+    if !errors.is_empty() {
+        bail!(
+            "local Markdown link validation failed:\n- {}",
+            errors.join("\n- ")
+        );
+    }
+
+    Ok(())
+}
+
+fn collect_markdown_files(path: &Path, out: &mut Vec<PathBuf>) -> Result<()> {
+    if !path.exists() {
+        return Ok(());
+    }
+    if path.is_file() {
+        if path.extension().and_then(|ext| ext.to_str()) == Some("md") {
+            out.push(path.to_path_buf());
+        }
+        return Ok(());
+    }
+
+    let mut entries = fs::read_dir(path)
+        .with_context(|| format!("read directory {}", path.display()))?
+        .collect::<std::result::Result<Vec<_>, _>>()
+        .with_context(|| format!("read directory entry under {}", path.display()))?;
+    entries.sort_by_key(|entry| entry.path());
+
+    for entry in entries {
+        collect_markdown_files(&entry.path(), out)?;
+    }
+
+    Ok(())
+}
+
+fn extract_inline_markdown_targets(input: &str) -> Vec<String> {
+    let mut targets = Vec::new();
+    let bytes = input.as_bytes();
+    let mut cursor = 0;
+
+    while let Some(relative_start) = input[cursor..].find("](") {
+        let start = cursor + relative_start + 2;
+        let mut end = start;
+        let mut nested_parens = 0_u32;
+
+        while end < input.len() {
+            match bytes[end] {
+                b'\\' => {
+                    end = (end + 2).min(input.len());
+                    continue;
+                }
+                b'(' => nested_parens += 1,
+                b')' if nested_parens == 0 => break,
+                b')' => nested_parens -= 1,
+                _ => {}
+            }
+            end += 1;
+        }
+
+        if end >= input.len() {
+            break;
+        }
+
+        targets.push(input[start..end].trim().to_string());
+        cursor = end + 1;
+    }
+
+    targets
+}
+
+fn normalize_local_markdown_target(raw: &str) -> Option<String> {
+    let mut target = raw.trim();
+    if target.is_empty() || target.starts_with('#') || target.starts_with("//") {
+        return None;
+    }
+
+    if let Some(stripped) = target.strip_prefix('<') {
+        let end = stripped.find('>')?;
+        target = &stripped[..end];
+    } else if let Some((path, _title)) = target.split_once(char::is_whitespace) {
+        target = path;
+    }
+
+    if is_external_markdown_target(target) {
+        return None;
+    }
+
+    target = target.split('#').next().unwrap_or_default().trim();
+    if target.is_empty() {
+        return None;
+    }
+
+    Some(target.to_string())
+}
+
+fn is_external_markdown_target(target: &str) -> bool {
+    let Some((scheme, _rest)) = target.split_once(':') else {
+        return false;
+    };
+    !scheme.is_empty()
+        && scheme
+            .chars()
+            .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '+' | '-' | '.'))
+}
+
 fn validate_support_matrix(root: &Path, metadata: &DocsMetadata) -> Result<()> {
     let workspace_crates = workspace_package_names(root)?;
     let workspace_set: BTreeSet<String> = workspace_crates.into_iter().collect();
@@ -843,10 +982,12 @@ fn indent_lines(text: &str, indent: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use std::fs;
+
     use super::{
         DependencySnippet, DocsMetadata, ExampleCommand, SnippetDependency,
         render_minimal_example_commands, render_single_dependency_snippet, render_support_matrix,
-        replace_block, validate_allowed_value,
+        replace_block, validate_allowed_value, validate_local_markdown_links,
     };
 
     #[test]
@@ -959,5 +1100,51 @@ mod tests {
             .expect_err("replace_block should fail without markers");
         let text = err.to_string();
         assert!(text.contains("missing start marker"));
+    }
+
+    #[test]
+    fn local_markdown_links_accept_existing_relative_targets() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        fs::create_dir_all(dir.path().join("docs"))?;
+        fs::write(
+            dir.path().join("README.md"),
+            concat!(
+                "[guide](docs/guide.md)\n",
+                "[root](/README.md)\n",
+                "[anchor](#local-anchor)\n",
+                "[external](https://example.com/docs)\n",
+            ),
+        )?;
+        fs::write(
+            dir.path().join("docs/guide.md"),
+            "[readme](../README.md#start)\n",
+        )?;
+
+        validate_local_markdown_links(dir.path())?;
+
+        Ok(())
+    }
+
+    #[test]
+    fn local_markdown_links_reject_missing_targets_and_line_suffixes() -> anyhow::Result<()> {
+        let dir = tempfile::tempdir()?;
+        fs::create_dir_all(dir.path().join("docs"))?;
+        fs::create_dir_all(dir.path().join("src"))?;
+        fs::write(
+            dir.path().join("README.md"),
+            concat!(
+                "[missing](docs/missing.md)\n",
+                "[line suffix](src/lib.rs:9)\n",
+            ),
+        )?;
+        fs::write(dir.path().join("src/lib.rs"), "fn main() {}\n")?;
+
+        let err = validate_local_markdown_links(dir.path())
+            .expect_err("missing links should fail validation");
+        let text = err.to_string();
+        assert!(text.contains("docs/missing.md"), "{text}");
+        assert!(text.contains("src/lib.rs:9"), "{text}");
+
+        Ok(())
     }
 }
