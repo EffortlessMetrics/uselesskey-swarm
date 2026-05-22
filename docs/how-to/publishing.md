@@ -1,7 +1,8 @@
 # Crates.io readiness and publishing playbook
 
-`main` is already in the crates.io-ready state. The publish-prep work landed in
-`#229`; this document records the invariants to keep true for future releases:
+Use this page for crates.io readiness checks and source-repo publication prep.
+It records the invariants that must stay true before a release operator publishes
+from the source boundary:
 
 - Main stays boring-green (repeatable CI, no flaky hangs, no “works on my machine” gaps)
 - Every publishable crate packages cleanly (as crates.io sees it)
@@ -184,14 +185,19 @@ Required:
 - include every publishable crate
 - order leaves first, then dependents
 
-Recommended implementation:
+Current implementation:
 
-- `xtask publish-plan` command prints:
-  - ordered crate list
-  - `publish = false` status
-  - versions
-  - external dependency blockers
-- output plan in CI logs
+- `PUBLISH_CRATES` in `xtask/src/main.rs` is the authoritative publish order.
+- `cargo xtask publish-check` verifies that order is topological before running
+  publish dry-runs.
+- `cargo xtask publish-preflight` validates package metadata, README inclusion,
+  and versioned docs snippets before a release lane uses the order.
+- `cargo xtask public-surface` and
+  [`docs/reference/support-matrix.md`](../reference/support-matrix.md) classify
+  publishable and non-publishable crate surfaces.
+
+Do not document or rely on a separate `publish-plan` command unless that command
+exists in `cargo xtask --help` and is wired into the release proof path.
 
 ## CI wiring
 
