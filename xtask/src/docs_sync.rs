@@ -673,7 +673,9 @@ fn validate_local_markdown_links(root: &Path) -> Result<()> {
             .map(normalize_path_string)
             .unwrap_or_else(|_| path.display().to_string());
 
-        for raw_target in extract_inline_markdown_targets(&raw) {
+        let mut raw_targets = extract_inline_markdown_targets(&raw);
+        raw_targets.extend(extract_reference_markdown_targets(&raw));
+        for raw_target in raw_targets {
             let Some(target) = normalize_local_markdown_target(&raw_target) else {
                 continue;
             };
@@ -754,6 +756,28 @@ fn extract_inline_markdown_targets(input: &str) -> Vec<String> {
         cursor = end + 1;
     }
 
+    targets
+}
+
+fn extract_reference_markdown_targets(input: &str) -> Vec<String> {
+    let mut targets = Vec::new();
+    for line in input.lines() {
+        let trimmed = line.trim_start();
+        if !trimmed.starts_with('[') || trimmed.starts_with("[^") {
+            continue;
+        }
+        let Some((label, rest)) = trimmed.split_once("]:") else {
+            continue;
+        };
+        if label.len() <= 1 {
+            continue;
+        }
+        let target = rest.trim();
+        if target.is_empty() {
+            continue;
+        }
+        targets.push(target.to_string());
+    }
     targets
 }
 
@@ -1117,7 +1141,7 @@ mod tests {
         )?;
         fs::write(
             dir.path().join("docs/guide.md"),
-            "[readme](../README.md#start)\n",
+            "[readme](../README.md#start)\n\n[readme-ref]: ../README.md#start\n",
         )?;
 
         validate_local_markdown_links(dir.path())?;
@@ -1135,6 +1159,7 @@ mod tests {
             concat!(
                 "[missing](docs/missing.md)\n",
                 "[line suffix](src/lib.rs:9)\n",
+                "[missing-ref]: docs/also-missing.md\n",
             ),
         )?;
         fs::write(dir.path().join("src/lib.rs"), "fn main() {}\n")?;
@@ -1143,6 +1168,7 @@ mod tests {
             .expect_err("missing links should fail validation");
         let text = err.to_string();
         assert!(text.contains("docs/missing.md"), "{text}");
+        assert!(text.contains("docs/also-missing.md"), "{text}");
         assert!(text.contains("src/lib.rs:9"), "{text}");
 
         Ok(())
