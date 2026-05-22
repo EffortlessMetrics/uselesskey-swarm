@@ -10,7 +10,8 @@ use serde::Deserialize;
 const METADATA_PATH: &str = "docs/metadata/workspace-docs.json";
 const SUPPORT_MATRIX_PATH: &str = "docs/reference/support-matrix.md";
 const MARKER_PREFIX: &str = "docs-sync:";
-const MARKDOWN_LINK_ROOTS: &[&str] = &["README.md", ".rails", "docs", "examples", "plans"];
+const MARKDOWN_LINK_ROOTS: &[&str] =
+    &["README.md", ".rails", "crates", "docs", "examples", "plans"];
 
 #[derive(Debug, Deserialize)]
 struct DocsMetadata {
@@ -1175,13 +1176,18 @@ mod tests {
     }
 
     #[test]
-    fn local_markdown_links_scan_control_plane_roots() -> anyhow::Result<()> {
+    fn local_markdown_links_scan_control_plane_and_crate_roots() -> anyhow::Result<()> {
         let dir = tempfile::tempdir()?;
         fs::create_dir_all(dir.path().join(".rails/lanes"))?;
+        fs::create_dir_all(dir.path().join("crates/uselesskey"))?;
         fs::create_dir_all(dir.path().join("plans/release"))?;
         fs::write(
             dir.path().join(".rails/lanes/lane.md"),
             "[missing rails target](../../docs/missing-rails.md)\n",
+        )?;
+        fs::write(
+            dir.path().join("crates/uselesskey/README.md"),
+            "[missing crate target](../../docs/missing-crate.md)\n",
         )?;
         fs::write(
             dir.path().join("plans/release/plan.md"),
@@ -1192,6 +1198,7 @@ mod tests {
             .expect_err("control-plane Markdown roots should be scanned");
         let text = err.to_string();
         assert!(text.contains("docs/missing-rails.md"), "{text}");
+        assert!(text.contains("docs/missing-crate.md"), "{text}");
         assert!(text.contains("docs/missing-plan.md"), "{text}");
 
         Ok(())
