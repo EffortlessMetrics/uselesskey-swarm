@@ -53,7 +53,7 @@ proof machinery:
 
 | User | First interface | Expected first command or snippet |
 | --- | --- | --- |
-| Installed CLI user | `uselesskey` | `cargo install uselesskey-cli --version <current-stable>` |
+| Installed CLI user | `uselesskey` | `cargo install uselesskey-cli --version <current-stable> --locked` |
 | Rust test author | facade crate | `uselesskey = { version = "<current-stable>", ... }` |
 | CI user | installed CLI | `uselesskey bundle ... && uselesskey audit-bundle ... --ci` |
 | Reviewer with repo checkout | repo proof | `cargo xtask verification-pack ...` |
