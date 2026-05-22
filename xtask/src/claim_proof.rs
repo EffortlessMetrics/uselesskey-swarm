@@ -6,7 +6,7 @@ use std::process::Command;
 use anyhow::{Context, Result, bail};
 use serde::{Deserialize, Serialize};
 
-use crate::git_head_sha;
+use crate::{git_head_sha, target_output};
 
 #[derive(Debug, Deserialize)]
 struct ClaimLedger {
@@ -69,12 +69,14 @@ struct HandlerSpec {
 
 const CLAIM_PROOF_POLICY_IMPLEMENTED: &str = "implemented";
 const CLAIM_PROOF_POLICY_PLANNED: &str = "planned";
+const LOCK_DIR: &str = "target/claim-proof.lock";
 
 pub(crate) fn run(root: &Path, claim: Option<&str>, all_stable: bool) -> Result<()> {
     if claim.is_some() == all_stable {
         bail!("claim-proof: pass exactly one of --claim <id> or --all-stable");
     }
 
+    let _output_lock = acquire_output_lock(root)?;
     let ledger = read_ledger(root)?;
     let selected = match (all_stable, claim) {
         (true, _) => stable_claims_with_policy(&ledger)?,
@@ -102,6 +104,10 @@ pub(crate) fn run(root: &Path, claim: Option<&str>, all_stable: bool) -> Result<
     }
 
     Ok(())
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "claim-proof")
 }
 
 pub(crate) fn stable_claim_ids(root: &Path) -> Result<Vec<String>> {
@@ -879,6 +885,15 @@ mod tests {
             err.to_string().contains("requires an explicit version"),
             "unexpected error: {err}"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
         Ok(())
     }
 
