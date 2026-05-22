@@ -220,11 +220,12 @@ fn read_ledger(root: &Path) -> Result<ClaimLedger> {
 }
 
 fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
-    let claims = ledger
+    let claim_by_id = ledger
         .claim
         .iter()
-        .map(|claim| claim.id.as_str())
-        .collect::<BTreeSet<_>>();
+        .map(|claim| (claim.id.as_str(), claim))
+        .collect::<BTreeMap<_, _>>();
+    let claims = claim_by_id.keys().copied().collect::<BTreeSet<_>>();
     let mut seen = BTreeSet::new();
 
     for policy in &ledger.claim_proof {
@@ -277,6 +278,12 @@ fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
             validate_handler_id(handler)
                 .with_context(|| format!("claim-proof policy `{}`", policy.claim))?;
         }
+        if policy.status == CLAIM_PROOF_POLICY_IMPLEMENTED {
+            let claim = claim_by_id.get(policy.claim.as_str()).with_context(|| {
+                format!("claim-proof policy `{}` points to an unknown claim", policy.claim)
+            })?;
+            validate_claim_artifacts_are_named_by_handlers(claim, policy)?;
+        }
     }
 
     let policies = ledger
@@ -302,6 +309,34 @@ fn validate_claim_proof_policies(ledger: &ClaimLedger) -> Result<()> {
                 claim.id
             );
         }
+    }
+
+    Ok(())
+}
+
+fn validate_claim_artifacts_are_named_by_handlers(
+    claim: &ClaimEntry,
+    policy: &ClaimProofPolicy,
+) -> Result<()> {
+    let mut handler_artifacts = BTreeSet::new();
+    for handler in &policy.handlers {
+        let spec = handler_spec(handler)
+            .with_context(|| format!("claim-proof policy `{}`", policy.claim))?;
+        handler_artifacts.extend(spec.artifacts.into_iter());
+    }
+
+    let missing = claim
+        .artifacts
+        .iter()
+        .filter(|artifact| !handler_artifacts.contains(artifact.as_str()))
+        .cloned()
+        .collect::<Vec<_>>();
+    if !missing.is_empty() {
+        bail!(
+            "implemented claim-proof policy `{}` does not name handler artifacts for claim artifacts: {}",
+            policy.claim,
+            missing.join(", ")
+        );
     }
 
     Ok(())
@@ -374,7 +409,11 @@ fn handler_spec(handler: &str) -> Result<HandlerSpec> {
         "badges_check" => HandlerSpec {
             id: "badges_check",
             argv: vec!["cargo", "xtask", "badges", "--check"],
-            artifacts: vec!["badges/ripr-plus.json", "badges/scanner-safe.json"],
+            artifacts: vec![
+                "badges/ripr-plus.json",
+                "badges/scanner-safe.json",
+                "target/xtask/badges",
+            ],
         },
         "test_efficiency_report" => HandlerSpec {
             id: "test_efficiency_report",
@@ -823,6 +862,34 @@ mod tests {
     }
 
     #[test]
+    fn claim_proof_policy_validation_rejects_uncovered_claim_artifact() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim[0].artifacts = vec!["badges/scanner-safe.json".to_string()];
+
+        let err = match validate_claim_proof_policies(&ledger) {
+            Ok(()) => bail!("unexpected valid claim-proof policy ledger"),
+            Err(err) => err,
+        };
+
+        assert!(
+            err.to_string().contains(
+                "implemented claim-proof policy `scanner-safe-fixtures` does not name handler artifacts for claim artifacts: badges/scanner-safe.json"
+            ),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn claim_proof_policy_validation_accepts_claim_artifact_named_by_handler() -> Result<()> {
+        let mut ledger = minimal_ledger();
+        ledger.claim[1].artifacts =
+            vec!["target/release-evidence/tls/tls-contract-pack-proof.json".to_string()];
+
+        validate_claim_proof_policies(&ledger)
+    }
+
+    #[test]
     fn claim_proof_policy_validation_rejects_unknown_handler_id() -> Result<()> {
         let mut ledger = minimal_ledger();
         ledger.claim_proof[0].handlers = vec!["cargo xtask no-blob".to_string()];
@@ -851,6 +918,16 @@ mod tests {
             vec!["cargo", "xtask", "scanner-safe-reference", "--check"]
         );
         assert!(!spec.argv.iter().any(|part| part.contains("&&")));
+        Ok(())
+    }
+
+    #[test]
+    fn badges_handler_names_committed_and_target_receipts() -> Result<()> {
+        let spec = handler_spec("badges_check")?;
+
+        assert!(spec.artifacts.contains(&"badges/ripr-plus.json"));
+        assert!(spec.artifacts.contains(&"badges/scanner-safe.json"));
+        assert!(spec.artifacts.contains(&"target/xtask/badges"));
         Ok(())
     }
 
