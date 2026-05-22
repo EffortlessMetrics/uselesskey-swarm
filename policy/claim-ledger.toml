@@ -12,7 +12,7 @@ updated = "2026-05-21"
 claim = "scanner-safe-fixtures"
 status = "implemented"
 include_in_all_stable = true
-handlers = ["scanner_safe_reference_check", "no_blob", "badges_check"]
+handlers = ["scanner_safe_reference_check", "bundle_proof_scanner_safe", "no_blob", "badges_check"]
 
 [[claim_proof]]
 claim = "ripr-plus-evidence-endpoint"
@@ -70,6 +70,7 @@ surfaces = [
 ]
 proof_commands = [
   "cargo xtask scanner-safe-reference --check",
+  "cargo xtask bundle-proof --profile scanner-safe --out target/release-evidence/scanner-safe",
   "cargo xtask no-blob",
   "cargo xtask badges --check",
 ]
