@@ -5,10 +5,13 @@ use std::path::{Path, PathBuf};
 use anyhow::{Context, Result, bail};
 use serde::Deserialize;
 
+use crate::target_output;
+
 const ACTIVE_GOAL_TOML: &str = ".uselesskey/goals/active.toml";
 const CLAIM_LEDGER_TOML: &str = "policy/claim-ledger.toml";
 const DOC_ARTIFACTS_TOML: &str = "policy/doc-artifacts.toml";
 const DEFAULT_OUT: &str = "target/source-of-truth/pr-body.md";
+const LOCK_DIR: &str = "target/pr-body.lock";
 
 #[derive(Debug, Deserialize)]
 struct GoalManifest {
@@ -79,12 +82,17 @@ pub(crate) fn run(root: &Path, work_item: &str) -> Result<()> {
 }
 
 fn write_pr_body(root: &Path, work_item_id: &str, out: &Path) -> Result<String> {
+    let _output_lock = acquire_output_lock(root)?;
     let body = generate_pr_body(root, work_item_id)?;
     if let Some(parent) = out.parent() {
         fs::create_dir_all(parent).with_context(|| format!("create {}", parent.display()))?;
     }
     fs::write(out, &body).with_context(|| format!("write {}", out.display()))?;
     Ok(body)
+}
+
+fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, LOCK_DIR, "pr-body")
 }
 
 fn generate_pr_body(root: &Path, work_item_id: &str) -> Result<String> {
@@ -445,6 +453,15 @@ mod tests {
             "{err}"
         );
         assert!(err.contains("requires status `active`"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    fn pr_body_output_lock_is_target_local() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let _lock = acquire_output_lock(dir.path())?;
+
+        assert!(dir.path().join(LOCK_DIR).is_dir());
         Ok(())
     }
 
