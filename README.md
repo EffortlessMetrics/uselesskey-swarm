@@ -102,6 +102,9 @@ for the verify/audit loop, or
 [docs/status/PUBLIC_CLAIMS.md](docs/status/PUBLIC_CLAIMS.md) for the full proof
 index.
 
+For downstream-shaped clean projects, use the
+[external examples index](examples/external/README.md).
+
 ## Why this exists
 
 `uselesskey` is a **test-fixture layer**, not a runtime crypto service.
