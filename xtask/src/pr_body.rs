@@ -168,6 +168,15 @@ fn generate_pr_body(root: &Path, work_item_id: &str) -> Result<String> {
     );
     out.push_str("- No blocking CI promotion unless the PR explicitly changes CI policy.\n\n");
 
+    out.push_str("## Release/source boundary\n\n");
+    out.push_str("Check one:\n\n");
+    out.push_str(
+        "- [ ] no release, publish, signing, crates.io push, GitHub release, tag, or source-sync work\n",
+    );
+    out.push_str(
+        "- [ ] release/source boundary touched and explicitly approved in linked issue/spec\n\n",
+    );
+
     out.push_str("## Support-tier impact\n\n");
     out.push_str("- [ ] none\n");
     out.push_str("- [ ] updates `docs/status/SUPPORT_TIERS.md`\n");
@@ -399,6 +408,10 @@ mod tests {
         assert!(body.contains("Spec: `USELESSKEY-SPEC-0023`"));
         assert!(body.contains("Plan item: `goal-manifest-checker`"));
         assert!(body.contains("cargo xtask check-goals"));
+        assert!(body.contains("## Release/source boundary"));
+        assert!(body.contains(
+            "no release, publish, signing, crates.io push, GitHub release, tag, or source-sync work"
+        ));
         assert!(body.contains("## Claim boundary"));
         Ok(())
     }

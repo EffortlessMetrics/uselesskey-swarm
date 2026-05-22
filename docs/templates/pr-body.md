@@ -20,6 +20,13 @@ Files and behavior included.
 
 What is explicitly out of scope.
 
+## Release/source boundary
+
+Check one:
+
+- [ ] no release, publish, signing, crates.io push, GitHub release, tag, or source-sync work
+- [ ] release/source boundary touched and explicitly approved in linked issue/spec
+
 ## Support-Tier Impact
 
 - [ ] none
