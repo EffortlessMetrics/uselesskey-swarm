@@ -303,22 +303,29 @@ fn run_external_example(
         .with_context(|| format!("failed to patch {}", project_dir.display()))?;
 
     let project_artifact = relative_artifact_from_path(&project_dir);
-    let target_artifact = relative_artifact_from_path(&project_dir.join("target"));
+    let target_dir = external_examples_target_dir(work_dir);
+    fs::create_dir_all(&target_dir)
+        .with_context(|| format!("failed to create {}", target_dir.display()))?;
+    let target_artifact = relative_artifact_from_path(&target_dir);
 
     let mut cmd = Command::new("cargo");
     cmd.args(["test", "--quiet"])
         .current_dir(&project_dir)
-        .env("CARGO_TARGET_DIR", project_dir.join("target"));
+        .env("CARGO_TARGET_DIR", &target_dir);
     run_command_step(
         receipt,
         &format!("external-example-{}", example.name),
         cmd,
         &project_dir,
         log_dir,
-        &[project_artifact.as_str()],
+        &[project_artifact.as_str(), target_artifact.as_str()],
     )?;
     record_project(receipt, example.name, &project_dir, &[target_artifact]);
     Ok(())
+}
+
+fn external_examples_target_dir(work_dir: &Path) -> PathBuf {
+    work_dir.join("cargo-target/external-examples")
 }
 
 fn run_cli_discovery(
@@ -1132,6 +1139,14 @@ mod tests {
                 "tls-chain-validation",
                 "downstream-ci-bundle-audit",
             ]
+        );
+    }
+
+    #[test]
+    fn external_examples_share_target_dir() {
+        assert_eq!(
+            external_examples_target_dir(Path::new("target/external-adoption-smoke/work")),
+            PathBuf::from("target/external-adoption-smoke/work/cargo-target/external-examples")
         );
     }
 
