@@ -1371,6 +1371,58 @@ fn audit_bundle_ci_accepts_strict_policy_and_expected_profile() -> TestResult<()
 }
 
 #[test]
+fn audit_bundle_ci_writes_metadata_only_receipts_when_out_is_set() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("webhook");
+    let audit_dir = dir.path().join("webhook-audit");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--profile",
+        "webhook",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let out = run([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+        "--expect-profile",
+        "webhook",
+        "--policy",
+        "strict",
+        "--out",
+        audit_dir.to_str().test_context("utf-8")?,
+    ])?;
+    let audit: Value = serde_json::from_str(&out).test_context("audit json")?;
+    assert_eq!(audit["status"], "pass");
+    assert_eq!(audit["profile"], "webhook");
+    assert_eq!(
+        audit_receipt_files(&audit_dir)?,
+        vec![
+            "bundle-audit.json".to_string(),
+            "bundle-audit.md".to_string()
+        ]
+    );
+
+    let audit_json =
+        fs::read(audit_dir.join("bundle-audit.json")).test_context("audit json receipt")?;
+    let audit_md =
+        fs::read(audit_dir.join("bundle-audit.md")).test_context("audit markdown receipt")?;
+    let mut receipt_bytes = audit_json;
+    receipt_bytes.extend_from_slice(&audit_md);
+    let receipt_text = String::from_utf8_lossy(&receipt_bytes);
+    assert!(!out.contains("whsec_"));
+    assert!(!receipt_text.contains("whsec_"));
+    assert!(!receipt_text.contains("BEGIN PRIVATE KEY"));
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_ci_fails_on_expected_profile_mismatch() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("webhook");
