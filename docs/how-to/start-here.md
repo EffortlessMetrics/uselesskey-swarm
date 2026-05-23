@@ -28,9 +28,14 @@ Use the installed CLI outside this workspace:
 
 ```bash
 cargo install uselesskey-cli --version 0.9.1 --locked
+uselesskey doctor
 uselesskey profiles
 uselesskey bundle --profile webhook --explain
 ```
+
+Run `doctor` once after install or before a CI rollout. It checks installed CLI
+concerns only: version reporting, profile discovery, JSON output, and a writable
+`target/` probe path. It does not generate, inspect, or copy fixture payloads.
 
 Inside this workspace, maintainers may run the same CLI subcommands through
 Cargo while changing the CLI itself:
