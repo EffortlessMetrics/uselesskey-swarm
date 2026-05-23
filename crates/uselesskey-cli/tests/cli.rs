@@ -1937,6 +1937,58 @@ fn audit_bundle_reports_path_escape_class() -> TestResult<()> {
 }
 
 #[test]
+fn audit_bundle_path_escape_diagnostic_escapes_control_characters() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("webhook");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--profile",
+        "webhook",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let manifest_path = bundle_dir.join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).test_context("manifest")?)
+            .test_context("manifest json")?;
+    let files = manifest["files"]
+        .as_array_mut()
+        .test_context("manifest files")?;
+    let first_file = files.first_mut().test_context("first manifest file")?;
+    *first_file = serde_json::json!("receipts/audit-surface\n.json");
+    let manifest_bytes = serde_json::to_vec_pretty(&manifest).test_context("manifest bytes")?;
+    fs::write(&manifest_path, manifest_bytes).test_context("mutate manifest")?;
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+    ]);
+    let assert = audit
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("audit failed: path_escape"))
+        .stderr(predicate::str::contains("receipts/audit-surface\\n.json"));
+    let output = assert.get_output();
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(!stderr.contains("receipts/audit-surface\n.json"));
+
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+    let detail = audit["checks"][0]["detail"]
+        .as_str()
+        .test_context("failure detail")?;
+    assert!(detail.contains("receipts/audit-surface\\n.json"));
+    assert!(!detail.contains("receipts/audit-surface\n.json"));
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_fails_on_unexpected_bundle_file() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("bundle");

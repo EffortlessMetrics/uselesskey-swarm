@@ -1384,14 +1384,14 @@ fn ensure_manifest_paths_safe(manifest: &BundleManifest) -> Result<()> {
         .chain(manifest.receipts.iter().map(|receipt| &receipt.path))
     {
         if !is_safe_bundle_relative_path(path) {
-            bail!("path_escape: {path}");
+            bail!("path_escape: {}", bundle_manifest_path_context(path));
         }
     }
     Ok(())
 }
 
 fn is_safe_bundle_relative_path(path: &str) -> bool {
-    if path.chars().any(|ch| ch.is_control()) {
+    if path.is_empty() || path.chars().any(|ch| ch.is_control()) {
         return false;
     }
 
@@ -1400,6 +1400,14 @@ fn is_safe_bundle_relative_path(path: &str) -> bool {
         && path
             .components()
             .all(|component| matches!(component, Component::Normal(_) | Component::CurDir))
+}
+
+fn bundle_manifest_path_context(path: &str) -> String {
+    if path.is_empty() {
+        "<empty>".to_string()
+    } else {
+        path.escape_default().to_string()
+    }
 }
 
 fn collect_bundle_files(bundle_dir: &Path) -> Result<Vec<String>> {
@@ -2221,6 +2229,7 @@ mod tests {
     #[test]
     fn bundle_relative_path_safety_rejects_control_characters() {
         assert!(is_safe_bundle_relative_path("receipts/audit-surface.json"));
+        assert!(!is_safe_bundle_relative_path(""));
         assert!(!is_safe_bundle_relative_path(
             "receipts/audit-surface\n.json"
         ));
@@ -2230,6 +2239,23 @@ mod tests {
         assert!(!is_safe_bundle_relative_path(
             "receipts/audit-surface\t.json"
         ));
+    }
+
+    #[test]
+    fn bundle_manifest_path_context_is_display_safe() {
+        assert_eq!(bundle_manifest_path_context(""), "<empty>");
+        assert_eq!(
+            bundle_manifest_path_context("receipts/audit-surface\n.json"),
+            "receipts/audit-surface\\n.json"
+        );
+        assert_eq!(
+            bundle_manifest_path_context("receipts/audit-surface\r.json"),
+            "receipts/audit-surface\\r.json"
+        );
+        assert_eq!(
+            bundle_manifest_path_context("receipts/audit-surface\t.json"),
+            "receipts/audit-surface\\t.json"
+        );
     }
 
     #[test]
