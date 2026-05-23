@@ -1963,8 +1963,8 @@ mod tests {
             ),
             (
                 "path_escape",
-                "manifest.json lists a path that escapes the bundle root",
-                "bundle paths must be relative and contained",
+                "manifest.json lists an unsafe bundle path",
+                "bundle paths must be safe relative paths contained by the bundle",
                 true,
             ),
             (
