@@ -1455,6 +1455,31 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_downstream_bundle_audit_workflow_is_current() {
+        let example = include_str!(
+            "../../examples/external/downstream-ci-bundle-audit/.github/workflows/uselesskey-audit.yml.example"
+        );
+
+        for expected in [
+            "uselesskey doctor --format json",
+            "uselesskey verify-bundle target/uselesskey-webhook",
+            "uselesskey inspect-bundle target/uselesskey-webhook",
+            "--expect-profile webhook",
+            "--policy strict",
+        ] {
+            assert!(
+                example.contains(expected),
+                "downstream bundle audit workflow missing `{expected}`"
+            );
+        }
+
+        assert!(
+            !example.contains("--path target/uselesskey-webhook"),
+            "downstream bundle audit workflow should use the current positional bundle path form"
+        );
+    }
+
+    #[test]
     fn external_examples_share_target_dir() {
         assert_eq!(
             external_examples_target_dir(Path::new("target/external-adoption-smoke/work")),

@@ -6,10 +6,11 @@ fixture bundle in CI, verify it, and upload metadata-only audit receipts.
 The installed CLI path is the product surface:
 
 ```bash
+uselesskey doctor --format json
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
 uselesskey inspect-bundle target/uselesskey-webhook
-uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci --expect-profile webhook --policy strict
 ```
 
 The reviewable files are:
