@@ -89,6 +89,7 @@ Path ignores exist but require ongoing maintenance. This crate replaces "securit
 ```bash
 cargo xtask ci              # Full receipt-backed CI: fmt, clippy, typos, deny, tests, matrix, docs, public surface, BDD, no-blob, mutants, fuzz
 cargo xtask pr              # Fast PR-scoped tests based on git diff (emits JSON receipt)
+cargo xtask doctor --format json # Local proof-environment preflight; see docs/handoffs/local-validation.md
 cargo xtask pr --with-mutants # PR-scoped tests plus targeted mutation
 cargo xtask ripr-pr         # Advisory PR oracle-exposure evidence (requires external ripr)
 cargo xtask ripr-pr-summary # Stable PR evidence summary from generated artifacts
