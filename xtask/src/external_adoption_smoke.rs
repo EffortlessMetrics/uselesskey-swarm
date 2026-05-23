@@ -589,10 +589,6 @@ fn verify_ci_audit_markdown(markdown_path: &Path, expected_profile: &str) -> Res
         &format!("- Profile: {expected_profile}"),
         "- Receipt type: durable metadata-only reviewer/CI receipt",
         "- Payload posture: raw generated fixture payloads are not copied into this receipt",
-        "## Boundaries",
-        "- audit receipts contain metadata only and do not copy generated fixture payloads",
-        "## Does Not Prove",
-        "production",
     ] {
         if !markdown.contains(expected) {
             bail!(
@@ -600,6 +596,36 @@ fn verify_ci_audit_markdown(markdown_path: &Path, expected_profile: &str) -> Res
                 markdown_path.display()
             );
         }
+    }
+    require_markdown_section_contains(
+        &markdown,
+        markdown_path,
+        "Boundaries",
+        "- audit receipts contain metadata only and do not copy generated fixture payloads",
+    )?;
+    require_markdown_section_contains(&markdown, markdown_path, "Does Not Prove", "production")?;
+    Ok(())
+}
+
+fn require_markdown_section_contains(
+    markdown: &str,
+    markdown_path: &Path,
+    heading: &str,
+    expected: &str,
+) -> Result<()> {
+    let marker = format!("## {heading}");
+    let (_, after_marker) = markdown.split_once(&marker).with_context(|| {
+        format!(
+            "CI recipe audit markdown receipt missing `{marker}` for {}",
+            markdown_path.display()
+        )
+    })?;
+    let section = after_marker.split("\n## ").next().unwrap_or(after_marker);
+    if !section.contains(expected) {
+        bail!(
+            "CI recipe audit markdown section `{heading}` missing `{expected}` for {}",
+            markdown_path.display()
+        );
     }
     Ok(())
 }
@@ -1512,6 +1538,7 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                 "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
                 "\n## Boundaries\n\n",
                 "- audit receipts contain metadata only and do not copy generated fixture payloads\n",
+                "- audit-bundle is not production security proof\n",
                 "\n## Does Not Prove\n\n",
                 "- downstream validator correctness\n",
             ),
@@ -1521,7 +1548,10 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
             Ok(()) => bail!("CI audit markdown without production non-claim was accepted"),
             Err(err) => err,
         };
-        assert!(err.to_string().contains("production"));
+        assert!(
+            err.to_string()
+                .contains("section `Does Not Prove` missing `production`")
+        );
         Ok(())
     }
 
