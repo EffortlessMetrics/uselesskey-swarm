@@ -33,6 +33,7 @@ For file-based CI fixtures:
 ```bash
 uselesskey bundle --profile webhook --out target/webhook-fixtures
 uselesskey verify-bundle target/webhook-fixtures
+uselesskey inspect-bundle target/webhook-fixtures
 uselesskey audit-bundle target/webhook-fixtures --ci --expect-profile webhook --policy strict --out target/webhook-fixtures-audit
 ```
 
