@@ -94,6 +94,12 @@ A reviewer should check:
 - the JSON `profile` matches the job being reviewed;
 - the JSON `status` is `pass`;
 - every `checks[]` entry has `status: "pass"`;
+- the Markdown receipt reports `- Status: pass` and the expected
+  `- Profile: <profile>`;
+- the Markdown `Boundaries` section says audit receipts are metadata only and
+  do not copy generated fixture payloads;
+- the Markdown `Does Not Prove` section includes the production-security
+  boundary;
 - `scanner_safe` and `runtime_material` labels match the intended use of each
   artifact;
 - the "does not prove" boundary is included in the review note.
