@@ -7,6 +7,7 @@ What changed in this PR.
 Proposal:
 Spec:
 ADR:
+Rails lane:
 Plan item:
 Issue:
 

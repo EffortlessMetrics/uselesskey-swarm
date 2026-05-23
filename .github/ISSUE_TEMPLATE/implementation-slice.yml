@@ -26,6 +26,12 @@ body:
       placeholder: source-of-truth-example
     validations:
       required: true
+  - type: input
+    id: rails_lane
+    attributes:
+      label: Rails lane
+      description: Rails lane ID or path, when this slice is tied to `.rails/index.toml`.
+      placeholder: RAILS-LANE-0000 or none
   - type: textarea
     id: expected_files
     attributes:
