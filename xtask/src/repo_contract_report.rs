@@ -119,6 +119,7 @@ struct Report {
     active_goal: Option<GoalManifestSummary>,
     goal_manifest: GoalManifestSummary,
     ready_work_items: Vec<WorkItemSummary>,
+    next_action_guidance: NextActionGuidance,
     tracked_proposals: Vec<ArtifactSummary>,
     accepted_proposals: Vec<ArtifactSummary>,
     accepted_specs: Vec<ArtifactSummary>,
@@ -130,6 +131,12 @@ struct Report {
     missing_links: Vec<String>,
     superseded_artifacts: Vec<ArtifactSummary>,
     recently_completed_work: Vec<WorkItemSummary>,
+}
+
+#[derive(Debug, Serialize)]
+struct NextActionGuidance {
+    mode: &'static str,
+    summary: String,
 }
 
 #[derive(Debug, Serialize)]
@@ -249,17 +256,27 @@ fn build_report(root: &Path) -> Result<Report> {
     missing_links.extend(missing_support_links(root, &support_rows, &claim_index));
     missing_links.extend(missing_workflow_links(root, &workflows, &claim_index));
 
+    let rails_summary = rails.as_ref().map(summarize_rails_index);
+    let active_goal = is_active_goal(&goal).then(|| summarize_goal_manifest(&goal));
+    let ready_work_items = if is_active_goal(&goal) {
+        summarize_work_items(&goal, "ready")
+    } else {
+        Vec::new()
+    };
+    let next_action_guidance = summarize_next_action_guidance(
+        rails_summary.as_ref(),
+        active_goal.as_ref(),
+        &ready_work_items,
+    );
+
     Ok(Report {
         schema_version: "1.0",
         generated_by: "cargo xtask repo-contract-report",
-        rails: rails.as_ref().map(summarize_rails_index),
-        active_goal: is_active_goal(&goal).then(|| summarize_goal_manifest(&goal)),
+        rails: rails_summary,
+        active_goal,
         goal_manifest: summarize_goal_manifest(&goal),
-        ready_work_items: if is_active_goal(&goal) {
-            summarize_work_items(&goal, "ready")
-        } else {
-            Vec::new()
-        },
+        ready_work_items,
+        next_action_guidance,
         tracked_proposals: summarize_current_artifacts(&artifacts, "proposal"),
         accepted_proposals: summarize_artifacts(&artifacts, "proposal", "accepted"),
         accepted_specs: summarize_artifacts(&artifacts, "spec", "accepted"),
@@ -294,6 +311,41 @@ fn build_report(root: &Path) -> Result<Report> {
             .map(summarize_work_item)
             .collect(),
     })
+}
+
+fn summarize_next_action_guidance(
+    rails: Option<&RailsSummary>,
+    active_goal: Option<&GoalManifestSummary>,
+    ready_work_items: &[WorkItemSummary],
+) -> NextActionGuidance {
+    if let Some(rails) = rails
+        && rails.active_lane != "none"
+    {
+        return NextActionGuidance {
+            mode: "active_rails_lane",
+            summary: format!(
+                "Active Rails lane `{}` is set. Read the linked lane before choosing work.",
+                rails.active_lane
+            ),
+        };
+    }
+
+    if active_goal.is_some()
+        && let Some(item) = ready_work_items.first()
+    {
+        return NextActionGuidance {
+            mode: "ready_work_item",
+            summary: format!(
+                "Use ready work item `{}` unless the current operator instruction names a different item.",
+                item.id
+            ),
+        };
+    }
+
+    NextActionGuidance {
+        mode: "no_active_work",
+        summary: "No active Rails lane or ready uselesskey work item is available. Inspect open PRs and current operator instructions, then choose one narrow aligned improvement from committed source-of-truth surfaces. Open a repo-native goal only when the next lane needs more than one PR.".to_string(),
+    }
 }
 
 fn summarize_goal_manifest(goal: &GoalManifest) -> GoalManifestSummary {
@@ -660,26 +712,8 @@ fn render_markdown(report: &Report) -> String {
 
 fn render_next_action_guidance(out: &mut String, report: &Report) {
     out.push_str("## Next Action Guidance\n\n");
-    if let Some(rails) = &report.rails
-        && rails.active_lane != "none"
-    {
-        out.push_str(&format!(
-            "Active Rails lane `{}` is set. Read the linked lane before choosing work.\n\n",
-            rails.active_lane
-        ));
-        return;
-    }
-
-    if report.active_goal.is_some() && !report.ready_work_items.is_empty() {
-        out.push_str(
-            "Use the first ready work item above unless the current operator instruction names a different item.\n\n",
-        );
-        return;
-    }
-
-    out.push_str(
-        "No active Rails lane or ready uselesskey work item is available. Inspect open PRs and current operator instructions, then choose one narrow aligned improvement from committed source-of-truth surfaces. Open a repo-native goal only when the next lane needs more than one PR.\n\n",
-    );
+    out.push_str(&report.next_action_guidance.summary);
+    out.push_str("\n\n");
 }
 
 fn render_rails_state(out: &mut String, rails: Option<&RailsSummary>) {
@@ -908,6 +942,11 @@ mod tests {
         assert_eq!(json["schema_version"], "1.0");
         assert_eq!(json["rails"]["active_lane"], "RAILS-LANE-0002");
         assert_eq!(json["rails"]["last_closed_lane"], "RAILS-LANE-0001");
+        assert_eq!(json["next_action_guidance"]["mode"], "active_rails_lane");
+        assert_eq!(
+            json["next_action_guidance"]["summary"],
+            "Active Rails lane `RAILS-LANE-0002` is set. Read the linked lane before choosing work."
+        );
         assert_eq!(json["active_goal"]["id"], "test-goal");
         assert_eq!(json["goal_manifest"]["status"], "active");
         assert_eq!(json["ready_work_items"][0]["id"], "repo-contract-report");
@@ -1009,6 +1048,13 @@ commands = ["cargo xtask repo-contract-report"]
             serde_json::from_str(&fs::read_to_string(out_dir.join("graph.json"))?)?;
         assert!(json["active_goal"].is_null());
         assert_eq!(json["goal_manifest"]["status"], "archived");
+        assert_eq!(json["next_action_guidance"]["mode"], "no_active_work");
+        assert!(
+            json["next_action_guidance"]["summary"]
+                .as_str()
+                .is_some_and(|summary| summary
+                    .contains("No active Rails lane or ready uselesskey work item is available"))
+        );
         let ready_work_items = json["ready_work_items"]
             .as_array()
             .context("expected ready_work_items to be an array")?;
