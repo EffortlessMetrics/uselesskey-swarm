@@ -13,6 +13,7 @@ first.
 | Test OIDC/JWKS validation | [oidc-jwks-validation](oidc-jwks-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Use facade fixtures in Rust tests | [rust-test-fixtures](rust-test-fixtures/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test TLS chain validation | [tls-chain-validation](tls-chain-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
+| Test WebAuthn ceremony validation | [webauthn-ceremony-validation](webauthn-ceremony-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test webhook signature validation | [webhook-verifier](webhook-verifier/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 
 ## Review Boundary
