@@ -57,6 +57,10 @@ const HMAC_SIGNATURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "hmac-signature-validation",
     source_dir: "examples/external/hmac-signature-validation",
 };
+const JSONWEBTOKEN_ADAPTER_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
+    name: "jsonwebtoken-adapter-validation",
+    source_dir: "examples/external/jsonwebtoken-adapter-validation",
+};
 const ENTROPY_BYTE_FIXTURES_EXAMPLE: ExternalExample = ExternalExample {
     name: "entropy-byte-fixtures",
     source_dir: "examples/external/entropy-byte-fixtures",
@@ -84,6 +88,7 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
+    JSONWEBTOKEN_ADAPTER_VALIDATION_EXAMPLE,
     ENTROPY_BYTE_FIXTURES_EXAMPLE,
     ECDSA_FIXTURE_VALIDATION_EXAMPLE,
     ED25519_FIXTURE_VALIDATION_EXAMPLE,
@@ -99,6 +104,7 @@ const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
+    JSONWEBTOKEN_ADAPTER_VALIDATION_EXAMPLE,
     ENTROPY_BYTE_FIXTURES_EXAMPLE,
     ECDSA_FIXTURE_VALIDATION_EXAMPLE,
     ED25519_FIXTURE_VALIDATION_EXAMPLE,
@@ -115,6 +121,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
+    JSONWEBTOKEN_ADAPTER_VALIDATION_EXAMPLE,
     ENTROPY_BYTE_FIXTURES_EXAMPLE,
     ECDSA_FIXTURE_VALIDATION_EXAMPLE,
     ED25519_FIXTURE_VALIDATION_EXAMPLE,
@@ -1040,6 +1047,11 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
             );
             manifest = patch_dependency_path(
                 &manifest,
+                "uselesskey-jsonwebtoken",
+                &crates_dir.join("uselesskey-jsonwebtoken"),
+            );
+            manifest = patch_dependency_path(
+                &manifest,
                 "uselesskey-test-server",
                 &crates_dir.join("uselesskey-test-server"),
             );
@@ -1057,6 +1069,7 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
             manifest = patch_dependency_version(&manifest, "uselesskey-ed25519", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-ecdsa", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-rsa", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-jsonwebtoken", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-test-server", version);
         }
     }
@@ -1559,6 +1572,7 @@ mod tests {
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
+                "jsonwebtoken-adapter-validation",
                 "entropy-byte-fixtures",
                 "ecdsa-fixture-validation",
                 "ed25519-fixture-validation",
@@ -1586,6 +1600,7 @@ mod tests {
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
+                "jsonwebtoken-adapter-validation",
                 "entropy-byte-fixtures",
                 "ecdsa-fixture-validation",
                 "ed25519-fixture-validation",
@@ -1612,6 +1627,7 @@ mod tests {
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
+                "jsonwebtoken-adapter-validation",
                 "entropy-byte-fixtures",
                 "ecdsa-fixture-validation",
                 "ed25519-fixture-validation",
@@ -1686,6 +1702,7 @@ uselesskey-entropy = "0.9.1"
 uselesskey-ed25519 = "0.9.1"
 uselesskey-ecdsa = "0.9.1"
 uselesskey-rsa = "0.9.1"
+uselesskey-jsonwebtoken = { version = "0.9.1", features = ["rsa", "hmac"] }
 uselesskey-test-server = "0.9.1"
 "#;
 
@@ -1704,6 +1721,7 @@ uselesskey-test-server = "0.9.1"
             "uselesskey-ed25519",
             "uselesskey-ecdsa",
             "uselesskey-rsa",
+            "uselesskey-jsonwebtoken",
             "uselesskey-test-server",
         ] {
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
@@ -1737,6 +1755,10 @@ uselesskey-test-server = "0.9.1"
                 expected_path(crate_name)
             )));
         }
+        assert!(patched.contains(&format!(
+            r#"uselesskey-jsonwebtoken = {{ path = "{}", features = ["rsa", "hmac"] }}"#,
+            expected_path("uselesskey-jsonwebtoken")
+        )));
         assert!(!patched.contains("version = \"0.9.1\""));
     }
 

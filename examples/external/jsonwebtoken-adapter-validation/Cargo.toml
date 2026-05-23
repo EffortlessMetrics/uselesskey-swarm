@@ -1,0 +1,15 @@
+[package]
+name = "uselesskey-external-jsonwebtoken-adapter-validation"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+jsonwebtoken = { version = "10", features = ["use_pem", "rust_crypto"] }
+serde = { version = "1", features = ["derive"] }
+uselesskey-core = { version = "0.9.1", default-features = false }
+uselesskey-hmac = "0.9.1"
+uselesskey-jsonwebtoken = { version = "0.9.1", features = ["rsa", "hmac"] }
+uselesskey-rsa = "0.9.1"
+
+[workspace]

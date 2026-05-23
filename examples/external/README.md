@@ -16,6 +16,7 @@ first.
 | Test OIDC/JWKS validation | [oidc-jwks-validation](oidc-jwks-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test OIDC/JWKS HTTP discovery and rotation | [oidc-test-server-validation](oidc-test-server-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test HMAC signature validation | [hmac-signature-validation](hmac-signature-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
+| Test jsonwebtoken adapter validation | [jsonwebtoken-adapter-validation](jsonwebtoken-adapter-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test PGP key parsing and policy paths | [pgp-fixture-validation](pgp-fixture-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test PKCS#11 mock validation | [pkcs11-mock-validation](pkcs11-mock-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Use facade fixtures in Rust tests | [rust-test-fixtures](rust-test-fixtures/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
