@@ -268,6 +268,7 @@ fn validate(root: &Path) -> Result<Vec<String>> {
 
     validate_workflow_tier_definitions(&workflow_tiers, &mut errors);
     validate_workflow_rows(&workflow_rows, &workflow_tiers, &claims, root, &mut errors);
+    validate_matching_workflow_support_proofs(&rows, &workflow_rows, &mut errors);
 
     for claim in ledger
         .claim
@@ -374,6 +375,34 @@ fn validate_workflow_rows(
                 "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has an empty boundary",
                 row.line, row.workflow
             ));
+        }
+    }
+}
+
+fn validate_matching_workflow_support_proofs(
+    support_rows: &[SupportRow],
+    workflow_rows: &[WorkflowRow],
+    errors: &mut Vec<String>,
+) {
+    let support_by_surface = support_rows
+        .iter()
+        .map(|row| (row.surface.as_str(), row))
+        .collect::<BTreeMap<_, _>>();
+
+    for workflow in workflow_rows {
+        let Some(support) = support_by_surface.get(workflow.workflow.as_str()) else {
+            continue;
+        };
+        let workflow_proofs = inline_code_values(&workflow.proof_commands)
+            .into_iter()
+            .collect::<BTreeSet<_>>();
+        for proof in inline_code_values(&support.proof) {
+            if !workflow_proofs.contains(&proof) {
+                errors.push(format!(
+                    "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` omits support-tier proof command `{}` from matching support surface",
+                    workflow.line, workflow.workflow, proof
+                ));
+            }
         }
     }
 }
@@ -833,6 +862,76 @@ docs = ["docs/VERIFICATION.md"]
         )
     }
 
+    #[test]
+    fn rejects_matching_workflow_row_missing_support_proof() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            r#"
+[[claim]]
+id = "scanner-safe-fixtures"
+title = "Scanner-safe fixtures"
+status = "stable"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["README"]
+proof_commands = ["cargo xtask no-blob", "cargo xtask badges --check"]
+docs = ["docs/VERIFICATION.md"]
+"#,
+        )?;
+        write_support_tiers(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`; `cargo xtask badges --check`",
+        )?;
+        write_workflow_support_named(
+            dir.path(),
+            "Scanner-safe fixtures",
+            "stable bundle workflow",
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+            "`target/external-adoption-smoke/report.json`",
+        )?;
+        assert_error(
+            dir.path(),
+            "workflow `Scanner-safe fixtures` omits support-tier proof command `cargo xtask badges --check`",
+        )
+    }
+
+    #[test]
+    fn allows_differently_named_workflow_row_to_use_subset_of_claim_proofs() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            r#"
+[[claim]]
+id = "scanner-safe-fixtures"
+title = "Scanner-safe fixtures"
+status = "stable"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["README"]
+proof_commands = ["cargo xtask no-blob", "cargo xtask badges --check"]
+docs = ["docs/VERIFICATION.md"]
+"#,
+        )?;
+        write_support_tiers(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`; `cargo xtask badges --check`",
+        )?;
+        write_workflow_support(
+            dir.path(),
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+        )?;
+        let errors = validate(dir.path())?;
+        assert!(errors.is_empty(), "errors: {errors:?}");
+        Ok(())
+    }
+
     fn assert_error(root: &Path, needle: &str) -> Result<()> {
         let errors = validate(root)?;
         assert!(
@@ -996,6 +1095,37 @@ updated = "2026-05-21"
 | Tier | Meaning |
 | --- | --- |
 {tier_definition}
+"#
+            ),
+        )
+    }
+
+    fn write_workflow_support_named(
+        root: &Path,
+        workflow: &str,
+        tier: &str,
+        claim: &str,
+        primary_docs: &str,
+        proof: &str,
+        receipts: &str,
+    ) -> Result<()> {
+        write_file(
+            root,
+            WORKFLOW_SUPPORT_MD,
+            &format!(
+                r#"# Workflow Support
+
+## Workflow Matrix
+
+| Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| {workflow} | {tier} | {claim} | {primary_docs} | {proof} | {receipts} | Boundary. |
+
+## Support Tier Interpretation
+
+| Tier | Meaning |
+| --- | --- |
+| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |
 "#
             ),
         )
