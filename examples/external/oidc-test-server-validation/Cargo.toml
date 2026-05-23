@@ -1,0 +1,15 @@
+[package]
+name = "uselesskey-external-oidc-test-server-validation"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+reqwest = { version = "0.12.24", default-features = false, features = ["json", "rustls-tls"] }
+serde_json = "1.0.149"
+tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
+uselesskey-core = { version = "0.9.1", default-features = false }
+uselesskey-rsa = "0.9.1"
+uselesskey-test-server = "0.9.1"
+
+[workspace]

@@ -51,6 +51,7 @@ Task-oriented instructions for common workflows.
 - [share-installed-bundle-audit.md](how-to/share-installed-bundle-audit.md) — Share metadata-only bundle audit packets with reviewers
 - [adapter-template.md](how-to/adapter-template.md) — Scaffolding and validating new adapter crates
 - [test-oidc-jwks-validation.md](how-to/test-oidc-jwks-validation.md) — Using the OIDC/JWKS contract pack in validator tests
+- [test-oidc-jwks-test-server.md](how-to/test-oidc-jwks-test-server.md) - Using local OIDC discovery and JWKS HTTP routes in verifier tests
 - [test-jwt-negative-validation.md](how-to/test-jwt-negative-validation.md) — Using JWT-shaped negatives for policy rejection tests
 - [test-webhook-signature-validation.md](how-to/test-webhook-signature-validation.md) — Using webhook signature fixtures and negative request classes
 - [test-hmac-signature-validation.md](how-to/test-hmac-signature-validation.md) - Using HMAC shared-secret fixtures to test signature policy paths

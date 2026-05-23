@@ -14,6 +14,7 @@ first.
 | Test Ed25519 key parsing and policy paths | [ed25519-fixture-validation](ed25519-fixture-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test deterministic byte fixtures | [entropy-byte-fixtures](entropy-byte-fixtures/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test OIDC/JWKS validation | [oidc-jwks-validation](oidc-jwks-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
+| Test OIDC/JWKS HTTP discovery and rotation | [oidc-test-server-validation](oidc-test-server-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test HMAC signature validation | [hmac-signature-validation](hmac-signature-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test PGP key parsing and policy paths | [pgp-fixture-validation](pgp-fixture-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test PKCS#11 mock validation | [pkcs11-mock-validation](pkcs11-mock-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |

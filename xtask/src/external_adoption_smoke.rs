@@ -29,6 +29,10 @@ const OIDC_JWKS_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "oidc-jwks-validation",
     source_dir: "examples/external/oidc-jwks-validation",
 };
+const OIDC_TEST_SERVER_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
+    name: "oidc-test-server-validation",
+    source_dir: "examples/external/oidc-test-server-validation",
+};
 const TLS_CHAIN_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "tls-chain-validation",
     source_dir: "examples/external/tls-chain-validation",
@@ -73,6 +77,7 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
     WEBHOOK_VERIFIER_EXAMPLE,
     OIDC_JWKS_VALIDATION_EXAMPLE,
+    OIDC_TEST_SERVER_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
     PKCS11_MOCK_VALIDATION_EXAMPLE,
@@ -87,6 +92,7 @@ const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
     WEBHOOK_VERIFIER_EXAMPLE,
     OIDC_JWKS_VALIDATION_EXAMPLE,
+    OIDC_TEST_SERVER_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
     PKCS11_MOCK_VALIDATION_EXAMPLE,
@@ -102,6 +108,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
     WEBHOOK_VERIFIER_EXAMPLE,
     OIDC_JWKS_VALIDATION_EXAMPLE,
+    OIDC_TEST_SERVER_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
     PKCS11_MOCK_VALIDATION_EXAMPLE,
@@ -1026,6 +1033,16 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
                 "uselesskey-ecdsa",
                 &crates_dir.join("uselesskey-ecdsa"),
             );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-rsa",
+                &crates_dir.join("uselesskey-rsa"),
+            );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-test-server",
+                &crates_dir.join("uselesskey-test-server"),
+            );
         }
         FacadeDependency::Version(version) => {
             manifest = patch_dependency_version(&manifest, "uselesskey", version);
@@ -1039,6 +1056,8 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
             manifest = patch_dependency_version(&manifest, "uselesskey-entropy", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-ed25519", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-ecdsa", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-rsa", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-test-server", version);
         }
     }
 
@@ -1533,6 +1552,7 @@ mod tests {
                 "rust-test-fixtures",
                 "webhook-verifier",
                 "oidc-jwks-validation",
+                "oidc-test-server-validation",
                 "tls-chain-validation",
                 "webauthn-ceremony-validation",
                 "pkcs11-mock-validation",
@@ -1559,6 +1579,7 @@ mod tests {
                 "rust-test-fixtures",
                 "webhook-verifier",
                 "oidc-jwks-validation",
+                "oidc-test-server-validation",
                 "tls-chain-validation",
                 "webauthn-ceremony-validation",
                 "pkcs11-mock-validation",
@@ -1584,6 +1605,7 @@ mod tests {
                 "rust-test-fixtures",
                 "webhook-verifier",
                 "oidc-jwks-validation",
+                "oidc-test-server-validation",
                 "tls-chain-validation",
                 "webauthn-ceremony-validation",
                 "pkcs11-mock-validation",
@@ -1663,6 +1685,8 @@ uselesskey-hmac = "0.9.1"
 uselesskey-entropy = "0.9.1"
 uselesskey-ed25519 = "0.9.1"
 uselesskey-ecdsa = "0.9.1"
+uselesskey-rsa = "0.9.1"
+uselesskey-test-server = "0.9.1"
 "#;
 
         let crates_dir = Path::new(r#"C:\Code\Rust\uselesskey\crates"#);
@@ -1679,6 +1703,8 @@ uselesskey-ecdsa = "0.9.1"
             "uselesskey-entropy",
             "uselesskey-ed25519",
             "uselesskey-ecdsa",
+            "uselesskey-rsa",
+            "uselesskey-test-server",
         ] {
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
         }
@@ -1703,6 +1729,8 @@ uselesskey-ecdsa = "0.9.1"
             "uselesskey-entropy",
             "uselesskey-ed25519",
             "uselesskey-ecdsa",
+            "uselesskey-rsa",
+            "uselesskey-test-server",
         ] {
             assert!(patched.contains(&format!(
                 r#"{crate_name} = {{ path = "{}" }}"#,
