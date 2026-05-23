@@ -641,6 +641,56 @@ fn verify_ci_audit_json(audit_path: &Path, expected_profile: &str, label: &str) 
             );
         }
     }
+    require_audit_string_array_with(
+        &audit,
+        audit_path,
+        label,
+        "boundaries",
+        &["metadata only", "generated fixture payloads"],
+    )?;
+    require_audit_string_array_with(&audit, audit_path, label, "does_not_prove", &["production"])?;
+    Ok(())
+}
+
+fn require_audit_string_array_with(
+    audit: &Value,
+    audit_path: &Path,
+    label: &str,
+    field: &str,
+    required_substrings: &[&str],
+) -> Result<()> {
+    let values = audit[field].as_array().with_context(|| {
+        format!(
+            "{label} {field} is not an array for {}",
+            audit_path.display()
+        )
+    })?;
+    if values.is_empty() {
+        bail!("{label} {field} is empty for {}", audit_path.display());
+    }
+
+    let mut strings = Vec::with_capacity(values.len());
+    for value in values {
+        let text = value.as_str().with_context(|| {
+            format!(
+                "{label} {field} contains a non-string entry for {}: {:?}",
+                audit_path.display(),
+                value
+            )
+        })?;
+        strings.push(text);
+    }
+
+    for expected in required_substrings {
+        if !strings.iter().any(|text| text.contains(expected)) {
+            bail!(
+                "{label} {field} missing entry containing `{expected}` for {}: {:?}",
+                audit_path.display(),
+                values
+            );
+        }
+    }
+
     Ok(())
 }
 
@@ -1493,6 +1543,106 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         Ok(())
     }
 
+    #[test]
+    fn external_adoption_rejects_ci_audit_without_metadata_boundaries() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        fs::write(
+            dir.path().join("bundle-audit.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "profile": "oidc",
+                "checks": [{
+                    "name": "bundle-audit",
+                    "status": "pass",
+                    "failure_class": "profile_validation_failed",
+                    "detail": "simulated pass",
+                }],
+                "does_not_prove": ["production signing-key custody"],
+            }))?,
+        )?;
+
+        let err = match verify_ci_audit_json(
+            &dir.path().join("bundle-audit.json"),
+            "oidc",
+            "CI recipe audit",
+        ) {
+            Ok(()) => bail!("CI audit without boundaries was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("boundaries is not an array"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_audit_boundary_without_payload_posture() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        fs::write(
+            dir.path().join("bundle-audit.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "profile": "oidc",
+                "checks": [{
+                    "name": "bundle-audit",
+                    "status": "pass",
+                    "failure_class": "profile_validation_failed",
+                    "detail": "simulated pass",
+                }],
+                "boundaries": ["audit-bundle proves local bundle consistency only"],
+                "does_not_prove": ["production signing-key custody"],
+            }))?,
+        )?;
+
+        let err = match verify_ci_audit_json(
+            &dir.path().join("bundle-audit.json"),
+            "oidc",
+            "CI recipe audit",
+        ) {
+            Ok(()) => bail!("CI audit without metadata boundary was accepted"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string()
+                .contains("boundaries missing entry containing `metadata only`")
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_audit_without_production_non_claim() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        fs::write(
+            dir.path().join("bundle-audit.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "profile": "oidc",
+                "checks": [{
+                    "name": "bundle-audit",
+                    "status": "pass",
+                    "failure_class": "profile_validation_failed",
+                    "detail": "simulated pass",
+                }],
+                "boundaries": [
+                    "audit receipts contain metadata only and do not copy generated fixture payloads"
+                ],
+                "does_not_prove": ["downstream validator correctness"],
+            }))?,
+        )?;
+
+        let err = match verify_ci_audit_json(
+            &dir.path().join("bundle-audit.json"),
+            "oidc",
+            "CI recipe audit",
+        ) {
+            Ok(()) => bail!("CI audit without production non-claim was accepted"),
+            Err(err) => err,
+        };
+        assert!(
+            err.to_string()
+                .contains("does_not_prove missing entry containing `production`")
+        );
+        Ok(())
+    }
+
     fn write_ci_audit_json(dir: &Path, profile: &str) -> Result<()> {
         fs::write(
             dir.join("bundle-audit.json"),
@@ -1505,6 +1655,12 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                     "failure_class": "profile_validation_failed",
                     "detail": "simulated pass",
                 }],
+                "boundaries": [
+                    "audit receipts contain metadata only and do not copy generated fixture payloads"
+                ],
+                "does_not_prove": [
+                    "production signing-key custody"
+                ],
             }))?,
         )?;
         Ok(())

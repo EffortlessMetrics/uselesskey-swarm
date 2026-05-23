@@ -80,8 +80,10 @@ CI recipe mode must execute the documented generate, verify, and strict
 command sequence for supported downstream CI profiles. It must verify that the
 audit JSON reports the expected profile, top-level `status: "pass"`, at least
 one `checks[]` entry, and only passing checks with stable `failure_class`
-values. It must not make default external adoption smoke heavier, and it must
-keep all generated fixture payloads and audit receipts under
+values. It must also verify that the JSON includes metadata-only
+`boundaries[]` entries and `does_not_prove[]` entries that keep production
+security out of scope. It must not make default external adoption smoke
+heavier, and it must keep all generated fixture payloads and audit receipts under
 `target/external-adoption-smoke/`.
 
 Local path mode must create clean temporary projects under the repository's
