@@ -26,7 +26,7 @@ Workspace-only crates are load-bearing structure.
 | Crate | Status | User job | Public promise | Docs | Action |
 | --- | --- | --- | --- | --- | --- |
 | `uselesskey-core` | public foundation | Advanced users need `Factory`, `Seed`, and shared fixture primitives. | Stable fixture foundation used by facade and family crates. | `docs/architecture/public-surface.md` | keep |
-| `uselesskey-entropy` | public family | Tests need deterministic byte fixtures or scanner-safe placeholder data. | Entropy and placeholder fixture generation. | `docs/reference/support-matrix.md` | keep |
+| `uselesskey-entropy` | public family | Tests need deterministic byte fixtures or scanner-safe placeholder data. | Entropy and placeholder fixture generation. | `docs/how-to/test-entropy-byte-fixtures.md` | keep |
 | `uselesskey-rsa` | public family | Tests need RSA PEM/DER/JWK-compatible fixtures. | RSA fixture extension trait and specs. | `docs/how-to/materialize-fixtures-in-build-rs.md` | keep |
 | `uselesskey-ecdsa` | public family | Tests need ECDSA P-256/P-384 fixtures. | ECDSA fixture extension trait and specs. | `docs/reference/support-matrix.md` | keep |
 | `uselesskey-ed25519` | public family | Tests need Ed25519 fixtures. | Ed25519 fixture extension trait. | `docs/reference/support-matrix.md` | keep |
