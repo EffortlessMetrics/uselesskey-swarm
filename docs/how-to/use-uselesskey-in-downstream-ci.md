@@ -42,6 +42,7 @@ A passing CI run means:
 - the installed CLI ran in the downstream project;
 - the requested profile generated under the selected output directory;
 - `verify-bundle` accepted the local bundle structure;
+- `inspect-bundle` printed the quick human summary for the selected profile;
 - `audit-bundle --ci --policy strict` found no meaningful local drift.
 
 ## Negative path
@@ -76,6 +77,7 @@ To run the installed CLI path locally:
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
 uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit
 ```
 

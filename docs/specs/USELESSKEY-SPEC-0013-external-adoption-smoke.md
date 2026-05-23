@@ -77,7 +77,7 @@ cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 
 CI recipe mode must build or install the CLI needed for downstream commands,
 compile the clean-project Rust examples that back the recipe pack, and execute
-the documented generate, verify, and strict
+the documented generate, verify, inspect, and strict
 `audit-bundle --ci --expect-profile <profile> --policy strict --out <audit-dir>`
 command sequence for supported downstream CI profiles. It must verify that the
 audit JSON reports the expected profile, top-level `status: "pass"`, at least
@@ -85,10 +85,12 @@ one `checks[]` entry, and only passing checks with stable `failure_class`
 values. It must also verify that the JSON includes metadata-only
 `boundaries[]` entries and `does_not_prove[]` entries that keep production
 security out of scope, and that the Markdown audit receipt preserves the same
-metadata-only boundary and production non-claim for reviewers. It must not make
-default external adoption smoke heavier. It must not run the default installed
-CLI discovery and per-profile inspect matrix as a prerequisite for CI recipe
-proof. It must keep all generated fixture payloads and audit receipts under
+metadata-only boundary and production non-claim for reviewers. It must verify
+that `inspect-bundle` reports the expected profile, verification success,
+generated files, and artifact posture without exposing fixture payload markers.
+It must not make default external adoption smoke heavier. It must not run the
+default installed CLI discovery matrix as a prerequisite for CI recipe proof.
+It must keep all generated fixture payloads and audit receipts under
 `target/external-adoption-smoke/`.
 
 Local path mode must create clean temporary projects under the repository's
@@ -304,11 +306,12 @@ External adoption smoke maps to:
   audit/reference smoke;
 - generated clean Cargo projects for documented dependency snippets;
 - default installed-style CLI runs for profile discovery, bundle generation,
-  `verify-bundle`, strict `audit-bundle --ci --expect-profile <profile>
-  --policy strict`, and `inspect-bundle`;
-- focused CI recipe runs for bundle generation, `verify-bundle`, and strict
+  `verify-bundle`, `inspect-bundle`, and strict
+  `audit-bundle --ci --expect-profile <profile> --policy strict`;
+- focused CI recipe runs for bundle generation, `verify-bundle`,
+  `inspect-bundle`, and strict
   `audit-bundle --ci --expect-profile <profile> --policy strict --out
-  <audit-dir>` without the default profile discovery and inspect matrix;
+  <audit-dir>` without the default profile discovery matrix;
 - `cargo xtask docs-sync --check` for documented snippet drift;
 - `cargo xtask user-path-smoke` and `cargo xtask adoption-regression` as
   repo-local complements, not replacements;

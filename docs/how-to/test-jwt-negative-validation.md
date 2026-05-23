@@ -35,6 +35,7 @@ For file-based tests, use the installed CLI OIDC profile:
 ```bash
 uselesskey bundle --profile oidc --out target/oidc-fixtures
 uselesskey verify-bundle target/oidc-fixtures
+uselesskey inspect-bundle target/oidc-fixtures
 uselesskey audit-bundle target/oidc-fixtures --ci --expect-profile oidc --policy strict --out target/oidc-fixtures-audit
 ```
 
@@ -118,7 +119,7 @@ uselesskey audit-bundle \
   --ci \
   --expect-profile oidc \
   --policy strict \
-  --out target/oidc-fixtures-audit \
+  --out target/oidc-fixtures-audit
 ```
 
 Attach:

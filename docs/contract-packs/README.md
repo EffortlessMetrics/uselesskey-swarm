@@ -30,7 +30,7 @@ compatibility, or downstream verifier proof.
 
 Interface split:
 
-- installed CLI users generate, verify, audit, and inspect bundles with `uselesskey`;
+- installed CLI users generate, verify, inspect, and audit bundles with `uselesskey`;
 - Rust test authors use crate dependency snippets in the linked how-to docs;
 - reviewers with a repo checkout use `cargo xtask verification-pack`;
 - maintainers use `cargo xtask claim-proof`, `bundle-proof`, and release
@@ -38,12 +38,16 @@ Interface split:
 
 ## Quick Index
 
-| Profile | Use when you need | Installed CLI | Repo-checkout proof |
+The CLI column names the starting bundle command. Use the profile sections
+below for the full `verify-bundle`, `inspect-bundle`, and `audit-bundle`
+sequence.
+
+| Profile | Use when you need | Starting CLI command | Repo-checkout proof |
 | --- | --- | --- | --- |
-| `scanner-safe` | scanner-safe baseline fixtures and export receipts | `uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle` then `uselesskey audit-bundle target/uselesskey-bundle --out target/uselesskey-bundle-audit` | `cargo xtask claim-proof --claim scanner-safe-fixtures` |
-| `tls` | TLS chain and certificate rejection fixtures | `uselesskey bundle --profile tls --out target/uselesskey-tls` then `uselesskey audit-bundle target/uselesskey-tls --out target/uselesskey-tls-audit` | `cargo xtask claim-proof --claim tls-contract-pack` |
-| `oidc` | OIDC/JWKS validator fixtures and JWT-shaped negatives | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` then `uselesskey audit-bundle target/uselesskey-oidc --out target/uselesskey-oidc-audit` | `cargo xtask claim-report --claim oidc-jwks-contract-pack` |
-| `webhook` | HMAC webhook signature positives and negatives | `uselesskey bundle --profile webhook --out target/uselesskey-webhook` then `uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit` | `cargo xtask claim-proof --claim webhook-contract-pack` |
+| `scanner-safe` | scanner-safe baseline fixtures and export receipts | `uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle` | `cargo xtask claim-proof --claim scanner-safe-fixtures` |
+| `tls` | TLS chain and certificate rejection fixtures | `uselesskey bundle --profile tls --out target/uselesskey-tls` | `cargo xtask claim-proof --claim tls-contract-pack` |
+| `oidc` | OIDC/JWKS validator fixtures and JWT-shaped negatives | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` | `cargo xtask claim-report --claim oidc-jwks-contract-pack` |
+| `webhook` | HMAC webhook signature positives and negatives | `uselesskey bundle --profile webhook --out target/uselesskey-webhook` | `cargo xtask claim-proof --claim webhook-contract-pack` |
 
 Every generated bundle should stay under `target/` or another ignored build
 directory. Commit docs and receipts only when the repo has an explicit tracked
@@ -59,6 +63,7 @@ pack profiles intentionally avoid:
 ```bash
 uselesskey bundle --profile runtime --out target/uselesskey-runtime
 uselesskey verify-bundle target/uselesskey-runtime
+uselesskey inspect-bundle target/uselesskey-runtime
 uselesskey audit-bundle target/uselesskey-runtime --out target/uselesskey-runtime-audit
 ```
 
@@ -74,8 +79,8 @@ Installed CLI:
 ```bash
 uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle
 uselesskey verify-bundle target/uselesskey-bundle
-uselesskey audit-bundle target/uselesskey-bundle --out target/uselesskey-bundle-audit
 uselesskey inspect-bundle target/uselesskey-bundle
+uselesskey audit-bundle target/uselesskey-bundle --out target/uselesskey-bundle-audit
 ```
 
 Repo-checkout proof:
@@ -109,8 +114,8 @@ Installed CLI:
 ```bash
 uselesskey bundle --profile tls --out target/uselesskey-tls
 uselesskey verify-bundle target/uselesskey-tls
-uselesskey audit-bundle target/uselesskey-tls --out target/uselesskey-tls-audit
 uselesskey inspect-bundle target/uselesskey-tls
+uselesskey audit-bundle target/uselesskey-tls --out target/uselesskey-tls-audit
 ```
 
 Repo-checkout proof:
@@ -146,8 +151,8 @@ Installed CLI:
 ```bash
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
 uselesskey verify-bundle target/uselesskey-oidc
-uselesskey audit-bundle target/uselesskey-oidc --out target/uselesskey-oidc-audit
 uselesskey inspect-bundle target/uselesskey-oidc
+uselesskey audit-bundle target/uselesskey-oidc --out target/uselesskey-oidc-audit
 ```
 
 Repo-checkout proof:
@@ -182,8 +187,8 @@ Installed CLI:
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
-uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
 uselesskey inspect-bundle target/uselesskey-webhook
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
 ```
 
 Repo-checkout proof:

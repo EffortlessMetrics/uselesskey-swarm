@@ -35,6 +35,7 @@ For file-based CI fixtures:
 ```bash
 uselesskey bundle --profile tls --out target/tls-fixtures
 uselesskey verify-bundle target/tls-fixtures
+uselesskey inspect-bundle target/tls-fixtures
 uselesskey audit-bundle target/tls-fixtures --ci --expect-profile tls --policy strict --out target/tls-fixtures-audit
 ```
 
