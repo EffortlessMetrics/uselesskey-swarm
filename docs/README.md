@@ -53,6 +53,7 @@ Task-oriented instructions for common workflows.
 - [test-oidc-jwks-validation.md](how-to/test-oidc-jwks-validation.md) — Using the OIDC/JWKS contract pack in validator tests
 - [test-jwt-negative-validation.md](how-to/test-jwt-negative-validation.md) — Using JWT-shaped negatives for policy rejection tests
 - [test-webhook-signature-validation.md](how-to/test-webhook-signature-validation.md) — Using webhook signature fixtures and negative request classes
+- [test-hmac-signature-validation.md](how-to/test-hmac-signature-validation.md) - Using HMAC shared-secret fixtures to test signature policy paths
 - [test-tls-chain-validation.md](how-to/test-tls-chain-validation.md) — Using TLS/X.509 chain fixtures and negative certificate classes
 - [test-ssh-fixtures.md](how-to/test-ssh-fixtures.md) - Using SSH key and certificate fixtures to test parser and policy paths.
 - [test-pgp-fixtures.md](how-to/test-pgp-fixtures.md) - Using PGP key fixtures to test parser and policy paths.

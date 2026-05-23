@@ -30,7 +30,7 @@ Workspace-only crates are load-bearing structure.
 | `uselesskey-rsa` | public family | Tests need RSA PEM/DER/JWK-compatible fixtures. | RSA fixture extension trait and specs. | `docs/how-to/materialize-fixtures-in-build-rs.md` | keep |
 | `uselesskey-ecdsa` | public family | Tests need ECDSA P-256/P-384 fixtures. | ECDSA fixture extension trait and specs. | `docs/reference/support-matrix.md` | keep |
 | `uselesskey-ed25519` | public family | Tests need Ed25519 fixtures. | Ed25519 fixture extension trait. | `docs/reference/support-matrix.md` | keep |
-| `uselesskey-hmac` | public family | Tests need deterministic HMAC fixture material. | HMAC fixture extension trait and specs. | `docs/reference/support-matrix.md` | keep |
+| `uselesskey-hmac` | public family | Tests need deterministic HMAC fixture material. | HMAC fixture extension trait and specs. | `docs/how-to/test-hmac-signature-validation.md` | keep |
 | `uselesskey-token` | public family | Tests need token-shaped positives and negatives. | Token fixture extension trait plus `NegativeToken` stable IDs. | `docs/how-to/test-jwt-negative-validation.md` | keep |
 | `uselesskey-jwk` | public family | Tests need typed JWK/JWKS shapes and negatives. | JWK/JWKS builders and `NegativeJwk`/`NegativeJwks` stable IDs. | `docs/how-to/test-oidc-jwks-validation.md` | keep |
 | `uselesskey-x509` | public family | Tests need certificates, chains, and TLS-shaped negatives. | X.509 fixture extension trait and negative chain helpers. | `docs/how-to/test-tls-chain-validation.md` | keep |

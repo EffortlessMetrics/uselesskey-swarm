@@ -1,0 +1,12 @@
+[package]
+name = "uselesskey-external-hmac-signature-validation"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+sha2 = "0.11.0"
+uselesskey-core = { version = "0.9.1", default-features = false }
+uselesskey-hmac = "0.9.1"
+
+[workspace]
