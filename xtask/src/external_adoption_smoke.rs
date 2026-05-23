@@ -43,6 +43,7 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     OIDC_JWKS_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
 ];
+const CI_RECIPE_EXAMPLES: &[ExternalExample] = LIBRARY_EXAMPLES;
 const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
     WEBHOOK_VERIFIER_EXAMPLE,
@@ -211,13 +212,16 @@ fn run_matrix(
     }
 
     let cli_bin = prepare_cli(root, source, work_dir, log_dir, receipt)?;
+    if ci_recipes {
+        run_external_examples(root, source, CI_RECIPE_EXAMPLES, work_dir, log_dir, receipt)?;
+        run_ci_recipes(&cli_bin, work_dir, log_dir, receipt)?;
+        return Ok(());
+    }
+
     run_external_examples(root, source, EXTERNAL_EXAMPLES, work_dir, log_dir, receipt)?;
     run_cli_discovery(&cli_bin, work_dir, log_dir, receipt)?;
     for profile in CLI_PROFILES {
         run_cli_profile(&cli_bin, profile, work_dir, log_dir, receipt)?;
-    }
-    if ci_recipes {
-        run_ci_recipes(&cli_bin, work_dir, log_dir, receipt)?;
     }
     Ok(())
 }
@@ -1298,13 +1302,30 @@ mod tests {
     }
 
     #[test]
-    fn external_adoption_ci_recipe_profiles_are_cli_smoke_profiles() {
+    fn external_adoption_ci_recipe_profiles_are_supported_cli_profiles() {
         for profile in CI_RECIPE_PROFILES {
             assert!(
                 CLI_PROFILES.contains(profile),
-                "ci recipe profile `{profile}` must also run through installed CLI smoke"
+                "ci recipe profile `{profile}` must be a supported installed CLI smoke profile"
             );
         }
+    }
+
+    #[test]
+    fn external_adoption_ci_recipe_examples_are_bounded() {
+        let names: Vec<&str> = CI_RECIPE_EXAMPLES
+            .iter()
+            .map(|example| example.name)
+            .collect();
+        assert_eq!(
+            names,
+            [
+                "rust-test-fixtures",
+                "webhook-verifier",
+                "oidc-jwks-validation",
+                "tls-chain-validation",
+            ]
+        );
     }
 
     #[test]

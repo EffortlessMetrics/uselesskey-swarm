@@ -129,7 +129,7 @@ enum Cmd {
         /// Use a published crates.io version as audit/reference evidence.
         #[arg(long, conflicts_with = "path")]
         version: Option<String>,
-        /// Also run downstream CI recipe commands from the docs.
+        /// Run focused downstream CI recipe commands from the docs.
         #[arg(long)]
         ci_recipes: bool,
         /// Run only facade-first clean-project library examples.
