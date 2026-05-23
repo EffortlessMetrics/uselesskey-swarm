@@ -315,7 +315,7 @@ uselesskey bundle --profile oidc --out target/uselesskey-oidc
   -> writes manifest.json
   -> writes jwks/valid.json and taxonomy-backed negative JWKS files
   -> writes metadata-only receipts
-  -> verify-bundle and audit-bundle can explain the bundle
+  -> verify-bundle, inspect-bundle, and audit-bundle can explain the bundle
 ```
 
 Acceptable:
