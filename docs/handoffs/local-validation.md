@@ -3,6 +3,26 @@
 Use this handoff when preparing, reviewing, or reporting local PR evidence.
 Local evidence is useful only when its boundary is explicit.
 
+## Host Preflight
+
+When a session starts on an unfamiliar machine, or before claiming broad local
+PR evidence, check the local proof environment:
+
+```bash
+cargo xtask doctor --format json
+```
+
+`doctor` reports tool availability, worktree cleanliness, generated badge
+drift, crates.io credentials, and host-specific prerequisites. On Windows, an
+`asan-runtime` warning means fuzz targets can fail with
+`STATUS_DLL_NOT_FOUND` until the LLVM/Clang `compiler-rt` runtime DLL is on
+`PATH`.
+
+Treat `doctor` as an environment preflight. It does not replace PR evidence,
+hosted CI, release evidence, or any claim-ledger proof command. If `doctor`
+warns only about a host prerequisite unrelated to the current slice, report the
+warning and continue with the slice-specific proof commands.
+
 ## First Command
 
 For non-trivial repo work, start with:
