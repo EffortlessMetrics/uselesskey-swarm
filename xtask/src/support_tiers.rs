@@ -1078,15 +1078,25 @@ updated = "2026-05-21"
         receipts: &str,
         tier_definition: &str,
     ) -> Result<()> {
-        write_workflow_support_named_full(
+        write_file(
             root,
-            "Scanner-safe bundle handoff",
-            tier,
-            claim,
-            primary_docs,
-            proof,
-            receipts,
-            tier_definition,
+            WORKFLOW_SUPPORT_MD,
+            &format!(
+                r#"# Workflow Support
+
+## Workflow Matrix
+
+| Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| Scanner-safe bundle handoff | {tier} | {claim} | {primary_docs} | {proof} | {receipts} | Boundary. |
+
+## Support Tier Interpretation
+
+| Tier | Meaning |
+| --- | --- |
+{tier_definition}
+"#
+            ),
         )
     }
 
@@ -1098,28 +1108,6 @@ updated = "2026-05-21"
         primary_docs: &str,
         proof: &str,
         receipts: &str,
-    ) -> Result<()> {
-        write_workflow_support_named_full(
-            root,
-            workflow,
-            tier,
-            claim,
-            primary_docs,
-            proof,
-            receipts,
-            "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
-        )
-    }
-
-    fn write_workflow_support_named_full(
-        root: &Path,
-        workflow: &str,
-        tier: &str,
-        claim: &str,
-        primary_docs: &str,
-        proof: &str,
-        receipts: &str,
-        tier_definition: &str,
     ) -> Result<()> {
         write_file(
             root,
@@ -1137,7 +1125,7 @@ updated = "2026-05-21"
 
 | Tier | Meaning |
 | --- | --- |
-{tier_definition}
+| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |
 "#
             ),
         )
