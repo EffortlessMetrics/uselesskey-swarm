@@ -1330,13 +1330,17 @@ fn render_bundle_audit_markdown(audit: &BundleAudit) -> String {
 }
 
 fn markdown_inline(value: &str) -> String {
-    value
-        .chars()
-        .map(|ch| match ch {
-            '\r' | '\n' => ' ',
-            _ => ch,
-        })
-        .collect()
+    let mut escaped = String::new();
+    for ch in value.chars() {
+        match ch {
+            '&' => escaped.push_str("&amp;"),
+            '<' => escaped.push_str("&lt;"),
+            '>' => escaped.push_str("&gt;"),
+            '\r' | '\n' => escaped.push(' '),
+            _ => escaped.push(ch),
+        }
+    }
+    escaped
 }
 
 fn markdown_table_cell(value: &str) -> String {
@@ -2071,7 +2075,8 @@ mod tests {
         let audit = BundleAudit {
             version: 1,
             status: "pass".to_string(),
-            bundle_path: "target/uselesskey-webhook\n## forged-heading".to_string(),
+            bundle_path: "target/uselesskey-webhook<script>alert(1)</script>\n## forged-heading"
+                .to_string(),
             profile: "webhook".to_string(),
             manifest_version: 1,
             manifest_path: "manifest.json".to_string(),
@@ -2081,7 +2086,7 @@ mod tests {
             runtime_material_count: 1,
             files: vec![],
             artifacts: vec![BundleAuditArtifact {
-                path: "requests/valid|request.json".to_string(),
+                path: "requests/<valid>|request.json".to_string(),
                 kind: "webhook|request".to_string(),
                 format: "json|manifest".to_string(),
                 scanner_safe: false,
@@ -2089,7 +2094,8 @@ mod tests {
                 description: "runtime webhook request".to_string(),
             }],
             receipts: vec![BundleReceiptRecord {
-                path: "receipts/audit-surface.json\n- forged receipt".to_string(),
+                path: "receipts/audit-surface.json<img src=x onerror=alert(1)>\n- forged receipt"
+                    .to_string(),
                 kind: "audit|surface".to_string(),
                 profile: "webhook".to_string(),
                 description: "audit surface".to_string(),
@@ -2099,7 +2105,7 @@ mod tests {
             checks: vec![BundleAuditCheck::pass(
                 "profile|validation",
                 "profile_validation_failed",
-                "detail|with table separator\nand forged row",
+                "detail|with <b>html</b> & table separator\nand forged row",
             )],
             boundaries: vec!["audit receipts contain metadata only\nand stay local".to_string()],
             does_not_prove: vec!["production security\nor provider compatibility".to_string()],
@@ -2107,16 +2113,23 @@ mod tests {
 
         let markdown = render_bundle_audit_markdown(&audit);
 
-        assert!(markdown.contains("- Bundle: target/uselesskey-webhook ## forged-heading"));
+        assert!(markdown.contains(
+            "- Bundle: target/uselesskey-webhook&lt;script&gt;alert(1)&lt;/script&gt; ## forged-heading"
+        ));
         assert!(!markdown.contains("\n## forged-heading"));
         assert!(markdown.contains(
-            "| profile\\|validation | pass | profile_validation_failed | detail\\|with table separator and forged row |"
+            "| profile\\|validation | pass | profile_validation_failed | detail\\|with &lt;b&gt;html&lt;/b&gt; &amp; table separator and forged row |"
         ));
         assert!(markdown.contains(
-            "| requests/valid\\|request.json | webhook\\|request | json\\|manifest | no | yes |"
+            "| requests/&lt;valid&gt;\\|request.json | webhook\\|request | json\\|manifest | no | yes |"
         ));
-        assert!(markdown.contains("- audit|surface: receipts/audit-surface.json - forged receipt"));
+        assert!(markdown.contains(
+            "- audit|surface: receipts/audit-surface.json&lt;img src=x onerror=alert(1)&gt; - forged receipt"
+        ));
         assert!(!markdown.contains("\n- forged receipt"));
+        assert!(!markdown.contains("<script>"));
+        assert!(!markdown.contains("<img"));
+        assert!(!markdown.contains("<b>html</b>"));
         assert!(markdown.contains("- audit receipts contain metadata only and stay local"));
         assert!(markdown.contains("- production security or provider compatibility"));
     }
