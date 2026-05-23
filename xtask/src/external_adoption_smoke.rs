@@ -33,6 +33,10 @@ const TLS_CHAIN_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "tls-chain-validation",
     source_dir: "examples/external/tls-chain-validation",
 };
+const WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
+    name: "webauthn-ceremony-validation",
+    source_dir: "examples/external/webauthn-ceremony-validation",
+};
 const DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE: ExternalExample = ExternalExample {
     name: "downstream-ci-bundle-audit",
     source_dir: "examples/external/downstream-ci-bundle-audit",
@@ -42,12 +46,14 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     WEBHOOK_VERIFIER_EXAMPLE,
     OIDC_JWKS_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
+    WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
 ];
 const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
     WEBHOOK_VERIFIER_EXAMPLE,
     OIDC_JWKS_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
+    WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
@@ -55,6 +61,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     WEBHOOK_VERIFIER_EXAMPLE,
     OIDC_JWKS_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
+    WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const BOUNDARIES: &[&str] = &[
@@ -925,10 +932,22 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
                 "uselesskey-rustls",
                 &crates_dir.join("uselesskey-rustls"),
             );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-core",
+                &crates_dir.join("uselesskey-core"),
+            );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-webauthn",
+                &crates_dir.join("uselesskey-webauthn"),
+            );
         }
         FacadeDependency::Version(version) => {
             manifest = patch_dependency_version(&manifest, "uselesskey", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-rustls", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-core", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-webauthn", version);
         }
     }
 
@@ -942,12 +961,15 @@ fn patch_dependency_path(manifest: &str, crate_name: &str, path: &Path) -> Strin
             return line.to_string();
         };
         let rhs = rhs.trim();
+        let path_part = format!("path = \"{}\"", toml_escape(&path.display().to_string()));
+        if rhs.starts_with('"') {
+            return format!("{crate_name} = {{ {path_part} }}");
+        }
         if !(rhs.starts_with('{') && rhs.ends_with('}')) {
             return line.to_string();
         }
 
         let inner = rhs.trim_start_matches('{').trim_end_matches('}').trim();
-        let path_part = format!("path = \"{}\"", toml_escape(&path.display().to_string()));
         let mut parts = vec![path_part];
         parts.extend(
             inner
@@ -1421,6 +1443,7 @@ mod tests {
                 "webhook-verifier",
                 "oidc-jwks-validation",
                 "tls-chain-validation",
+                "webauthn-ceremony-validation",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1439,6 +1462,7 @@ mod tests {
                 "webhook-verifier",
                 "oidc-jwks-validation",
                 "tls-chain-validation",
+                "webauthn-ceremony-validation",
             ]
         );
     }
@@ -1456,6 +1480,7 @@ mod tests {
                 "webhook-verifier",
                 "oidc-jwks-validation",
                 "tls-chain-validation",
+                "webauthn-ceremony-validation",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1517,24 +1542,32 @@ mod tests {
         let manifest = r#"[dependencies]
 uselesskey = { version = "0.9.1", default-features = false, features = ["rsa"] }
 uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"] }
+uselesskey-core = "0.9.1"
+uselesskey-webauthn = "0.9.1"
 "#;
 
-        let patched = patch_dependency_path(
-            manifest,
+        let crates_dir = Path::new(r#"C:\Code\Rust\uselesskey\crates"#);
+        let mut patched = manifest.to_string();
+        for crate_name in [
             "uselesskey",
-            Path::new(r#"C:\Code\Rust\uselesskey\crates\uselesskey"#),
-        );
-        let patched = patch_dependency_path(
-            &patched,
             "uselesskey-rustls",
-            Path::new(r#"C:\Code\Rust\uselesskey\crates\uselesskey-rustls"#),
-        );
+            "uselesskey-core",
+            "uselesskey-webauthn",
+        ] {
+            patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
+        }
 
         assert!(patched.contains(
             r#"uselesskey = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey", default-features = false, features = ["rsa"] }"#
         ));
         assert!(patched.contains(
             r#"uselesskey-rustls = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-rustls", features = ["tls-config", "rustls-ring"] }"#
+        ));
+        assert!(patched.contains(
+            r#"uselesskey-core = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-core" }"#
+        ));
+        assert!(patched.contains(
+            r#"uselesskey-webauthn = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-webauthn" }"#
         ));
         assert!(!patched.contains("version = \"0.9.1\""));
     }

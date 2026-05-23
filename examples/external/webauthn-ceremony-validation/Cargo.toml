@@ -1,0 +1,12 @@
+[package]
+name = "uselesskey-external-webauthn-ceremony-validation"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+serde_json = "1"
+uselesskey-core = "0.9.1"
+uselesskey-webauthn = "0.9.1"
+
+[workspace]

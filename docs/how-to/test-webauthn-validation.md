@@ -18,6 +18,14 @@ uselesskey-core = "0.9.1"
 uselesskey-webauthn = "0.9.1"
 ```
 
+For a copyable downstream test crate, see
+[`../../examples/external/webauthn-ceremony-validation/`](../../examples/external/webauthn-ceremony-validation/).
+The repo proof path is:
+
+```bash
+cargo xtask external-adoption-smoke --path . --library-examples
+```
+
 Then derive a registration and an assertion fixture from the same seed
 and spec:
 
