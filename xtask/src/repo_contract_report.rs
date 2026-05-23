@@ -264,7 +264,7 @@ fn build_report(root: &Path) -> Result<Report> {
         accepted_proposals: summarize_artifacts(&artifacts, "proposal", "accepted"),
         accepted_specs: summarize_artifacts(&artifacts, "spec", "accepted"),
         tracked_adrs: summarize_current_artifacts(&artifacts, "adr"),
-        open_adrs: summarize_current_artifacts(&artifacts, "adr"),
+        open_adrs: summarize_artifacts(&artifacts, "adr", "proposed"),
         support_tier_impacts: claims
             .claim
             .iter()
@@ -634,6 +634,7 @@ fn render_markdown(report: &Report) -> String {
     render_artifacts(&mut out, "Tracked Proposals", &report.tracked_proposals);
     render_artifacts(&mut out, "Accepted Specs", &report.accepted_specs);
     render_artifacts(&mut out, "Tracked ADRs", &report.tracked_adrs);
+    render_artifacts(&mut out, "Open ADRs", &report.open_adrs);
     render_claims(
         &mut out,
         "Support-Tier Impacts",
@@ -871,7 +872,7 @@ mod tests {
         assert!(markdown.contains("## Tracked Proposals"));
         assert!(markdown.contains("`USELESSKEY-PROP-0002`"));
         assert!(markdown.contains("## Tracked ADRs"));
-        assert!(!markdown.contains("## Open ADRs"));
+        assert!(markdown.contains("## Open ADRs"));
         assert!(markdown.contains("## Workflow Support"));
         assert!(markdown.contains("Installed bundle audit"));
 
@@ -886,7 +887,7 @@ mod tests {
         assert_eq!(json["tracked_proposals"][0]["id"], "USELESSKEY-PROP-0002");
         assert_eq!(json["tracked_proposals"][0]["status"], "proposed");
         assert_eq!(json["tracked_adrs"][0]["id"], "USELESSKEY-ADR-0003");
-        assert_eq!(json["open_adrs"][0]["id"], "USELESSKEY-ADR-0003");
+        assert!(json["open_adrs"].as_array().is_some_and(Vec::is_empty));
         assert_eq!(
             json["workflow_support"][0]["workflow"],
             "Installed bundle audit"
@@ -895,6 +896,33 @@ mod tests {
             json["workflow_support"][0]["proof_commands"][0],
             "cargo xtask no-blob"
         );
+        Ok(())
+    }
+
+    #[test]
+    fn repo_contract_report_lists_only_proposed_adrs_as_open() -> Result<()> {
+        let dir = minimal_repo()?;
+        let ledger_path = dir.path().join(to_path(DOC_ARTIFACTS_TOML));
+        let mut ledger = fs::read_to_string(&ledger_path)?;
+        ledger.push_str(
+            r#"
+[[artifact]]
+id = "USELESSKEY-ADR-0004"
+kind = "adr"
+path = "docs/adr/open.md"
+status = "proposed"
+linked_proposal = "USELESSKEY-PROP-0002"
+linked_specs = ["USELESSKEY-SPEC-0023"]
+"#,
+        );
+        fs::write(&ledger_path, ledger)?;
+        write_file(dir.path(), "docs/adr/open.md", "# Open ADR\n")?;
+
+        let report = build_report(dir.path())?;
+
+        assert_eq!(report.tracked_adrs.len(), 2);
+        assert_eq!(report.open_adrs.len(), 1);
+        assert_eq!(report.open_adrs[0].id, "USELESSKEY-ADR-0004");
         Ok(())
     }
 
