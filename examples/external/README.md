@@ -10,6 +10,7 @@ first.
 | --- | --- | --- |
 | Bundle, verify, inspect, and audit in downstream CI | [downstream-ci-bundle-audit](downstream-ci-bundle-audit/) | `cargo xtask external-adoption-smoke --path .` |
 | Copy GitHub Actions and regression recipes | [ci-recipes](ci-recipes/) | `cargo xtask external-adoption-smoke --path . --ci-recipes --format json` |
+| Test deterministic byte fixtures | [entropy-byte-fixtures](entropy-byte-fixtures/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test OIDC/JWKS validation | [oidc-jwks-validation](oidc-jwks-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test HMAC signature validation | [hmac-signature-validation](hmac-signature-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test PGP key parsing and policy paths | [pgp-fixture-validation](pgp-fixture-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |

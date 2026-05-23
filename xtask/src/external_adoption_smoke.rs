@@ -53,6 +53,10 @@ const HMAC_SIGNATURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "hmac-signature-validation",
     source_dir: "examples/external/hmac-signature-validation",
 };
+const ENTROPY_BYTE_FIXTURES_EXAMPLE: ExternalExample = ExternalExample {
+    name: "entropy-byte-fixtures",
+    source_dir: "examples/external/entropy-byte-fixtures",
+};
 const DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE: ExternalExample = ExternalExample {
     name: "downstream-ci-bundle-audit",
     source_dir: "examples/external/downstream-ci-bundle-audit",
@@ -67,6 +71,7 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
+    ENTROPY_BYTE_FIXTURES_EXAMPLE,
 ];
 const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
@@ -78,6 +83,7 @@ const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
+    ENTROPY_BYTE_FIXTURES_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
@@ -90,6 +96,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
+    ENTROPY_BYTE_FIXTURES_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const BOUNDARIES: &[&str] = &[
@@ -990,6 +997,11 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
                 "uselesskey-hmac",
                 &crates_dir.join("uselesskey-hmac"),
             );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-entropy",
+                &crates_dir.join("uselesskey-entropy"),
+            );
         }
         FacadeDependency::Version(version) => {
             manifest = patch_dependency_version(&manifest, "uselesskey", version);
@@ -1000,6 +1012,7 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
             manifest = patch_dependency_version(&manifest, "uselesskey-ssh", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-pgp", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-hmac", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-entropy", version);
         }
     }
 
@@ -1500,6 +1513,7 @@ mod tests {
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
+                "entropy-byte-fixtures",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1523,6 +1537,7 @@ mod tests {
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
+                "entropy-byte-fixtures",
             ]
         );
     }
@@ -1545,6 +1560,7 @@ mod tests {
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
+                "entropy-byte-fixtures",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1612,6 +1628,7 @@ uselesskey-pkcs11-mock = "0.9.1"
 uselesskey-ssh = "0.9.1"
 uselesskey-pgp = "0.9.1"
 uselesskey-hmac = "0.9.1"
+uselesskey-entropy = "0.9.1"
 "#;
 
         let crates_dir = Path::new(r#"C:\Code\Rust\uselesskey\crates"#);
@@ -1625,6 +1642,7 @@ uselesskey-hmac = "0.9.1"
             "uselesskey-ssh",
             "uselesskey-pgp",
             "uselesskey-hmac",
+            "uselesskey-entropy",
         ] {
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
         }
@@ -1646,6 +1664,7 @@ uselesskey-hmac = "0.9.1"
             "uselesskey-ssh",
             "uselesskey-pgp",
             "uselesskey-hmac",
+            "uselesskey-entropy",
         ] {
             assert!(patched.contains(&format!(
                 r#"{crate_name} = {{ path = "{}" }}"#,

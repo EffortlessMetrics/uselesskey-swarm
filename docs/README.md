@@ -59,6 +59,7 @@ Task-oriented instructions for common workflows.
 - [test-pgp-fixtures.md](how-to/test-pgp-fixtures.md) - Using PGP key fixtures to test parser and policy paths.
 - [test-webauthn-validation.md](how-to/test-webauthn-validation.md) — Using WebAuthn-shaped fixtures in relying-party tests
 - [use-pkcs11-mock-fixtures.md](how-to/use-pkcs11-mock-fixtures.md) — Using PKCS#11 mock fixtures for token-backed tests
+- [test-entropy-byte-fixtures.md](how-to/test-entropy-byte-fixtures.md) - Using deterministic byte fixtures for placeholder and policy inputs
 - [generate-scanner-safe-k8s-secret.md](how-to/generate-scanner-safe-k8s-secret.md) — Exporting scanner-safe Kubernetes and Vault-shaped payloads
 - [export-vault-kv-fixtures.md](how-to/export-vault-kv-fixtures.md) — Exporting scanner-safe Vault KV-shaped payloads
 - [materialize-fixtures-in-build-rs.md](how-to/materialize-fixtures-in-build-rs.md) — Materializing disposable fixtures from `build.rs`
