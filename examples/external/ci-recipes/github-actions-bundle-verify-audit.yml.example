@@ -30,6 +30,9 @@ jobs:
       - name: Verify fixture bundle
         run: uselesskey verify-bundle "target/uselesskey-${{ matrix.profile }}"
 
+      - name: Inspect fixture bundle
+        run: uselesskey inspect-bundle "target/uselesskey-${{ matrix.profile }}"
+
       - name: Audit fixture bundle
         run: |
           uselesskey audit-bundle \

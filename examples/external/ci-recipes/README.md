@@ -8,6 +8,7 @@ The installed CLI path is the product surface for bundle recipes:
 ```bash
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
 uselesskey verify-bundle target/uselesskey-oidc
+uselesskey inspect-bundle target/uselesskey-oidc
 uselesskey audit-bundle \
   target/uselesskey-oidc \
   --ci \
@@ -21,7 +22,7 @@ keep generated material in test process memory or under `target/`.
 
 | Job | Recipe |
 | --- | --- |
-| GitHub Actions bundle + verify + audit | [github-actions-bundle-verify-audit.yml.example](github-actions-bundle-verify-audit.yml.example) |
+| GitHub Actions bundle + verify + inspect + audit | [github-actions-bundle-verify-audit.yml.example](github-actions-bundle-verify-audit.yml.example) |
 | OIDC/JWKS verifier regression | [oidc-jwks-regression.md](oidc-jwks-regression.md) |
 | JWT negative test regression | [jwt-negative-regression.md](jwt-negative-regression.md) |
 | Webhook signature regression | [webhook-signature-regression.md](webhook-signature-regression.md) |
@@ -37,8 +38,8 @@ cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 ```
 
 the recipe pack has been exercised from downstream-style workspaces. The proof
-checks that the bundle recipes generate, verify, and audit scanner-safe, OIDC,
-webhook, and TLS bundles under `target/`; that library regression recipes
+checks that the bundle recipes generate, verify, inspect, and audit scanner-safe,
+OIDC, webhook, and TLS bundles under `target/`; that library regression recipes
 compile and run against the checkout; and that audit outputs are metadata-only
 reviewer receipts.
 
