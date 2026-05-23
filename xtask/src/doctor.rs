@@ -269,12 +269,16 @@ fn asan_runtime_check() -> DoctorCheck {
             id: "asan-runtime",
             label: "Windows ASAN runtime",
             status: CheckStatus::Warn,
-            message: format!(
-                "{DLL} not found on PATH; fuzz targets may fail with STATUS_DLL_NOT_FOUND"
-            ),
+            message: asan_runtime_missing_message(DLL),
             details: BTreeMap::new(),
         },
     }
+}
+
+fn asan_runtime_missing_message(dll: &str) -> String {
+    format!(
+        "{dll} not found on PATH; fuzz targets may fail with STATUS_DLL_NOT_FOUND. Install LLVM/Clang with compiler-rt, or add the directory containing {dll} to PATH, then rerun cargo xtask doctor."
+    )
 }
 
 fn crates_io_auth_check() -> DoctorCheck {
@@ -468,5 +472,15 @@ mod tests {
         let paths = cargo_credentials_paths();
         assert!(paths.iter().any(|path| path.ends_with("credentials.toml")));
         assert!(paths.iter().any(|path| path.ends_with("credentials")));
+    }
+
+    #[test]
+    fn doctor_asan_runtime_warning_is_actionable() {
+        let message = asan_runtime_missing_message("clang_rt.asan_dynamic-x86_64.dll");
+        assert!(message.contains("STATUS_DLL_NOT_FOUND"));
+        assert!(message.contains("Install LLVM/Clang"));
+        assert!(message.contains("compiler-rt"));
+        assert!(message.contains("PATH"));
+        assert!(message.contains("cargo xtask doctor"));
     }
 }
