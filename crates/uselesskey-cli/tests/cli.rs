@@ -186,7 +186,7 @@ fn audit_bundle_help_explains_ci_receipts_and_boundaries() -> TestResult<()> {
     assert!(out.contains("--expect-profile <PROFILE>"));
     assert!(out.contains("--policy <POLICY>"));
     assert!(out.contains("uploadable metadata-only receipts"));
-    assert!(out.contains("stable audit failure classes"));
+    assert_help_contains_text(&out, "stable audit failure classes");
     assert!(out.contains("not prove production security"));
     assert!(out.contains("provider compatibility"));
     assert!(out.contains("broader repo public"));
@@ -194,11 +194,15 @@ fn audit_bundle_help_explains_ci_receipts_and_boundaries() -> TestResult<()> {
 }
 
 fn assert_help_contains_command(out: &str, command: &str) {
+    assert_help_contains_text(out, command);
+}
+
+fn assert_help_contains_text(out: &str, expected: &str) {
     let normalized_out = out.split_whitespace().collect::<Vec<_>>().join(" ");
-    let normalized_command = command.split_whitespace().collect::<Vec<_>>().join(" ");
+    let normalized_expected = expected.split_whitespace().collect::<Vec<_>>().join(" ");
     assert!(
-        normalized_out.contains(&normalized_command),
-        "missing help command `{command}` in:\n{out}"
+        normalized_out.contains(&normalized_expected),
+        "missing help text `{expected}` in:\n{out}"
     );
 }
 
