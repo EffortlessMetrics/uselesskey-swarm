@@ -34,5 +34,8 @@ jobs:
       - name: Check claim-proof policy
         run: cargo xtask check-claim-proof-policy
 
+      - name: Check public claims
+        run: cargo xtask claim-report --check-public-claims
+
       - name: Check negative fixtures
         run: cargo xtask check-negative-fixtures
