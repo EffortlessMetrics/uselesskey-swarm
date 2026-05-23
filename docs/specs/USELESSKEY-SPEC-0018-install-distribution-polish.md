@@ -55,7 +55,7 @@ proof machinery:
 | --- | --- | --- |
 | Installed CLI user | `uselesskey` | `cargo install uselesskey-cli --version <current-stable> --locked` |
 | Rust test author | facade crate | `uselesskey = { version = "<current-stable>", ... }` |
-| CI user | installed CLI | `uselesskey bundle ... && uselesskey audit-bundle ... --ci` |
+| CI user | installed CLI | `bundle -> verify-bundle -> inspect-bundle -> audit-bundle --ci` |
 | Reviewer with repo checkout | repo proof | `cargo xtask verification-pack ...` |
 | Maintainer | repo proof | `cargo xtask pr`, `adoption-regression`, `release-evidence` |
 

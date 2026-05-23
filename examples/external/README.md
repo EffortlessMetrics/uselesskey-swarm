@@ -8,7 +8,7 @@ first.
 
 | Job | Example | Proof path |
 | --- | --- | --- |
-| Bundle, verify, and audit in downstream CI | [downstream-ci-bundle-audit](downstream-ci-bundle-audit/) | `cargo xtask external-adoption-smoke --path .` |
+| Bundle, verify, inspect, and audit in downstream CI | [downstream-ci-bundle-audit](downstream-ci-bundle-audit/) | `cargo xtask external-adoption-smoke --path .` |
 | Copy GitHub Actions and regression recipes | [ci-recipes](ci-recipes/) | `cargo xtask external-adoption-smoke --path . --ci-recipes --format json` |
 | Test OIDC/JWKS validation | [oidc-jwks-validation](oidc-jwks-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Use facade fixtures in Rust tests | [rust-test-fixtures](rust-test-fixtures/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
@@ -24,4 +24,3 @@ directory. Upload metadata-only receipts such as `bundle-audit.json` and
 These examples prove local fixture wiring and documented failure classes. They
 do not prove production security, provider compatibility, scanner-policy
 approval, release readiness, or downstream verifier correctness.
-
