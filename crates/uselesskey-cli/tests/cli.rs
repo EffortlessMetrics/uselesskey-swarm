@@ -171,13 +171,18 @@ fn audit_bundle_help_explains_ci_receipts_and_boundaries() -> TestResult<()> {
 
     assert!(out.contains("Emit metadata-only bundle audit receipts"));
     assert!(out.contains("--path <BUNDLE_DIR>"));
-    assert!(out.contains("uselesskey audit-bundle target/uselesskey-webhook --out"));
-    assert!(out.contains(
-        "uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit"
-    ));
-    assert!(out.contains(
-        "uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit"
-    ));
+    assert_help_contains_command(
+        &out,
+        "uselesskey audit-bundle target/uselesskey-webhook --out",
+    );
+    assert_help_contains_command(
+        &out,
+        "uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit",
+    );
+    assert_help_contains_command(
+        &out,
+        "uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit",
+    );
     assert!(out.contains("--expect-profile <PROFILE>"));
     assert!(out.contains("--policy <POLICY>"));
     assert!(out.contains("uploadable metadata-only receipts"));
@@ -186,6 +191,15 @@ fn audit_bundle_help_explains_ci_receipts_and_boundaries() -> TestResult<()> {
     assert!(out.contains("provider compatibility"));
     assert!(out.contains("broader repo public"));
     Ok(())
+}
+
+fn assert_help_contains_command(out: &str, command: &str) {
+    let normalized_out = out.split_whitespace().collect::<Vec<_>>().join(" ");
+    let normalized_command = command.split_whitespace().collect::<Vec<_>>().join(" ");
+    assert!(
+        normalized_out.contains(&normalized_command),
+        "missing help command `{command}` in:\n{out}"
+    );
 }
 
 #[test]
