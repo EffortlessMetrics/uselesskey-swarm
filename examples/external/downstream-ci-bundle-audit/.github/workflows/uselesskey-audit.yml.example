@@ -16,21 +16,26 @@ jobs:
       - name: Install uselesskey CLI
         run: cargo install uselesskey-cli --version 0.9.1 --locked
 
+      - name: Check installed CLI
+        run: uselesskey doctor --format json
+
       - name: Generate webhook fixtures
         run: uselesskey bundle --profile webhook --out target/uselesskey-webhook
 
       - name: Verify webhook bundle
-        run: uselesskey verify-bundle --path target/uselesskey-webhook
+        run: uselesskey verify-bundle target/uselesskey-webhook
 
       - name: Inspect webhook bundle
-        run: uselesskey inspect-bundle --path target/uselesskey-webhook
+        run: uselesskey inspect-bundle target/uselesskey-webhook
 
       - name: Audit webhook bundle
         run: |
           uselesskey audit-bundle \
-            --path target/uselesskey-webhook \
+            target/uselesskey-webhook \
             --out target/uselesskey-webhook-audit \
-            --ci
+            --ci \
+            --expect-profile webhook \
+            --policy strict
 
       - name: Upload uselesskey audit receipts
         uses: actions/upload-artifact@v7
