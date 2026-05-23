@@ -544,7 +544,7 @@ fn run_ci_recipe_profile(
         .arg("inspect-bundle")
         .arg(&bundle_dir)
         .current_dir(&project_dir);
-    run_command_step(
+    let inspect_stdout = run_command_step(
         receipt,
         &format!("ci-recipe-inspect-{profile}"),
         inspect,
@@ -552,6 +552,7 @@ fn run_ci_recipe_profile(
         log_dir,
         &[bundle_artifact.as_str()],
     )?;
+    verify_ci_inspect_summary(&inspect_stdout, profile)?;
 
     let mut audit = Command::new(cli_bin);
     audit
@@ -580,6 +581,38 @@ fn run_ci_recipe_profile(
         &project_dir,
         &[bundle_artifact, audit_artifact],
     );
+    Ok(())
+}
+
+fn verify_ci_inspect_summary(inspect_path: &Path, expected_profile: &str) -> Result<()> {
+    let summary = fs::read_to_string(inspect_path)
+        .with_context(|| format!("read {}", inspect_path.display()))?;
+    for expected in [
+        &format!("Bundle profile: {expected_profile}"),
+        "Summary type: quick human bundle summary",
+        "Verification: ok",
+        "Generated files:",
+        "Artifact posture:",
+    ] {
+        if !summary.contains(expected) {
+            bail!(
+                "CI recipe inspect summary missing `{expected}` for {}",
+                inspect_path.display()
+            );
+        }
+    }
+    for forbidden in [
+        "-----BEGIN PRIVATE KEY-----",
+        "-----BEGIN RSA PRIVATE KEY-----",
+        "uk_test_",
+    ] {
+        if summary.contains(forbidden) {
+            bail!(
+                "CI recipe inspect summary contains forbidden payload marker `{forbidden}` for {}",
+                inspect_path.display()
+            );
+        }
+    }
     Ok(())
 }
 
@@ -1915,6 +1948,75 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         Ok(())
     }
 
+    #[test]
+    fn external_adoption_accepts_ci_inspect_summary() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("inspect.txt");
+        write_ci_inspect_summary(&path, "oidc")?;
+
+        verify_ci_inspect_summary(&path, "oidc")
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_inspect_wrong_profile() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("inspect.txt");
+        write_ci_inspect_summary(&path, "webhook")?;
+
+        let err = match verify_ci_inspect_summary(&path, "oidc") {
+            Ok(()) => bail!("CI inspect summary with wrong profile was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("Bundle profile: oidc"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_inspect_without_verification() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("inspect.txt");
+        fs::write(
+            &path,
+            concat!(
+                "Bundle profile: oidc\n",
+                "Summary type: quick human bundle summary\n",
+                "Generated files:\n",
+                "Artifact posture:\n",
+            ),
+        )?;
+
+        let err = match verify_ci_inspect_summary(&path, "oidc") {
+            Ok(()) => bail!("CI inspect summary without verification was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("Verification: ok"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_inspect_with_secret_marker() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("inspect.txt");
+        fs::write(
+            &path,
+            concat!(
+                "Bundle profile: oidc\n",
+                "Summary type: quick human bundle summary\n",
+                "Verification: ok\n",
+                "Generated files:\n",
+                "Artifact posture:\n",
+                "-----BEGIN PRIVATE KEY-----\n",
+            ),
+        )?;
+
+        let err = match verify_ci_inspect_summary(&path, "oidc") {
+            Ok(()) => bail!("CI inspect summary with secret marker was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("forbidden payload marker"));
+        Ok(())
+    }
+
     fn write_ci_audit_json(dir: &Path, profile: &str) -> Result<()> {
         fs::write(
             dir.join("bundle-audit.json"),
@@ -1934,6 +2036,24 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                     "production signing-key custody"
                 ],
             }))?,
+        )?;
+        Ok(())
+    }
+
+    fn write_ci_inspect_summary(path: &Path, profile: &str) -> Result<()> {
+        fs::write(
+            path,
+            format!(
+                concat!(
+                    "Bundle profile: {}\n",
+                    "Summary type: quick human bundle summary\n",
+                    "Verification: ok\n",
+                    "Generated files:\n",
+                    "Artifact posture:\n",
+                    "- jwks/valid.json scanner_safe=yes runtime_material=no\n",
+                ),
+                profile
+            ),
         )?;
         Ok(())
     }
