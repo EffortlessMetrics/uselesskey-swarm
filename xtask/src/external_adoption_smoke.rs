@@ -1490,7 +1490,7 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
     }
 
     #[test]
-    fn external_adoption_markdown_lists_boundaries() {
+    fn external_adoption_markdown_lists_cli_loop_and_boundaries() {
         let receipt = ExternalAdoptionSmokeReceipt {
             schema_version: 1,
             status: "pass".to_string(),
@@ -1507,6 +1507,8 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                 status: "ok".to_string(),
                 outputs: vec![
                     "target/external-adoption-smoke/work/webhook-cli/target/uselesskey-webhook"
+                        .to_string(),
+                    "target/external-adoption-smoke/work/webhook-cli/target/inspect-webhook.txt"
                         .to_string(),
                     "target/external-adoption-smoke/work/webhook-cli/target/audit-webhook"
                         .to_string(),
@@ -1528,6 +1530,44 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                     stderr: "target/external-adoption-smoke/logs/stderr.txt".to_string(),
                     details: None,
                     artifacts: Vec::new(),
+                },
+                ExternalAdoptionStep {
+                    name: "cli-verify-webhook".to_string(),
+                    command: vec![
+                        "uselesskey".to_string(),
+                        "verify-bundle".to_string(),
+                        "target/uselesskey-webhook".to_string(),
+                    ],
+                    cwd: ".".to_string(),
+                    status: "ok".to_string(),
+                    duration_ms: 1,
+                    stdout: "target/external-adoption-smoke/logs/verify-stdout.txt".to_string(),
+                    stderr: "target/external-adoption-smoke/logs/verify-stderr.txt".to_string(),
+                    details: None,
+                    artifacts: vec![
+                        "target/external-adoption-smoke/work/webhook-cli/target/uselesskey-webhook"
+                            .to_string(),
+                    ],
+                },
+                ExternalAdoptionStep {
+                    name: "cli-inspect-webhook".to_string(),
+                    command: vec![
+                        "uselesskey".to_string(),
+                        "inspect-bundle".to_string(),
+                        "target/uselesskey-webhook".to_string(),
+                        "--out".to_string(),
+                        "target/inspect-webhook.txt".to_string(),
+                    ],
+                    cwd: ".".to_string(),
+                    status: "ok".to_string(),
+                    duration_ms: 1,
+                    stdout: "target/external-adoption-smoke/logs/inspect-stdout.txt".to_string(),
+                    stderr: "target/external-adoption-smoke/logs/inspect-stderr.txt".to_string(),
+                    details: None,
+                    artifacts: vec![
+                        "target/external-adoption-smoke/work/webhook-cli/target/inspect-webhook.txt"
+                            .to_string(),
+                    ],
                 },
                 ExternalAdoptionStep {
                     name: "cli-audit-webhook".to_string(),
@@ -1556,7 +1596,14 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         let markdown = render_markdown(&receipt);
         assert!(markdown.contains("External Adoption Smoke Receipt"));
         assert!(markdown.contains("installed-style CLI smoke does not claim provider"));
-        assert!(markdown.contains("cli-bundle-webhook"));
+        let bundle_pos = markdown.find("cli-bundle-webhook").expect("bundle step");
+        let verify_pos = markdown.find("cli-verify-webhook").expect("verify step");
+        let inspect_pos = markdown.find("cli-inspect-webhook").expect("inspect step");
+        let audit_pos = markdown.find("cli-audit-webhook").expect("audit step");
+        assert!(bundle_pos < verify_pos);
+        assert!(verify_pos < inspect_pos);
+        assert!(inspect_pos < audit_pos);
+        assert!(markdown.contains("target/inspect-webhook.txt"));
         assert!(markdown.contains("target/audit-webhook"));
     }
 
