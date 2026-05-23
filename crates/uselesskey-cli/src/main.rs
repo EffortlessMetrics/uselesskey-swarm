@@ -1214,7 +1214,7 @@ fn build_bundle_audit(bundle_dir: &Path) -> Result<BundleAudit> {
             BundleAuditCheck::pass(
                 "path-containment",
                 "path_escape",
-                "manifest paths are relative and contained by the bundle",
+                "manifest paths are safe relative paths contained by the bundle",
             ),
             BundleAuditCheck::pass(
                 "artifact-content",
@@ -1871,9 +1871,9 @@ fn bundle_audit_failure_diagnostic(err: &anyhow::Error) -> BundleAuditFailureDia
             "regenerate the bundle with the same uselesskey version or inspect manifest.json for corruption",
         ),
         "path_escape" => format_with_context(
-            "manifest.json lists a path that escapes the bundle root",
+            "manifest.json lists an unsafe bundle path",
             context.as_deref(),
-            "regenerate the bundle or inspect the manifest producer; bundle paths must be relative and contained",
+            "regenerate the bundle or inspect the manifest producer; bundle paths must be safe relative paths contained by the bundle",
         ),
         "missing_artifact" => format_with_context(
             "manifest.json lists files that are absent from the bundle",
