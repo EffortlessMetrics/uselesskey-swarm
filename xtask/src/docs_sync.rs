@@ -1123,6 +1123,30 @@ mod tests {
     }
 
     #[test]
+    fn jsonwebtoken_adapter_snippet_enables_adapter_features() {
+        let raw = include_str!("../../docs/metadata/workspace-docs.json");
+        let metadata: DocsMetadata = serde_json::from_str(raw).expect("metadata parses");
+        let snippet = metadata
+            .dependency_snippets
+            .iter()
+            .find(|snippet| snippet.name == "jsonwebtoken adapter")
+            .expect("jsonwebtoken adapter snippet exists");
+        let adapter_dep = snippet
+            .dependencies
+            .iter()
+            .find(|dependency| dependency.crate_name == "uselesskey-jsonwebtoken")
+            .expect("jsonwebtoken adapter dependency exists");
+
+        assert_eq!(adapter_dep.features, vec!["all".to_string()]);
+        let rendered = render_single_dependency_snippet(snippet, &metadata.release_version);
+        let expected = format!(
+            "uselesskey-jsonwebtoken = {{ version = \"{}\", features = [\"all\"] }}",
+            metadata.release_version
+        );
+        assert!(rendered.contains(&expected), "{rendered}");
+    }
+
+    #[test]
     fn minimal_example_commands_table_has_expected_shape() {
         let metadata = DocsMetadata {
             release_version: "0.0.0".to_string(),
