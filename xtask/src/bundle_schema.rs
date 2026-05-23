@@ -1806,7 +1806,10 @@ fn validate_relative_path(value: &Value, path: &str, errors: &mut Vec<String>) {
         return;
     };
     if !is_safe_relative_path(path_value) {
-        errors.push(format!("{path}: unsafe relative path `{path_value}`"));
+        errors.push(format!(
+            "{path}: unsafe relative path `{}`",
+            display_schema_path(path_value)
+        ));
     }
 }
 
@@ -1822,6 +1825,7 @@ fn validate_stable_id(value: Option<&Value>, path: &str, errors: &mut Vec<String
 
 fn is_safe_relative_path(path: &str) -> bool {
     if path.is_empty()
+        || path.chars().any(|ch| ch.is_control())
         || path.starts_with('/')
         || path.starts_with('\\')
         || path.as_bytes().get(1) == Some(&b':')
@@ -1831,6 +1835,10 @@ fn is_safe_relative_path(path: &str) -> bool {
     path.replace('\\', "/")
         .split('/')
         .all(|component| !component.is_empty() && component != "..")
+}
+
+fn display_schema_path(path: &str) -> String {
+    path.escape_default().to_string()
 }
 
 fn is_stable_id(value: &str) -> bool {
@@ -2023,6 +2031,27 @@ mod tests {
         assert!(!is_safe_relative_path("../secret.pem"));
         assert!(!is_safe_relative_path("/tmp/secret.pem"));
         assert!(!is_safe_relative_path("C:/tmp/secret.pem"));
+    }
+
+    #[test]
+    fn safe_relative_path_rejects_control_characters() {
+        assert!(!is_safe_relative_path("receipts/negative-coverage\n.json"));
+        assert!(!is_safe_relative_path("receipts/negative-coverage\r.json"));
+        assert!(!is_safe_relative_path("receipts/negative-coverage\t.json"));
+    }
+
+    #[test]
+    fn relative_path_validator_escapes_control_character_diagnostics() {
+        let mut errors = Vec::new();
+        validate_relative_path(
+            &json!("receipts/negative-coverage\n.json"),
+            "negative-coverage.json.coverage[0].path",
+            &mut errors,
+        );
+
+        assert_eq!(errors.len(), 1);
+        assert!(errors[0].contains("receipts/negative-coverage\\n.json"));
+        assert!(!errors[0].contains("receipts/negative-coverage\n.json"));
     }
 
     #[test]
