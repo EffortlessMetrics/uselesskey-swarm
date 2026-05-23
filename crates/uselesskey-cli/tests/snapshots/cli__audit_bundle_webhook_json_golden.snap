@@ -59,7 +59,7 @@ checks:
     failure_class: invalid_manifest
     name: manifest
     status: pass
-  - detail: manifest paths are relative and contained by the bundle
+  - detail: manifest paths are safe relative paths contained by the bundle
     failure_class: path_escape
     name: path-containment
     status: pass
