@@ -95,7 +95,7 @@ payload contents.
 Profile-neutral checks cover:
 
 - `manifest.json` exists and parses;
-- manifest paths are safe relative paths and contained by the bundle path;
+- manifest paths are safe relative paths contained by the bundle path;
 - listed artifacts exist;
 - bundle content verifies against the manifest and deterministic profile;
 - materialization and audit-surface receipts exist;
