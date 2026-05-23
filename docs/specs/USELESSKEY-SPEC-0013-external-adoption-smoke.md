@@ -68,14 +68,16 @@ Library example mode must run only the clean-project Rust examples that prove
 facade-first adoption. It must not build the installed CLI, run bundle profiles,
 or exercise downstream CI recipes.
 
-Downstream CI recipe mode is explicit and opt-in:
+Downstream CI recipe mode is explicit, opt-in, and focused:
 
 ```bash
 cargo xtask external-adoption-smoke --path . --ci-recipes
 cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 ```
 
-CI recipe mode must execute the documented generate, verify, and strict
+CI recipe mode must build or install the CLI needed for downstream commands,
+compile the clean-project Rust examples that back the recipe pack, and execute
+the documented generate, verify, and strict
 `audit-bundle --ci --expect-profile <profile> --policy strict --out <audit-dir>`
 command sequence for supported downstream CI profiles. It must verify that the
 audit JSON reports the expected profile, top-level `status: "pass"`, at least
@@ -84,8 +86,10 @@ values. It must also verify that the JSON includes metadata-only
 `boundaries[]` entries and `does_not_prove[]` entries that keep production
 security out of scope, and that the Markdown audit receipt preserves the same
 metadata-only boundary and production non-claim for reviewers. It must not make
-default external adoption smoke heavier, and it must keep all generated fixture
-payloads and audit receipts under `target/external-adoption-smoke/`.
+default external adoption smoke heavier. It must not run the default installed
+CLI discovery and per-profile inspect matrix as a prerequisite for CI recipe
+proof. It must keep all generated fixture payloads and audit receipts under
+`target/external-adoption-smoke/`.
 
 Local path mode must create clean temporary projects under the repository's
 `target/external-adoption-smoke/` tree, use the current checkout through path
@@ -295,13 +299,16 @@ External adoption smoke maps to:
 - `cargo xtask external-adoption-smoke --path . --library-examples --format json`
   for bounded facade-first Rust example proof;
 - `cargo xtask external-adoption-smoke --path . --ci-recipes --format json` for
-  downstream CI recipe proof;
+  focused downstream CI recipe proof;
 - `cargo xtask external-adoption-smoke --version <published>` for crates.io
   audit/reference smoke;
 - generated clean Cargo projects for documented dependency snippets;
-- installed-style CLI runs for profile discovery, bundle generation,
+- default installed-style CLI runs for profile discovery, bundle generation,
   `verify-bundle`, strict `audit-bundle --ci --expect-profile <profile>
   --policy strict`, and `inspect-bundle`;
+- focused CI recipe runs for bundle generation, `verify-bundle`, and strict
+  `audit-bundle --ci --expect-profile <profile> --policy strict --out
+  <audit-dir>` without the default profile discovery and inspect matrix;
 - `cargo xtask docs-sync --check` for documented snippet drift;
 - `cargo xtask user-path-smoke` and `cargo xtask adoption-regression` as
   repo-local complements, not replacements;
