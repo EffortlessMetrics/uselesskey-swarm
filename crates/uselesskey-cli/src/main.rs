@@ -904,6 +904,7 @@ fn load_bundle_manifest(path: &Path) -> Result<BundleManifest> {
 }
 
 fn verify_bundle_manifest(bundle_dir: &Path, manifest: &BundleManifest) -> Result<Vec<String>> {
+    ensure_manifest_paths_safe(manifest)?;
     let format = parse_manifest_format(&manifest.format)?;
     let profile = parse_manifest_profile(&manifest.profile)?;
     let fx = Factory::deterministic_from_str(&manifest.seed);
