@@ -631,6 +631,7 @@ fn render_markdown(report: &Report) -> String {
     }
 
     render_work_items(&mut out, "Ready Work Items", &report.ready_work_items);
+    render_next_action_guidance(&mut out, report);
     render_artifacts(&mut out, "Tracked Proposals", &report.tracked_proposals);
     render_artifacts(&mut out, "Accepted Specs", &report.accepted_specs);
     render_artifacts(&mut out, "Tracked ADRs", &report.tracked_adrs);
@@ -655,6 +656,30 @@ fn render_markdown(report: &Report) -> String {
     );
 
     out
+}
+
+fn render_next_action_guidance(out: &mut String, report: &Report) {
+    out.push_str("## Next Action Guidance\n\n");
+    if let Some(rails) = &report.rails
+        && rails.active_lane != "none"
+    {
+        out.push_str(&format!(
+            "Active Rails lane `{}` is set. Read the linked lane before choosing work.\n\n",
+            rails.active_lane
+        ));
+        return;
+    }
+
+    if report.active_goal.is_some() && !report.ready_work_items.is_empty() {
+        out.push_str(
+            "Use the first ready work item above unless the current operator instruction names a different item.\n\n",
+        );
+        return;
+    }
+
+    out.push_str(
+        "No active Rails lane or ready uselesskey work item is available. Inspect open PRs and current operator instructions, then choose one narrow aligned improvement from committed source-of-truth surfaces. Open a repo-native goal only when the next lane needs more than one PR.\n\n",
+    );
 }
 
 fn render_rails_state(out: &mut String, rails: Option<&RailsSummary>) {
@@ -869,6 +894,8 @@ mod tests {
         assert!(markdown.contains("`RAILS-LANE-0002`"));
         assert!(markdown.contains("## Ready Work Items"));
         assert!(markdown.contains("`repo-contract-report`"));
+        assert!(markdown.contains("## Next Action Guidance"));
+        assert!(markdown.contains("Active Rails lane `RAILS-LANE-0002` is set"));
         assert!(markdown.contains("## Tracked Proposals"));
         assert!(markdown.contains("`USELESSKEY-PROP-0002`"));
         assert!(markdown.contains("## Tracked ADRs"));
@@ -943,6 +970,11 @@ linked_specs = ["USELESSKEY-SPEC-0023"]
     #[test]
     fn repo_contract_report_does_not_treat_archived_manifest_as_active() -> Result<()> {
         let dir = minimal_repo()?;
+        let rails_index = dir.path().join(to_path(RAILS_INDEX_TOML));
+        let mut rails_index_text = fs::read_to_string(&rails_index)?;
+        rails_index_text =
+            rails_index_text.replace("active_lane = \"RAILS-LANE-0002\"", "active_lane = \"\"");
+        fs::write(&rails_index, rails_index_text)?;
         let out_dir = dir.path().join("target/source-of-truth");
         write_goal(
             dir.path(),
@@ -967,6 +999,10 @@ commands = ["cargo xtask repo-contract-report"]
         assert!(markdown.contains("## Active Goal"));
         assert!(markdown.contains("None."));
         assert!(markdown.contains("Last goal manifest: `test-goal` is `archived`"));
+        assert!(markdown.contains("## Next Action Guidance"));
+        assert!(
+            markdown.contains("No active Rails lane or ready uselesskey work item is available")
+        );
         assert!(!markdown.contains("| `test-goal` | Test goal | `archived`"));
 
         let json: serde_json::Value =
