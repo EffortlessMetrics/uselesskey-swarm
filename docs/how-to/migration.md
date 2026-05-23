@@ -41,7 +41,7 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
 # JWT signing and verification helpers
 [dev-dependencies]
 uselesskey = { version = "0.9.1", default-features = false, features = ["rsa", "hmac", "jwk"] }
-uselesskey-jsonwebtoken = { version = "0.9.1" }
+uselesskey-jsonwebtoken = { version = "0.9.1", features = ["rsa", "hmac"] }
 ```
 
 > Prefer adapter crates (`uselesskey-rustls`, `uselesskey-jsonwebtoken`, etc.) over broad feature bundles to keep compile and dependency surface small.

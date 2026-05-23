@@ -775,7 +775,9 @@
         {
           "crate_name": "uselesskey-jsonwebtoken",
           "default_features": null,
-          "features": []
+          "features": [
+            "all"
+          ]
         }
       ],
       "minimal_example_command": "cargo run -p uselesskey --example adapter_jsonwebtoken --no-default-features --features rsa,ecdsa,ed25519,hmac"
