@@ -119,13 +119,15 @@ docs/schemas/bundle-manifest.schema.json
 ```
 
 That schema is intentionally tolerant of additive fields, but it locks the
-stable product surface that downstream CI and docs can rely on: relative paths,
-profile, artifact list, receipt list, scanner-safe classification, and optional
-negative failure-class metadata.
+stable product surface that downstream CI and docs can rely on: safe relative
+paths, profile, artifact list, receipt list, scanner-safe classification, and
+optional negative failure-class metadata.
 
-Artifact paths and receipt paths must be relative to the bundle root. They must
-not escape the bundle directory, contain absolute paths, or depend on the
-developer's local checkout path.
+Manifest file paths, artifact paths, receipt paths, and negative-coverage
+artifact paths must be safe relative paths from the bundle root. Safe relative
+paths are non-empty and must not be absolute paths, Windows drive-prefixed
+paths, parent-directory traversals, strings containing control characters, or
+paths that depend on the developer's local checkout.
 
 Artifact lane values are:
 
