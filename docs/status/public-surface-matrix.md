@@ -28,7 +28,7 @@ Workspace-only crates are load-bearing structure.
 | `uselesskey-core` | public foundation | Advanced users need `Factory`, `Seed`, and shared fixture primitives. | Stable fixture foundation used by facade and family crates. | `docs/architecture/public-surface.md` | keep |
 | `uselesskey-entropy` | public family | Tests need deterministic byte fixtures or scanner-safe placeholder data. | Entropy and placeholder fixture generation. | `docs/how-to/test-entropy-byte-fixtures.md` | keep |
 | `uselesskey-rsa` | public family | Tests need RSA PEM/DER/JWK-compatible fixtures. | RSA fixture extension trait and specs. | `docs/how-to/materialize-fixtures-in-build-rs.md` | keep |
-| `uselesskey-ecdsa` | public family | Tests need ECDSA P-256/P-384 fixtures. | ECDSA fixture extension trait and specs. | `docs/reference/support-matrix.md` | keep |
+| `uselesskey-ecdsa` | public family | Tests need ECDSA P-256/P-384 fixtures. | ECDSA fixture extension trait and specs. | `docs/how-to/test-ecdsa-fixtures.md` | keep |
 | `uselesskey-ed25519` | public family | Tests need Ed25519 fixtures. | Ed25519 fixture extension trait. | `docs/how-to/test-ed25519-fixtures.md` | keep |
 | `uselesskey-hmac` | public family | Tests need deterministic HMAC fixture material. | HMAC fixture extension trait and specs. | `docs/how-to/test-hmac-signature-validation.md` | keep |
 | `uselesskey-token` | public family | Tests need token-shaped positives and negatives. | Token fixture extension trait plus `NegativeToken` stable IDs. | `docs/how-to/test-jwt-negative-validation.md` | keep |

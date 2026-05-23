@@ -57,6 +57,10 @@ const ENTROPY_BYTE_FIXTURES_EXAMPLE: ExternalExample = ExternalExample {
     name: "entropy-byte-fixtures",
     source_dir: "examples/external/entropy-byte-fixtures",
 };
+const ECDSA_FIXTURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
+    name: "ecdsa-fixture-validation",
+    source_dir: "examples/external/ecdsa-fixture-validation",
+};
 const ED25519_FIXTURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "ed25519-fixture-validation",
     source_dir: "examples/external/ed25519-fixture-validation",
@@ -76,6 +80,7 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
     ENTROPY_BYTE_FIXTURES_EXAMPLE,
+    ECDSA_FIXTURE_VALIDATION_EXAMPLE,
     ED25519_FIXTURE_VALIDATION_EXAMPLE,
 ];
 const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
@@ -89,6 +94,7 @@ const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
     ENTROPY_BYTE_FIXTURES_EXAMPLE,
+    ECDSA_FIXTURE_VALIDATION_EXAMPLE,
     ED25519_FIXTURE_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
@@ -103,6 +109,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     PGP_FIXTURE_VALIDATION_EXAMPLE,
     HMAC_SIGNATURE_VALIDATION_EXAMPLE,
     ENTROPY_BYTE_FIXTURES_EXAMPLE,
+    ECDSA_FIXTURE_VALIDATION_EXAMPLE,
     ED25519_FIXTURE_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
@@ -1014,6 +1021,11 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
                 "uselesskey-ed25519",
                 &crates_dir.join("uselesskey-ed25519"),
             );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-ecdsa",
+                &crates_dir.join("uselesskey-ecdsa"),
+            );
         }
         FacadeDependency::Version(version) => {
             manifest = patch_dependency_version(&manifest, "uselesskey", version);
@@ -1026,6 +1038,7 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
             manifest = patch_dependency_version(&manifest, "uselesskey-hmac", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-entropy", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-ed25519", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-ecdsa", version);
         }
     }
 
@@ -1527,6 +1540,7 @@ mod tests {
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
                 "entropy-byte-fixtures",
+                "ecdsa-fixture-validation",
                 "ed25519-fixture-validation",
                 "downstream-ci-bundle-audit",
             ]
@@ -1552,6 +1566,7 @@ mod tests {
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
                 "entropy-byte-fixtures",
+                "ecdsa-fixture-validation",
                 "ed25519-fixture-validation",
             ]
         );
@@ -1576,6 +1591,7 @@ mod tests {
                 "pgp-fixture-validation",
                 "hmac-signature-validation",
                 "entropy-byte-fixtures",
+                "ecdsa-fixture-validation",
                 "ed25519-fixture-validation",
                 "downstream-ci-bundle-audit",
             ]
@@ -1646,6 +1662,7 @@ uselesskey-pgp = "0.9.1"
 uselesskey-hmac = "0.9.1"
 uselesskey-entropy = "0.9.1"
 uselesskey-ed25519 = "0.9.1"
+uselesskey-ecdsa = "0.9.1"
 "#;
 
         let crates_dir = Path::new(r#"C:\Code\Rust\uselesskey\crates"#);
@@ -1661,6 +1678,7 @@ uselesskey-ed25519 = "0.9.1"
             "uselesskey-hmac",
             "uselesskey-entropy",
             "uselesskey-ed25519",
+            "uselesskey-ecdsa",
         ] {
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
         }
@@ -1684,6 +1702,7 @@ uselesskey-ed25519 = "0.9.1"
             "uselesskey-hmac",
             "uselesskey-entropy",
             "uselesskey-ed25519",
+            "uselesskey-ecdsa",
         ] {
             assert!(patched.contains(&format!(
                 r#"{crate_name} = {{ path = "{}" }}"#,
