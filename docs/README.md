@@ -44,10 +44,18 @@ Task-oriented instructions for common workflows.
 - [use-uselesskey-in-downstream-ci.md](how-to/use-uselesskey-in-downstream-ci.md) — Installed CLI bundle audit in downstream CI
 - [use-uselesskey-in-github-actions.md](how-to/use-uselesskey-in-github-actions.md) — GitHub Actions recipes for bundle audit receipts
 - [use-downstream-policy-pack.md](how-to/use-downstream-policy-pack.md) - Downstream policy presets, CI recipe pack, and metadata-only reviewer packets
+- [verify-a-fixture-bundle.md](how-to/verify-a-fixture-bundle.md) — Generate, verify, inspect, and audit installed fixture bundles
+- [share-installed-bundle-audit.md](how-to/share-installed-bundle-audit.md) — Share metadata-only bundle audit packets with reviewers
 - [adapter-template.md](how-to/adapter-template.md) — Scaffolding and validating new adapter crates
 - [test-oidc-jwks-validation.md](how-to/test-oidc-jwks-validation.md) — Using the OIDC/JWKS contract pack in validator tests
 - [test-jwt-negative-validation.md](how-to/test-jwt-negative-validation.md) — Using JWT-shaped negatives for policy rejection tests
+- [test-webhook-signature-validation.md](how-to/test-webhook-signature-validation.md) — Using webhook signature fixtures and negative request classes
+- [test-tls-chain-validation.md](how-to/test-tls-chain-validation.md) — Using TLS/X.509 chain fixtures and negative certificate classes
+- [test-webauthn-validation.md](how-to/test-webauthn-validation.md) — Using WebAuthn-shaped fixtures in relying-party tests
+- [use-pkcs11-mock-fixtures.md](how-to/use-pkcs11-mock-fixtures.md) — Using PKCS#11 mock fixtures for token-backed tests
 - [generate-scanner-safe-k8s-secret.md](how-to/generate-scanner-safe-k8s-secret.md) — Exporting scanner-safe Kubernetes and Vault-shaped payloads
+- [export-vault-kv-fixtures.md](how-to/export-vault-kv-fixtures.md) — Exporting scanner-safe Vault KV-shaped payloads
+- [materialize-fixtures-in-build-rs.md](how-to/materialize-fixtures-in-build-rs.md) — Materializing disposable fixtures from `build.rs`
 - [verify-uselesskey-public-claims.md](how-to/verify-uselesskey-public-claims.md) — Verifying badge, scanner-safe, contract-pack, claim-proof, and release-smoke claims
 - [share-uselesskey-verification-pack.md](how-to/share-uselesskey-verification-pack.md) — Collecting metadata-only public-claim receipts for security and platform review
 
