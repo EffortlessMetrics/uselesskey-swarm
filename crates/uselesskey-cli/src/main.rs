@@ -2535,7 +2535,7 @@ fn render_profiles(explain: bool) -> String {
             info.proof_command
         ));
     }
-    out.push_str("\nInstalled users generate, verify, audit, and inspect bundles with `uselesskey bundle`, `uselesskey verify-bundle`, `uselesskey audit-bundle`, and `uselesskey inspect-bundle`.\n");
+    out.push_str("\nInstalled users generate, verify, inspect, and audit bundles with `uselesskey bundle`, `uselesskey verify-bundle`, `uselesskey inspect-bundle`, and `uselesskey audit-bundle`.\n");
     out.push_str("Use `uselesskey profile <name> --explain` for generated files, boundaries, and copyable commands.\n");
 
     if explain {
@@ -2558,9 +2558,9 @@ fn render_profile_summary(profile: BundleProfile) -> String {
             "Purpose: {}\n",
             "Generate: uselesskey bundle --profile {} --out {}\n",
             "Verify: uselesskey verify-bundle {}\n",
+            "Inspect: uselesskey inspect-bundle {}\n",
             "Audit: uselesskey audit-bundle {} --out {}-audit\n",
             "CI audit: uselesskey audit-bundle {} --ci --expect-profile {} --policy strict --out {}-audit\n",
-            "Inspect: uselesskey inspect-bundle {}\n",
             "Proof/check path: {}\n",
             "Explain: uselesskey profile {} --explain\n",
             "Bundle explain: uselesskey bundle --profile {} --explain\n",
@@ -2574,8 +2574,8 @@ fn render_profile_summary(profile: BundleProfile) -> String {
         info.profile.output_dir_hint(),
         info.profile.output_dir_hint(),
         info.profile.output_dir_hint(),
-        info.profile.manifest_name(),
         info.profile.output_dir_hint(),
+        info.profile.manifest_name(),
         info.profile.output_dir_hint(),
         info.proof_command,
         info.profile.manifest_name(),

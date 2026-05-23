@@ -62,6 +62,9 @@ fn profiles_command_lists_copyable_contract_pack_paths() -> TestResult<()> {
 
     assert!(out.contains("Available uselesskey profiles"));
     assert!(out.contains("uselesskey profile <name> --explain"));
+    assert!(out.contains(
+        "Installed users generate, verify, inspect, and audit bundles"
+    ));
     assert!(out.contains("claim-proof --claim webhook-contract-pack"));
     Ok(())
 }
@@ -77,16 +80,23 @@ fn profile_command_summary_has_copyable_webhook_paths() -> TestResult<()> {
         )
     );
     assert!(out.contains("Verify: uselesskey verify-bundle target/uselesskey-webhook"));
+    assert!(out.contains("Inspect: uselesskey inspect-bundle target/uselesskey-webhook"));
     assert!(out.contains(
         "Audit: uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit"
     ));
     assert!(out.contains(
         "CI audit: uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit"
     ));
-    assert!(out.contains("Inspect: uselesskey inspect-bundle target/uselesskey-webhook"));
     assert!(
         out.contains("Proof/check path: cargo xtask claim-proof --claim webhook-contract-pack")
     );
+    let verify = out.find("Verify:").test_context("Verify line")?;
+    let inspect = out.find("Inspect:").test_context("Inspect line")?;
+    let audit = out.find("Audit:").test_context("Audit line")?;
+    let ci_audit = out.find("CI audit:").test_context("CI audit line")?;
+    assert!(verify < inspect);
+    assert!(inspect < audit);
+    assert!(audit < ci_audit);
     Ok(())
 }
 
@@ -113,6 +123,11 @@ fn bundle_explain_has_copyable_webhook_paths_without_writing_bundle() -> TestRes
     assert!(out.contains(
         "CI audit: uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit"
     ));
+    let verify = out.find("Verify:").test_context("Verify line")?;
+    let inspect = out.find("Inspect:").test_context("Inspect line")?;
+    let audit = out.find("Audit:").test_context("Audit line")?;
+    assert!(verify < inspect);
+    assert!(inspect < audit);
     assert!(out.contains("Does not prove"));
     assert!(out.contains("provider compatibility"));
     assert!(!bundle_dir.exists());
