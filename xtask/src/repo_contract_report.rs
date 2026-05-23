@@ -1007,6 +1007,32 @@ linked_specs = ["USELESSKEY-SPEC-0023"]
     }
 
     #[test]
+    fn repo_contract_report_guides_to_ready_work_item_when_no_rails_lane() -> Result<()> {
+        let dir = minimal_repo()?;
+        let rails_index = dir.path().join(to_path(RAILS_INDEX_TOML));
+        let mut rails_index_text = fs::read_to_string(&rails_index)?;
+        rails_index_text =
+            rails_index_text.replace("active_lane = \"RAILS-LANE-0002\"", "active_lane = \"\"");
+        fs::write(&rails_index, rails_index_text)?;
+
+        let report = build_report(dir.path())?;
+
+        assert_eq!(report.ready_work_items.len(), 1);
+        assert_eq!(report.next_action_guidance.mode, "ready_work_item");
+        assert!(
+            report
+                .next_action_guidance
+                .summary
+                .contains("`repo-contract-report`")
+        );
+
+        let markdown = render_markdown(&report);
+        assert!(markdown.contains("Use ready work item `repo-contract-report`"));
+        assert!(!markdown.contains("Active Rails lane `RAILS-LANE-0002` is set"));
+        Ok(())
+    }
+
+    #[test]
     fn repo_contract_report_does_not_treat_archived_manifest_as_active() -> Result<()> {
         let dir = minimal_repo()?;
         let rails_index = dir.path().join(to_path(RAILS_INDEX_TOML));
