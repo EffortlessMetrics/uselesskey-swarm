@@ -228,6 +228,7 @@ surfaces = [
 ]
 proof_commands = [
   "cargo test -p uselesskey-cli --all-features audit_bundle",
+  "cargo xtask external-adoption-smoke --path . --ci-recipes --format json",
   "cargo xtask no-blob",
 ]
 artifacts = [
