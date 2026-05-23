@@ -610,6 +610,7 @@ fn verify_ci_audit_markdown(markdown_path: &Path, expected_profile: &str) -> Res
         "Checks",
         "profile_validation_failed",
     )?;
+    require_markdown_section_omits(&markdown, markdown_path, "Checks", "| fail |")?;
     require_markdown_section_contains(
         &markdown,
         markdown_path,
@@ -637,6 +638,29 @@ fn require_markdown_section_contains(
     if !section.contains(expected) {
         bail!(
             "CI recipe audit markdown section `{heading}` missing `{expected}` for {}",
+            markdown_path.display()
+        );
+    }
+    Ok(())
+}
+
+fn require_markdown_section_omits(
+    markdown: &str,
+    markdown_path: &Path,
+    heading: &str,
+    forbidden: &str,
+) -> Result<()> {
+    let marker = format!("## {heading}");
+    let (_, after_marker) = markdown.split_once(&marker).with_context(|| {
+        format!(
+            "CI recipe audit markdown receipt missing `{marker}` for {}",
+            markdown_path.display()
+        )
+    })?;
+    let section = after_marker.split("\n## ").next().unwrap_or(after_marker);
+    if section.contains(forbidden) {
+        bail!(
+            "CI recipe audit markdown section `{heading}` contains forbidden `{forbidden}` for {}",
             markdown_path.display()
         );
     }
@@ -1559,6 +1583,38 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
             Err(err) => err,
         };
         assert!(err.to_string().contains("## Checks"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_audit_markdown_failed_check_row() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ci_audit_json(dir.path(), "oidc")?;
+        fs::write(
+            dir.path().join("bundle-audit.md"),
+            concat!(
+                "# uselesskey Bundle Audit\n\n",
+                "- Status: pass\n",
+                "- Bundle: target/uselesskey-oidc\n",
+                "- Profile: oidc\n",
+                "- Receipt type: durable metadata-only reviewer/CI receipt\n",
+                "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                "\n## Checks\n\n",
+                "| Check | Status | Failure class | Detail |\n",
+                "|---|---|---|---|\n",
+                "| profile-validation | fail | profile_validation_failed | simulated stale failure |\n",
+                "\n## Boundaries\n\n",
+                "- audit receipts contain metadata only and do not copy generated fixture payloads\n",
+                "\n## Does Not Prove\n\n",
+                "- production signing-key custody\n",
+            ),
+        )?;
+
+        let err = match verify_ci_audit_receipt(dir.path(), "oidc") {
+            Ok(()) => bail!("CI audit markdown with failed check row was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("forbidden `| fail |`"));
         Ok(())
     }
 
