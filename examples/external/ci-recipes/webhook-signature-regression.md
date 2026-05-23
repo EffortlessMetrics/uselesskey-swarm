@@ -30,6 +30,7 @@ wrong-secret, and tampered-body cases distinctly.
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
 uselesskey audit-bundle \
   target/uselesskey-webhook \
   --ci \
@@ -43,4 +44,3 @@ uselesskey audit-bundle \
 This proves local fixture generation and metadata-only audit receipts. It does
 not prove Stripe, GitHub, or other provider compatibility; production secret
 handling; replay protection completeness; or transport security.
-

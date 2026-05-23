@@ -31,6 +31,7 @@ fixture to its own rejection class.
 ```bash
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
 uselesskey verify-bundle target/uselesskey-oidc
+uselesskey inspect-bundle target/uselesskey-oidc
 uselesskey audit-bundle \
   target/uselesskey-oidc \
   --ci \
@@ -44,4 +45,3 @@ uselesskey audit-bundle \
 This proves local OIDC/JWKS fixture shape and bundle consistency. It does not
 prove OpenID discovery, provider compatibility, production signing-key custody,
 or downstream verifier correctness.
-

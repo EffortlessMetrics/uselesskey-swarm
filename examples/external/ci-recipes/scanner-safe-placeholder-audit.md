@@ -8,6 +8,7 @@ reviewer packet that contains only metadata.
 ```bash
 uselesskey bundle --profile scanner-safe --out target/uselesskey-scanner-safe
 uselesskey verify-bundle target/uselesskey-scanner-safe
+uselesskey inspect-bundle target/uselesskey-scanner-safe
 uselesskey audit-bundle \
   target/uselesskey-scanner-safe \
   --ci \
@@ -36,4 +37,3 @@ target/uselesskey-scanner-safe-audit/bundle-audit.md
 This proves local scanner-safe placeholder generation and metadata-only audit
 output. It does not prove scanner-policy bypass approval, production secret
 handling, or release readiness.
-
