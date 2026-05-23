@@ -145,8 +145,8 @@ Acceptable:
 
 ```text
 The OIDC/JWKS page starts with `uselesskey bundle --profile oidc`, names
-`jwks_duplicate_kid`, and shows `verify-bundle`/`audit-bundle` before linking
-to repo-local bundle proof.
+`jwks_duplicate_kid`, and shows `verify-bundle`/`inspect-bundle`/
+`audit-bundle` before linking to repo-local bundle proof.
 ```
 
 Not acceptable:

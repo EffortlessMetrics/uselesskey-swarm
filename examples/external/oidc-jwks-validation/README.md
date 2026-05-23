@@ -77,6 +77,7 @@ For the installed CLI bundle path, generate and audit the OIDC profile:
 ```bash
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
 uselesskey verify-bundle target/uselesskey-oidc
+uselesskey inspect-bundle target/uselesskey-oidc
 uselesskey audit-bundle target/uselesskey-oidc --out target/uselesskey-oidc-audit
 ```
 

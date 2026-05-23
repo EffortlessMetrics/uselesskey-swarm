@@ -35,7 +35,7 @@ Pick the job first; the repo proof machinery is behind links when you need it.
 | write Rust tests | facade crate | `uselesskey = { version = "0.9.1", features = ["rsa"] }` |
 | install CI fixtures | installed CLI bundle | `uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle` |
 | test negative verifier paths | contract packs | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` |
-| review bundle evidence | verify + audit | `uselesskey verify-bundle target/uselesskey-webhook` |
+| review bundle evidence | verify + inspect + audit | `uselesskey inspect-bundle target/uselesskey-webhook` |
 | keep runtime material disposable | `target/` output | `uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` |
 | prove repo public claims from a checkout | repo verification pack | `cargo xtask verification-pack --out target/uselesskey-verification` |
 

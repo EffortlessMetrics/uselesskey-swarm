@@ -70,6 +70,7 @@ For generated CLI bundles, use:
 ```bash
 uselesskey bundle --profile tls --out target/uselesskey-tls
 uselesskey verify-bundle target/uselesskey-tls
+uselesskey inspect-bundle target/uselesskey-tls
 uselesskey audit-bundle target/uselesskey-tls --out target/uselesskey-tls-audit
 ```
 
