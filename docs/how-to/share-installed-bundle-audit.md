@@ -45,6 +45,10 @@ Attach the metadata-only receipts, then record:
 - the command used to audit the bundle;
 - whether `bundle-audit.json` reports `status: "pass"`;
 - whether every `checks[]` entry reports `status: "pass"`;
+- whether `bundle-audit.md` reports `- Status: pass` and the expected
+  `- Profile: <profile>`;
+- whether `bundle-audit.md` includes the metadata-only `Boundaries` section
+  and a production-security item under `Does Not Prove`;
 - whether generated fixture payloads stayed under `target/` or another ignored
   output directory;
 - the explicit "does not prove" boundary below.

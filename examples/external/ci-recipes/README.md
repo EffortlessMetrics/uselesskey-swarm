@@ -51,6 +51,11 @@ target/uselesskey-<profile>-audit/bundle-audit.json
 target/uselesskey-<profile>-audit/bundle-audit.md
 ```
 
+Review both receipts. The JSON receipt should report `status: "pass"`, the
+expected `profile`, and passing `checks[]`. The Markdown receipt should report
+`- Status: pass`, the expected `- Profile: <profile>`, a metadata-only
+`Boundaries` section, and a production-security item under `Does Not Prove`.
+
 Do not upload generated PEM, DER, JWT, JWK/JWKS, HMAC secret, webhook request,
 Kubernetes Secret, Vault payload, or certificate private-key files unless the
 downstream repository has a separate reviewed policy for those payloads.
