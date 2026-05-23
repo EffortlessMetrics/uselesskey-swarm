@@ -35,7 +35,7 @@ Workspace-only crates are load-bearing structure.
 | `uselesskey-jwk` | public family | Tests need typed JWK/JWKS shapes and negatives. | JWK/JWKS builders and `NegativeJwk`/`NegativeJwks` stable IDs. | `docs/how-to/test-oidc-jwks-validation.md` | keep |
 | `uselesskey-x509` | public family | Tests need certificates, chains, and TLS-shaped negatives. | X.509 fixture extension trait and negative chain helpers. | `docs/how-to/test-tls-chain-validation.md` | keep |
 | `uselesskey-ssh` | public family | Tests need SSH key and certificate fixtures. | OpenSSH fixture traits and specs. | `docs/how-to/test-ssh-fixtures.md` | keep |
-| `uselesskey-pgp` | public family | Tests need OpenPGP-shaped fixtures. | PGP fixture extension trait and armored/binary output. | `docs/reference/support-matrix.md` | keep |
+| `uselesskey-pgp` | public family | Tests need OpenPGP-shaped fixtures. | PGP fixture extension trait and armored/binary output. | `docs/how-to/test-pgp-fixtures.md` | keep |
 | `uselesskey-webhook` | public family | Tests need deterministic HMAC webhook requests. | Webhook fixture APIs for valid and negative verifier paths. | `docs/how-to/test-webhook-signature-validation.md` | keep |
 | `uselesskey-test-server` | public test infrastructure | Integration tests need OIDC/JWKS HTTP routes. | Test server fixture surface. | `docs/reference/support-matrix.md` | keep |
 | `uselesskey-pkcs11-mock` | public test infrastructure | Tests need PKCS#11 mock/provider fixtures. | Mock provider fixture surface. | `docs/how-to/use-pkcs11-mock-fixtures.md` | keep |
