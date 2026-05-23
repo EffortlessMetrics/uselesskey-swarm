@@ -62,9 +62,7 @@ fn profiles_command_lists_copyable_contract_pack_paths() -> TestResult<()> {
 
     assert!(out.contains("Available uselesskey profiles"));
     assert!(out.contains("uselesskey profile <name> --explain"));
-    assert!(out.contains(
-        "Installed users generate, verify, inspect, and audit bundles"
-    ));
+    assert!(out.contains("Installed users generate, verify, inspect, and audit bundles"));
     assert!(out.contains("claim-proof --claim webhook-contract-pack"));
     Ok(())
 }
