@@ -616,6 +616,31 @@ fn verify_ci_audit_json(audit_path: &Path, expected_profile: &str, label: &str) 
             audit["profile"]
         );
     }
+    let checks = audit["checks"].as_array().with_context(|| {
+        format!(
+            "{label} checks is not an array for {}",
+            audit_path.display()
+        )
+    })?;
+    if checks.is_empty() {
+        bail!("{label} checks are empty for {}", audit_path.display());
+    }
+    for check in checks {
+        if check["status"].as_str() != Some("pass") {
+            bail!(
+                "{label} check did not pass for {}: {:?}",
+                audit_path.display(),
+                check
+            );
+        }
+        if check["failure_class"].as_str().is_none_or(str::is_empty) {
+            bail!(
+                "{label} check missing failure_class for {}: {:?}",
+                audit_path.display(),
+                check
+            );
+        }
+    }
     Ok(())
 }
 
@@ -1388,12 +1413,98 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         Ok(())
     }
 
+    #[test]
+    fn external_adoption_rejects_ci_audit_without_checks() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        fs::write(
+            dir.path().join("bundle-audit.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "profile": "oidc",
+            }))?,
+        )?;
+
+        let err = match verify_ci_audit_json(
+            &dir.path().join("bundle-audit.json"),
+            "oidc",
+            "CI recipe audit",
+        ) {
+            Ok(()) => bail!("CI audit without checks was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("checks is not an array"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_audit_failed_check() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        fs::write(
+            dir.path().join("bundle-audit.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "profile": "oidc",
+                "checks": [{
+                    "name": "bundle-audit",
+                    "status": "fail",
+                    "failure_class": "profile_validation_failed",
+                    "detail": "simulated failure",
+                }],
+            }))?,
+        )?;
+
+        let err = match verify_ci_audit_json(
+            &dir.path().join("bundle-audit.json"),
+            "oidc",
+            "CI recipe audit",
+        ) {
+            Ok(()) => bail!("CI audit with a failed check was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("check did not pass"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_audit_check_without_failure_class() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        fs::write(
+            dir.path().join("bundle-audit.json"),
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "profile": "oidc",
+                "checks": [{
+                    "name": "bundle-audit",
+                    "status": "pass",
+                    "detail": "simulated pass",
+                }],
+            }))?,
+        )?;
+
+        let err = match verify_ci_audit_json(
+            &dir.path().join("bundle-audit.json"),
+            "oidc",
+            "CI recipe audit",
+        ) {
+            Ok(()) => bail!("CI audit check without failure_class was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("missing failure_class"));
+        Ok(())
+    }
+
     fn write_ci_audit_json(dir: &Path, profile: &str) -> Result<()> {
         fs::write(
             dir.join("bundle-audit.json"),
             serde_json::to_vec(&serde_json::json!({
                 "status": "pass",
                 "profile": profile,
+                "checks": [{
+                    "name": "bundle-audit",
+                    "status": "pass",
+                    "failure_class": "profile_validation_failed",
+                    "detail": "simulated pass",
+                }],
             }))?,
         )?;
         Ok(())

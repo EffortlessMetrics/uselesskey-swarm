@@ -75,10 +75,14 @@ cargo xtask external-adoption-smoke --path . --ci-recipes
 cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 ```
 
-CI recipe mode must execute the documented generate, verify, and
-`audit-bundle --ci` command sequence for supported downstream CI profiles. It
-must not make default external adoption smoke heavier, and it must keep all
-generated fixture payloads and audit receipts under `target/external-adoption-smoke/`.
+CI recipe mode must execute the documented generate, verify, and strict
+`audit-bundle --ci --expect-profile <profile> --policy strict --out <audit-dir>`
+command sequence for supported downstream CI profiles. It must verify that the
+audit JSON reports the expected profile, top-level `status: "pass"`, at least
+one `checks[]` entry, and only passing checks with stable `failure_class`
+values. It must not make default external adoption smoke heavier, and it must
+keep all generated fixture payloads and audit receipts under
+`target/external-adoption-smoke/`.
 
 Local path mode must create clean temporary projects under the repository's
 `target/external-adoption-smoke/` tree, use the current checkout through path
@@ -293,7 +297,8 @@ External adoption smoke maps to:
   audit/reference smoke;
 - generated clean Cargo projects for documented dependency snippets;
 - installed-style CLI runs for profile discovery, bundle generation,
-  `verify-bundle`, and `inspect-bundle`;
+  `verify-bundle`, strict `audit-bundle --ci --expect-profile <profile>
+  --policy strict`, and `inspect-bundle`;
 - `cargo xtask docs-sync --check` for documented snippet drift;
 - `cargo xtask user-path-smoke` and `cargo xtask adoption-regression` as
   repo-local complements, not replacements;
