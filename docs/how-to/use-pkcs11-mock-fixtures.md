@@ -10,6 +10,9 @@ exposes slot/token metadata, one or more key handles, a `sign` / `verify`
 pair, and a placeholder DER certificate per key. The shape is what your code
 under test consumes; the cryptography is deliberately mock.
 
+A copyable downstream-style test crate lives at
+[`../../examples/external/pkcs11-mock-validation/`](../../examples/external/pkcs11-mock-validation/).
+
 ## Provision the mock slot
 
 ```toml
@@ -168,6 +171,8 @@ catch accidental commits.
 
 - [`../../crates/uselesskey-pkcs11-mock/README.md`](../../crates/uselesskey-pkcs11-mock/README.md)
   — crate-level overview.
+- [`../../examples/external/pkcs11-mock-validation/`](../../examples/external/pkcs11-mock-validation/)
+  — copyable downstream test wiring.
 - [`test-oidc-jwks-validation.md`](test-oidc-jwks-validation.md) — the
   JWKS analogue for OIDC validators.
 - [`test-tls-chain-validation.md`](test-tls-chain-validation.md) — TLS

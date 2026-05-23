@@ -37,6 +37,10 @@ const WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "webauthn-ceremony-validation",
     source_dir: "examples/external/webauthn-ceremony-validation",
 };
+const PKCS11_MOCK_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
+    name: "pkcs11-mock-validation",
+    source_dir: "examples/external/pkcs11-mock-validation",
+};
 const DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE: ExternalExample = ExternalExample {
     name: "downstream-ci-bundle-audit",
     source_dir: "examples/external/downstream-ci-bundle-audit",
@@ -47,6 +51,7 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     OIDC_JWKS_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
+    PKCS11_MOCK_VALIDATION_EXAMPLE,
 ];
 const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
@@ -54,6 +59,7 @@ const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     OIDC_JWKS_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
+    PKCS11_MOCK_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
@@ -62,6 +68,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     OIDC_JWKS_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
+    PKCS11_MOCK_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const BOUNDARIES: &[&str] = &[
@@ -942,12 +949,18 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
                 "uselesskey-webauthn",
                 &crates_dir.join("uselesskey-webauthn"),
             );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-pkcs11-mock",
+                &crates_dir.join("uselesskey-pkcs11-mock"),
+            );
         }
         FacadeDependency::Version(version) => {
             manifest = patch_dependency_version(&manifest, "uselesskey", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-rustls", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-core", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-webauthn", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-pkcs11-mock", version);
         }
     }
 
@@ -1444,6 +1457,7 @@ mod tests {
                 "oidc-jwks-validation",
                 "tls-chain-validation",
                 "webauthn-ceremony-validation",
+                "pkcs11-mock-validation",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1463,6 +1477,7 @@ mod tests {
                 "oidc-jwks-validation",
                 "tls-chain-validation",
                 "webauthn-ceremony-validation",
+                "pkcs11-mock-validation",
             ]
         );
     }
@@ -1481,6 +1496,7 @@ mod tests {
                 "oidc-jwks-validation",
                 "tls-chain-validation",
                 "webauthn-ceremony-validation",
+                "pkcs11-mock-validation",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1544,6 +1560,7 @@ uselesskey = { version = "0.9.1", default-features = false, features = ["rsa"] }
 uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"] }
 uselesskey-core = "0.9.1"
 uselesskey-webauthn = "0.9.1"
+uselesskey-pkcs11-mock = "0.9.1"
 "#;
 
         let crates_dir = Path::new(r#"C:\Code\Rust\uselesskey\crates"#);
@@ -1553,6 +1570,7 @@ uselesskey-webauthn = "0.9.1"
             "uselesskey-rustls",
             "uselesskey-core",
             "uselesskey-webauthn",
+            "uselesskey-pkcs11-mock",
         ] {
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
         }
@@ -1568,6 +1586,9 @@ uselesskey-webauthn = "0.9.1"
         ));
         assert!(patched.contains(
             r#"uselesskey-webauthn = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-webauthn" }"#
+        ));
+        assert!(patched.contains(
+            r#"uselesskey-pkcs11-mock = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-pkcs11-mock" }"#
         ));
         assert!(!patched.contains("version = \"0.9.1\""));
     }
