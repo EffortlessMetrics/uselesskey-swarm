@@ -539,6 +539,20 @@ fn run_ci_recipe_profile(
         &[bundle_artifact.as_str()],
     )?;
 
+    let mut inspect = Command::new(cli_bin);
+    inspect
+        .arg("inspect-bundle")
+        .arg(&bundle_dir)
+        .current_dir(&project_dir);
+    run_command_step(
+        receipt,
+        &format!("ci-recipe-inspect-{profile}"),
+        inspect,
+        &project_dir,
+        log_dir,
+        &[bundle_artifact.as_str()],
+    )?;
+
     let mut audit = Command::new(cli_bin);
     audit
         .arg("audit-bundle")
@@ -1298,6 +1312,18 @@ mod tests {
         assert_eq!(
             actions_matrix_profiles(example),
             CI_RECIPE_PROFILES.to_vec()
+        );
+    }
+
+    #[test]
+    fn external_adoption_ci_recipe_actions_include_inspect_step() {
+        let example = include_str!(
+            "../../examples/external/ci-recipes/github-actions-bundle-verify-audit.yml.example"
+        );
+
+        assert!(
+            example.contains("uselesskey inspect-bundle"),
+            "GitHub Actions recipe should preserve the bundle -> verify -> inspect -> audit path"
         );
     }
 

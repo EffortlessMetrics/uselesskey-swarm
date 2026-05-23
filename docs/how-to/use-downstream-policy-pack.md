@@ -23,7 +23,7 @@ The repo also ships standalone downstream examples under
 
 | Job | Recipe |
 | --- | --- |
-| GitHub Actions bundle + verify + audit | `github-actions-bundle-verify-audit.yml.example` |
+| GitHub Actions bundle + verify + inspect + audit | `github-actions-bundle-verify-audit.yml.example` |
 | OIDC/JWKS verifier regression | `oidc-jwks-regression.md` |
 | JWT negative test regression | `jwt-negative-regression.md` |
 | Webhook signature regression | `webhook-signature-regression.md` |

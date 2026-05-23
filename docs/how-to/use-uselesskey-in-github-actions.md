@@ -36,6 +36,9 @@ jobs:
       - name: Verify webhook bundle
         run: uselesskey verify-bundle target/uselesskey-webhook
 
+      - name: Inspect webhook bundle
+        run: uselesskey inspect-bundle target/uselesskey-webhook
+
       - name: Audit webhook bundle
         run: |
           uselesskey audit-bundle \
@@ -80,6 +83,9 @@ jobs:
       - name: Verify TLS bundle
         run: uselesskey verify-bundle target/uselesskey-tls
 
+      - name: Inspect TLS bundle
+        run: uselesskey inspect-bundle target/uselesskey-tls
+
       - name: Audit TLS bundle
         run: |
           uselesskey audit-bundle \
@@ -94,6 +100,9 @@ jobs:
 
       - name: Verify OIDC bundle
         run: uselesskey verify-bundle target/uselesskey-oidc
+
+      - name: Inspect OIDC bundle
+        run: uselesskey inspect-bundle target/uselesskey-oidc
 
       - name: Audit OIDC bundle
         run: |
@@ -140,6 +149,8 @@ job:
 - the bundle manifest parses;
 - listed artifacts and receipts exist;
 - files stay under the bundle path;
+- the installed CLI can print a human-readable inspection summary without
+  uploading raw fixture payloads;
 - scanner-safe and runtime-material metadata match the bundle receipts;
 - profile-specific bundle validation passes.
 
