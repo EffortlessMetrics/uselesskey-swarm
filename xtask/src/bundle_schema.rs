@@ -2585,6 +2585,68 @@ mod tests {
     }
 
     #[test]
+    fn bundle_audit_validator_rejects_unsafe_relative_paths() {
+        let schema = audit_schema_for_tests();
+        let audit = json!({
+            "version": 1,
+            "status": "pass",
+            "bundle_path": "target/uselesskey-test",
+            "profile": "scanner-safe",
+            "manifest_version": 1,
+            "manifest_path": "manifest.json",
+            "artifact_count": 1,
+            "receipt_count": 1,
+            "scanner_safe_count": 1,
+            "runtime_material_count": 0,
+            "files": ["tokens/near-miss\n.json"],
+            "artifacts": [{
+                "path": "../tokens/near-miss.json",
+                "kind": "token",
+                "format": "json-manifest",
+                "scanner_safe": true,
+                "runtime_material": false,
+                "description": "scanner-safe token near miss"
+            }],
+            "receipts": [{
+                "path": "C:/receipts/negative-coverage.json",
+                "kind": "negative-coverage",
+                "profile": "scanner-safe",
+                "description": "negative coverage"
+            }],
+            "missing_files": ["/missing.json"],
+            "unexpected_files": ["\\\\extra.json"],
+            "checks": [{
+                "name": "path-containment",
+                "status": "pass",
+                "failure_class": "path_escape",
+                "detail": "checked"
+            }],
+            "boundaries": ["metadata-only"],
+            "does_not_prove": ["production security"]
+        });
+        let mut errors = Vec::new();
+        validate_bundle_audit(&schema, &audit, &mut errors);
+
+        for expected in [
+            "bundle-audit.json.files[0]",
+            "tokens/near-miss\\n.json",
+            "bundle-audit.json.artifacts[0].path",
+            "../tokens/near-miss.json",
+            "bundle-audit.json.receipts[0].path",
+            "C:/receipts/negative-coverage.json",
+            "bundle-audit.json.missing_files[0]",
+            "/missing.json",
+            "bundle-audit.json.unexpected_files[0]",
+            "\\\\extra.json",
+        ] {
+            assert!(
+                errors.iter().any(|error| error.contains(expected)),
+                "missing `{expected}` in {errors:?}"
+            );
+        }
+    }
+
+    #[test]
     fn failure_class_coverage_accepts_schema_classes_with_generated_receipts() -> Result<()> {
         let schema = audit_schema_for_tests();
         let reports = failure_reports_for_schema(&schema)?;
