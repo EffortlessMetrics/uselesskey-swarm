@@ -31,3 +31,4 @@ include:
 - [2026-05-v0.10.0-external-adoption.md](2026-05-v0.10.0-external-adoption.md) - external adoption needs clean-project proof
 - [2026-05-installed-bundle-audit.md](2026-05-installed-bundle-audit.md) - installed bundles need local audit receipts
 - [2026-05-downstream-ci-polish.md](2026-05-downstream-ci-polish.md) - installed audit needs stable CI behavior
+- [2026-05-usability-polish.md](2026-05-usability-polish.md) - product paths stay usable when jobs lead to bounded commands and receipts

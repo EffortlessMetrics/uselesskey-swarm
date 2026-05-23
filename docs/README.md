@@ -37,7 +37,9 @@ Task-oriented instructions for common workflows.
 - [choose-lane.md](how-to/choose-lane.md) — Pick the cheapest correct lane first
 - [start-here.md](how-to/start-here.md) — Pick a user job and copy the first command or dependency snippet
 - [migration.md](how-to/migration.md) — Migrating between uselesskey versions
+- [migrate-to-v0.8.md](how-to/migrate-to-v0.8.md) - Migrating from v0.7.x internal shim crates to v0.8.0 owner-crate `srp::*` modules
 - [publishing.md](how-to/publishing.md) — Publishing crates to crates.io
+- [recover-partial-publish.md](how-to/recover-partial-publish.md) - Recovering from a partial publish using crates.io as registry truth
 - [release.md](how-to/release.md) — Cutting a release
 - [choose-features.md](how-to/choose-features.md) — Choosing feature sets by need
 - [downstream-fixture-policy.md](how-to/downstream-fixture-policy.md) — Policy pack for downstream bots and reviewers
