@@ -65,6 +65,8 @@ Initial command targets are:
 cargo xtask check-doc-artifacts
 cargo xtask check-goals
 cargo xtask check-support-tiers
+cargo xtask check-claim-proof-policy
+cargo xtask claim-report --check-public-claims
 cargo xtask check-negative-fixtures
 cargo xtask check-bundle-schemas
 ```
@@ -257,6 +259,8 @@ After checker implementation:
 cargo xtask check-doc-artifacts
 cargo xtask check-goals
 cargo xtask check-support-tiers
+cargo xtask check-claim-proof-policy
+cargo xtask claim-report --check-public-claims
 cargo xtask check-negative-fixtures
 cargo xtask check-bundle-schemas
 ```
