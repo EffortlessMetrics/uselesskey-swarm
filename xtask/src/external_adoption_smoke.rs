@@ -1252,17 +1252,23 @@ fn render_markdown(receipt: &ExternalAdoptionSmokeReceipt) -> String {
     }
 
     md.push_str("\n## Steps\n\n");
-    md.push_str("| Step | Status | Command | Logs | Details |\n");
-    md.push_str("| --- | --- | --- | --- | --- |\n");
+    md.push_str("| Step | Status | Command | Logs | Artifacts | Details |\n");
+    md.push_str("| --- | --- | --- | --- | --- | --- |\n");
     for step in &receipt.steps {
         let details = step.details.as_deref().unwrap_or("");
+        let artifacts = if step.artifacts.is_empty() {
+            String::new()
+        } else {
+            step.artifacts.join("<br>")
+        };
         md.push_str(&format!(
-            "| {} | `{}` | `{}` | `{}` / `{}` | {} |\n",
+            "| {} | `{}` | `{}` | `{}` / `{}` | `{}` | {} |\n",
             step.name,
             step.status,
             step.command.join(" "),
             step.stdout,
             step.stderr,
+            artifacts,
             details
         ));
     }
@@ -1603,8 +1609,26 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
         assert!(bundle_pos < verify_pos);
         assert!(verify_pos < inspect_pos);
         assert!(inspect_pos < audit_pos);
-        assert!(markdown.contains("target/inspect-webhook.txt"));
-        assert!(markdown.contains("target/audit-webhook"));
+        assert!(markdown.contains("| Step | Status | Command | Logs | Artifacts | Details |"));
+        let inspect_row = markdown
+            .lines()
+            .find(|line| line.contains("cli-inspect-webhook"))
+            .expect("inspect step row");
+        let audit_row = markdown
+            .lines()
+            .find(|line| line.contains("cli-audit-webhook"))
+            .expect("audit step row");
+        assert!(
+            inspect_row.contains(
+                "`target/external-adoption-smoke/work/webhook-cli/target/inspect-webhook.txt`"
+            ),
+            "{markdown}"
+        );
+        assert!(
+            audit_row
+                .contains("target/external-adoption-smoke/work/webhook-cli/target/audit-webhook"),
+            "{markdown}"
+        );
     }
 
     #[test]
