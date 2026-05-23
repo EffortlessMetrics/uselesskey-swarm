@@ -1629,30 +1629,29 @@ uselesskey-hmac = "0.9.1"
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
         }
 
-        assert!(patched.contains(
-            r#"uselesskey = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey", default-features = false, features = ["rsa"] }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-rustls = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-rustls", features = ["tls-config", "rustls-ring"] }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-core = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-core" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-webauthn = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-webauthn" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-pkcs11-mock = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-pkcs11-mock" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-ssh = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-ssh" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-pgp = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-pgp" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-hmac = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-hmac" }"#
-        ));
+        let expected_path =
+            |crate_name: &str| toml_escape(&crates_dir.join(crate_name).display().to_string());
+        assert!(patched.contains(&format!(
+            r#"uselesskey = {{ path = "{}", default-features = false, features = ["rsa"] }}"#,
+            expected_path("uselesskey")
+        )));
+        assert!(patched.contains(&format!(
+            r#"uselesskey-rustls = {{ path = "{}", features = ["tls-config", "rustls-ring"] }}"#,
+            expected_path("uselesskey-rustls")
+        )));
+        for crate_name in [
+            "uselesskey-core",
+            "uselesskey-webauthn",
+            "uselesskey-pkcs11-mock",
+            "uselesskey-ssh",
+            "uselesskey-pgp",
+            "uselesskey-hmac",
+        ] {
+            assert!(patched.contains(&format!(
+                r#"{crate_name} = {{ path = "{}" }}"#,
+                expected_path(crate_name)
+            )));
+        }
         assert!(!patched.contains("version = \"0.9.1\""));
     }
 
