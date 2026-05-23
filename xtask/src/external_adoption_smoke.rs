@@ -601,6 +601,18 @@ fn verify_ci_audit_markdown(markdown_path: &Path, expected_profile: &str) -> Res
     require_markdown_section_contains(
         &markdown,
         markdown_path,
+        "Checks",
+        "| Check | Status | Failure class | Detail |",
+    )?;
+    require_markdown_section_contains(
+        &markdown,
+        markdown_path,
+        "Checks",
+        "profile_validation_failed",
+    )?;
+    require_markdown_section_contains(
+        &markdown,
+        markdown_path,
         "Boundaries",
         "- audit receipts contain metadata only and do not copy generated fixture payloads",
     )?;
@@ -1523,6 +1535,34 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
     }
 
     #[test]
+    fn external_adoption_rejects_ci_audit_markdown_without_checks_section() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ci_audit_json(dir.path(), "oidc")?;
+        fs::write(
+            dir.path().join("bundle-audit.md"),
+            concat!(
+                "# uselesskey Bundle Audit\n\n",
+                "- Status: pass\n",
+                "- Bundle: target/uselesskey-oidc\n",
+                "- Profile: oidc\n",
+                "- Receipt type: durable metadata-only reviewer/CI receipt\n",
+                "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                "\n## Boundaries\n\n",
+                "- audit receipts contain metadata only and do not copy generated fixture payloads\n",
+                "\n## Does Not Prove\n\n",
+                "- production signing-key custody\n",
+            ),
+        )?;
+
+        let err = match verify_ci_audit_receipt(dir.path(), "oidc") {
+            Ok(()) => bail!("CI audit markdown without checks section was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("## Checks"));
+        Ok(())
+    }
+
+    #[test]
     fn external_adoption_rejects_ci_audit_markdown_without_metadata_boundary() -> Result<()> {
         let dir = tempfile::tempdir()?;
         write_ci_audit_json(dir.path(), "oidc")?;
@@ -1535,6 +1575,10 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                 "- Profile: oidc\n",
                 "- Receipt type: durable metadata-only reviewer/CI receipt\n",
                 "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                "\n## Checks\n\n",
+                "| Check | Status | Failure class | Detail |\n",
+                "|---|---|---|---|\n",
+                "| profile-validation | pass | profile_validation_failed | profile-specific generated files match the manifest |\n",
                 "\n## Boundaries\n\n",
                 "- audit-bundle proves local bundle consistency only\n",
                 "\n## Does Not Prove\n\n",
@@ -1565,6 +1609,10 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                 "- Profile: oidc\n",
                 "- Receipt type: durable metadata-only reviewer/CI receipt\n",
                 "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                "\n## Checks\n\n",
+                "| Check | Status | Failure class | Detail |\n",
+                "|---|---|---|---|\n",
+                "| profile-validation | pass | profile_validation_failed | profile-specific generated files match the manifest |\n",
                 "\n## Boundaries\n\n",
                 "- audit receipts contain metadata only and do not copy generated fixture payloads\n",
                 "- audit-bundle is not production security proof\n",
@@ -1798,6 +1846,10 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                     "- Profile: {}\n",
                     "- Receipt type: durable metadata-only reviewer/CI receipt\n",
                     "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                    "\n## Checks\n\n",
+                    "| Check | Status | Failure class | Detail |\n",
+                    "|---|---|---|---|\n",
+                    "| profile-validation | pass | profile_validation_failed | profile-specific generated files match the manifest |\n",
                     "\n## Boundaries\n\n",
                     "- audit receipts contain metadata only and do not copy generated fixture payloads\n",
                     "\n## Does Not Prove\n\n",
