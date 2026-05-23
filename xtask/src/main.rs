@@ -86,7 +86,7 @@ enum Cmd {
         #[arg(long)]
         fix: bool,
     },
-    /// Run the common CI pipeline: fmt + clippy + tests + typos + deny.
+    /// Run the full receipt-backed CI pipeline.
     Ci,
     /// Run the feature matrix checks.
     FeatureMatrix,
