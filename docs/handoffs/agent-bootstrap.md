@@ -19,8 +19,8 @@ lane state lives in the repo, not in chat history.
    the smallest aligned improvement from committed repo truth instead of using
    old chat history as the task source.
 7. Run `cargo xtask spec-check --strict` before changing source-of-truth files.
-8. Run `cargo xtask claim-report` when public claims, badges, contract packs, or
-   release evidence change.
+8. Run the claim and support drift checks when public claims, badges, contract
+   packs, claim-proof policy, or release evidence change.
 9. Use chat instructions as current operator intent, but do not treat old chat
    prompts as source-of-truth state.
 
@@ -40,6 +40,8 @@ When a change touches public claims, badges, contract packs, release evidence,
 or fixture-safety boundaries, check the claim surfaces:
 
 ```bash
+cargo xtask check-support-tiers
+cargo xtask check-claim-proof-policy
 cargo xtask claim-report --check-public-claims
 cargo xtask claim-report
 cargo xtask badges --check
