@@ -57,6 +57,7 @@ Task-oriented instructions for common workflows.
 - [test-tls-chain-validation.md](how-to/test-tls-chain-validation.md) — Using TLS/X.509 chain fixtures and negative certificate classes
 - [test-ssh-fixtures.md](how-to/test-ssh-fixtures.md) - Using SSH key and certificate fixtures to test parser and policy paths.
 - [test-pgp-fixtures.md](how-to/test-pgp-fixtures.md) - Using PGP key fixtures to test parser and policy paths.
+- [test-ecdsa-fixtures.md](how-to/test-ecdsa-fixtures.md) - Using ECDSA key fixtures to test parser and policy paths
 - [test-ed25519-fixtures.md](how-to/test-ed25519-fixtures.md) - Using Ed25519 key fixtures to test parser and policy paths
 - [test-webauthn-validation.md](how-to/test-webauthn-validation.md) — Using WebAuthn-shaped fixtures in relying-party tests
 - [use-pkcs11-mock-fixtures.md](how-to/use-pkcs11-mock-fixtures.md) — Using PKCS#11 mock fixtures for token-backed tests

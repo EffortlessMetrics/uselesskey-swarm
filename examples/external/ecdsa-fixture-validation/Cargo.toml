@@ -1,0 +1,13 @@
+[package]
+name = "uselesskey-external-ecdsa-fixture-validation"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+p256 = { version = "0.14.0-rc.9", features = ["ecdsa", "pkcs8", "pem"] }
+p384 = { version = "0.14.0-rc.9", features = ["ecdsa", "pkcs8", "pem"] }
+uselesskey-core = { version = "0.9.1", default-features = false }
+uselesskey-ecdsa = "0.9.1"
+
+[workspace]
