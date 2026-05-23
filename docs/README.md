@@ -26,6 +26,7 @@ agent state do not drift into one document.
 - [status](status/README.md) - Public claim, support tier, and proof mapping indexes
 - [handoffs](handoffs/README.md) - Closeout notes and operator handoffs after a lane changes state
 - [learnings](learnings/README.md) - Durable lessons from releases, incidents, and proof lanes
+- [rails.md](rails.md) - Rails control-plane footprint, ownership model, and awareness-only namespaces
 - [plans](../plans/README.md) - PR sequencing and rollback plans
 - [active goals](../.uselesskey/goals/README.md) - Machine-readable current agent lane state
 - [agent bootstrap](handoffs/agent-bootstrap.md) - Read order and validation defaults for agents resuming work
@@ -74,6 +75,7 @@ paths.
 Repository operating rules for agents and maintainers.
 
 - [pr-disposition.md](contributing/pr-disposition.md) — Reviewing keeper, duplicate, stale, declined, and automation PRs
+- [rails.md](contributing/rails.md) - Adding or updating Rails source-of-truth artifacts without breaking current uselesskey checkers
 
 ## CI and Evidence
 
