@@ -1391,6 +1391,10 @@ fn ensure_manifest_paths_safe(manifest: &BundleManifest) -> Result<()> {
 }
 
 fn is_safe_bundle_relative_path(path: &str) -> bool {
+    if path.chars().any(|ch| ch.is_control()) {
+        return false;
+    }
+
     let path = Path::new(path);
     !path.is_absolute()
         && path
@@ -2212,6 +2216,20 @@ mod tests {
         assert!(!is_safe_default_output_hint("fixtures/uselesskey-webhook"));
         assert!(!is_safe_default_output_hint("target/../escape"));
         assert!(!is_safe_default_output_hint("../target/uselesskey-webhook"));
+    }
+
+    #[test]
+    fn bundle_relative_path_safety_rejects_control_characters() {
+        assert!(is_safe_bundle_relative_path("receipts/audit-surface.json"));
+        assert!(!is_safe_bundle_relative_path(
+            "receipts/audit-surface\n.json"
+        ));
+        assert!(!is_safe_bundle_relative_path(
+            "receipts/audit-surface\r.json"
+        ));
+        assert!(!is_safe_bundle_relative_path(
+            "receipts/audit-surface\t.json"
+        ));
     }
 
     #[test]
