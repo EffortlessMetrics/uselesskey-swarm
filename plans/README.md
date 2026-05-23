@@ -17,9 +17,13 @@ Plans do not define product truth. Link to proposals for why and specs for what.
 - [adoption-confidence](adoption-confidence/README.md) - Copied user-path correctness, fixture confidence, and adoption-regression closeout
 - [v0.9.1-release](v0.9.1-release/README.md) - v0.9.1 adoption-confidence patch release
 - [v0.10.0-external-adoption](v0.10.0-external-adoption/README.md) - External adoption and installed-user workflow buildout
+- [usability-polish](usability-polish/README.md) - First-five-minutes and installed/facade user-path polish
 - [installed-bundle-audit](installed-bundle-audit/README.md) - Installed CLI bundle audit and reviewer handoff
 - [downstream-ci-polish](downstream-ci-polish/README.md) - Downstream CI and installed-user polish
 - [real-workflow-closure](real-workflow-closure/README.md) - Real user workflow closure for negative fixtures, bundle rails, task docs, and public surface discipline
+- [source-of-truth-control-plane](source-of-truth-control-plane/implementation-plan.md) - Repo-native proposal/spec/ADR/plan/goal/claim/policy/proof operating loop
+- [release-handoff](release-handoff/2026-05-21-source-of-truth-control-plane.md) - Source-boundary handoff packet without release authority migration
+- [v0.10.0-release-readiness](v0.10.0-release-readiness/implementation-plan.md) - Release-candidate user-path proof without publishing, tagging, signing, or source sync
 
 ## Templates
 
