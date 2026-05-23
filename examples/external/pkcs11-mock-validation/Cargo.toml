@@ -1,0 +1,11 @@
+[package]
+name = "uselesskey-external-pkcs11-mock-validation"
+version = "0.0.0"
+edition = "2024"
+publish = false
+
+[dependencies]
+uselesskey-core = { version = "0.9.1", default-features = false }
+uselesskey-pkcs11-mock = "0.9.1"
+
+[workspace]
