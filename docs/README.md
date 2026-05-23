@@ -93,11 +93,15 @@ Release-candidate proof and public promise evidence.
 - [v0.10.0-package-dry-run.md](release/v0.10.0-package-dry-run.md) - v0.10.0 package dry-run and packaged-content evidence
 - [source-release-handoff.md](release/source-release-handoff.md) - Swarm-to-source handoff checklist and release-authority boundary
 - [evidence-matrix-v0.9.0.md](release/evidence-matrix-v0.9.0.md) — v0.9.0 command-backed claim, verification-pack, PR-lite, and webhook proof matrix
+- [post-release-audit-v0.9.0.md](release/post-release-audit-v0.9.0.md) - v0.9.0 crates.io, docs.rs, claim-proof, verification-pack, and contract-pack audit
 - [evidence-matrix-v0.9.1.md](release/evidence-matrix-v0.9.1.md) — v0.9.1 adoption-confidence patch proof matrix
 - [post-release-audit-v0.9.1.md](release/post-release-audit-v0.9.1.md) — v0.9.1 crates.io, docs.rs, adoption-regression, and claim-proof audit
 - [evidence-matrix-v0.7.0.md](release/evidence-matrix-v0.7.0.md) — v0.7.0 public fixture promise evidence matrix
 - [v0.7.0-checklist.md](release/v0.7.0-checklist.md) — Release-governance issue map for v0.7.0 checklist lines
 - [v0.7.0-category-notes.md](release/v0.7.0-category-notes.md) — Release note category map and draft-audit guidance for v0.7.0
+- [v0.7.0-lessons-learned.md](release/v0.7.0-lessons-learned.md) - v0.7.0 publish-lane failure classes, fixes, and guardrail lessons
+- [v0.8.0-tls-profile-design.md](release/v0.8.0-tls-profile-design.md) - v0.8.0 TLS contract-pack profile design and evidence routing
+- [publish-recovery.md](release/publish-recovery.md) - Registry-truth and partial-publish recovery rules
 - [post-release-audit.md](release/post-release-audit.md) — Post-publish verification checklist for public fixture promises
 - [scanner-safe-bundle](../examples/scanner-safe-bundle/README.md) — Reference manifest, receipts, and Kubernetes/Vault payload shapes for the default bundle lane
 
