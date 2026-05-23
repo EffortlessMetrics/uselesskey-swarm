@@ -35,7 +35,7 @@ For file-based tests, use the installed CLI OIDC profile:
 ```bash
 uselesskey bundle --profile oidc --out target/oidc-fixtures
 uselesskey verify-bundle target/oidc-fixtures
-uselesskey audit-bundle target/oidc-fixtures --summary
+uselesskey audit-bundle target/oidc-fixtures --ci --expect-profile oidc --policy strict --out target/oidc-fixtures-audit
 ```
 
 ## What you get
@@ -110,13 +110,15 @@ cargo xtask check-negative-fixtures
 
 ## Audit / receipt
 
-For bundle users, write a metadata-only audit packet:
+For bundle users, write a metadata-only audit packet with the strict CI preset:
 
 ```bash
 uselesskey audit-bundle \
   target/oidc-fixtures \
+  --ci \
+  --expect-profile oidc \
+  --policy strict \
   --out target/oidc-fixtures-audit \
-  --ci
 ```
 
 Attach:

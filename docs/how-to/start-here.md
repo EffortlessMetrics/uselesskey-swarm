@@ -75,7 +75,7 @@ Generate, verify, inspect, and audit a bundle:
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
 uselesskey inspect-bundle target/uselesskey-webhook
-uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit
+uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit
 ```
 
 Attach `bundle-audit.md` and `bundle-audit.json` when a reviewer needs local

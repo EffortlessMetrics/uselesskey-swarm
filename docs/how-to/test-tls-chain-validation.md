@@ -35,7 +35,7 @@ For file-based CI fixtures:
 ```bash
 uselesskey bundle --profile tls --out target/tls-fixtures
 uselesskey verify-bundle target/tls-fixtures
-uselesskey audit-bundle target/tls-fixtures --ci --out target/tls-fixtures-audit
+uselesskey audit-bundle target/tls-fixtures --ci --expect-profile tls --policy strict --out target/tls-fixtures-audit
 ```
 
 ## What you get
@@ -112,13 +112,15 @@ cargo xtask no-blob
 
 ## Audit / receipt
 
-Write a metadata-only reviewer packet:
+Write a metadata-only reviewer packet with the strict CI preset:
 
 ```bash
 uselesskey audit-bundle \
   target/tls-fixtures \
-  --out target/tls-fixtures-audit \
-  --ci
+  --ci \
+  --expect-profile tls \
+  --policy strict \
+  --out target/tls-fixtures-audit
 ```
 
 Attach:

@@ -13,6 +13,7 @@ uselesskey audit-bundle \
   target/uselesskey-oidc \
   --ci \
   --expect-profile oidc \
+  --policy strict \
   --out target/uselesskey-oidc-audit
 ```
 
@@ -33,7 +34,8 @@ output under `target/`.
 - listed artifacts and receipts exist;
 - the bundle matches the selected installed profile shape.
 
-`audit-bundle --ci` emits metadata-only reviewer evidence:
+`audit-bundle --ci --expect-profile <profile> --policy strict` emits
+metadata-only reviewer evidence and fails CI on stable bundle drift:
 
 - profile name;
 - relative paths;
