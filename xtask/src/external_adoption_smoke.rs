@@ -45,6 +45,10 @@ const SSH_FIXTURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "ssh-fixture-validation",
     source_dir: "examples/external/ssh-fixture-validation",
 };
+const PGP_FIXTURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
+    name: "pgp-fixture-validation",
+    source_dir: "examples/external/pgp-fixture-validation",
+};
 const DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE: ExternalExample = ExternalExample {
     name: "downstream-ci-bundle-audit",
     source_dir: "examples/external/downstream-ci-bundle-audit",
@@ -57,6 +61,7 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
     PKCS11_MOCK_VALIDATION_EXAMPLE,
     SSH_FIXTURE_VALIDATION_EXAMPLE,
+    PGP_FIXTURE_VALIDATION_EXAMPLE,
 ];
 const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
@@ -66,6 +71,7 @@ const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
     PKCS11_MOCK_VALIDATION_EXAMPLE,
     SSH_FIXTURE_VALIDATION_EXAMPLE,
+    PGP_FIXTURE_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
@@ -76,6 +82,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     WEBAUTHN_CEREMONY_VALIDATION_EXAMPLE,
     PKCS11_MOCK_VALIDATION_EXAMPLE,
     SSH_FIXTURE_VALIDATION_EXAMPLE,
+    PGP_FIXTURE_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const BOUNDARIES: &[&str] = &[
@@ -966,6 +973,11 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
                 "uselesskey-ssh",
                 &crates_dir.join("uselesskey-ssh"),
             );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-pgp",
+                &crates_dir.join("uselesskey-pgp"),
+            );
         }
         FacadeDependency::Version(version) => {
             manifest = patch_dependency_version(&manifest, "uselesskey", version);
@@ -974,6 +986,7 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
             manifest = patch_dependency_version(&manifest, "uselesskey-webauthn", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-pkcs11-mock", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-ssh", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-pgp", version);
         }
     }
 
@@ -1472,6 +1485,7 @@ mod tests {
                 "webauthn-ceremony-validation",
                 "pkcs11-mock-validation",
                 "ssh-fixture-validation",
+                "pgp-fixture-validation",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1493,6 +1507,7 @@ mod tests {
                 "webauthn-ceremony-validation",
                 "pkcs11-mock-validation",
                 "ssh-fixture-validation",
+                "pgp-fixture-validation",
             ]
         );
     }
@@ -1513,6 +1528,7 @@ mod tests {
                 "webauthn-ceremony-validation",
                 "pkcs11-mock-validation",
                 "ssh-fixture-validation",
+                "pgp-fixture-validation",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1578,6 +1594,7 @@ uselesskey-core = "0.9.1"
 uselesskey-webauthn = "0.9.1"
 uselesskey-pkcs11-mock = "0.9.1"
 uselesskey-ssh = "0.9.1"
+uselesskey-pgp = "0.9.1"
 "#;
 
         let crates_dir = Path::new(r#"C:\Code\Rust\uselesskey\crates"#);
@@ -1589,6 +1606,7 @@ uselesskey-ssh = "0.9.1"
             "uselesskey-webauthn",
             "uselesskey-pkcs11-mock",
             "uselesskey-ssh",
+            "uselesskey-pgp",
         ] {
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
         }
@@ -1610,6 +1628,9 @@ uselesskey-ssh = "0.9.1"
         ));
         assert!(patched.contains(
             r#"uselesskey-ssh = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-ssh" }"#
+        ));
+        assert!(patched.contains(
+            r#"uselesskey-pgp = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-pgp" }"#
         ));
         assert!(!patched.contains("version = \"0.9.1\""));
     }
