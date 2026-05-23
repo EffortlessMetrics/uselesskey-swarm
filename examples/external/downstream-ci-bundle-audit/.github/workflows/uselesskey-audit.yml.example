@@ -22,6 +22,9 @@ jobs:
       - name: Verify webhook bundle
         run: uselesskey verify-bundle --path target/uselesskey-webhook
 
+      - name: Inspect webhook bundle
+        run: uselesskey inspect-bundle --path target/uselesskey-webhook
+
       - name: Audit webhook bundle
         run: |
           uselesskey audit-bundle \

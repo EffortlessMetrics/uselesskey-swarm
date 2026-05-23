@@ -11,7 +11,7 @@ artifacts remain the source of truth.
 
 This page is repo-checkout proof documentation. Installed CLI users should use
 `uselesskey profiles`, `uselesskey bundle`, `uselesskey verify-bundle`,
-`uselesskey audit-bundle`, and `uselesskey inspect-bundle` from the task docs
+`uselesskey inspect-bundle`, and `uselesskey audit-bundle` from the task docs
 first; `cargo xtask` commands here are reviewer, maintainer, and release
 evidence commands.
 

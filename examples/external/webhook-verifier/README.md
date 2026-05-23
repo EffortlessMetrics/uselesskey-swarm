@@ -67,6 +67,7 @@ For generated CLI bundles, use:
 ```bash
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
 uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit
 ```
 
