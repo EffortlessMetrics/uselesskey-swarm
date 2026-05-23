@@ -30,6 +30,9 @@ jobs:
       - name: Install uselesskey CLI
         run: cargo install uselesskey-cli --version 0.9.1 --locked
 
+      - name: Check installed CLI
+        run: uselesskey doctor --format json
+
       - name: Generate webhook fixtures
         run: uselesskey bundle --profile webhook --out target/uselesskey-webhook
 
@@ -76,6 +79,9 @@ jobs:
 
       - name: Install uselesskey CLI
         run: cargo install uselesskey-cli --version 0.9.1 --locked
+
+      - name: Check installed CLI
+        run: uselesskey doctor --format json
 
       - name: Generate TLS fixtures
         run: uselesskey bundle --profile tls --out target/uselesskey-tls

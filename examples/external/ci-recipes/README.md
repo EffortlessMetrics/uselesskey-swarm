@@ -6,6 +6,7 @@ fixture bundles, verifier regression tests, and metadata-only audit receipts.
 The installed CLI path is the product surface for bundle recipes:
 
 ```bash
+uselesskey doctor --format json
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
 uselesskey verify-bundle target/uselesskey-oidc
 uselesskey inspect-bundle target/uselesskey-oidc

@@ -36,6 +36,7 @@ Generate, verify, inspect, and audit one profile per output directory:
 
 ```bash
 cargo install uselesskey-cli --version 0.9.1 --locked
+uselesskey doctor --format json
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
 uselesskey inspect-bundle target/uselesskey-webhook

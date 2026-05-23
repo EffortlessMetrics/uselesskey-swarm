@@ -13,6 +13,7 @@ For copyable workflow and regression snippets, see
 ```yaml
 steps:
   - run: cargo install uselesskey-cli --version 0.9.1 --locked
+  - run: uselesskey doctor --format json
   - run: uselesskey bundle --profile webhook --out target/uselesskey-webhook
   - run: uselesskey verify-bundle target/uselesskey-webhook
   - run: uselesskey inspect-bundle target/uselesskey-webhook
@@ -40,6 +41,7 @@ stable failure classes where the profile defines them, and boundaries.
 A passing CI run means:
 
 - the installed CLI ran in the downstream project;
+- `doctor --format json` passed the installed CLI readiness checks;
 - the requested profile generated under the selected output directory;
 - `verify-bundle` accepted the local bundle structure;
 - `inspect-bundle` printed the quick human summary for the selected profile;
@@ -75,6 +77,7 @@ packet after CI rejects the bundle.
 To run the installed CLI path locally:
 
 ```bash
+uselesskey doctor --format json
 uselesskey bundle --profile webhook --out target/uselesskey-webhook
 uselesskey verify-bundle target/uselesskey-webhook
 uselesskey inspect-bundle target/uselesskey-webhook

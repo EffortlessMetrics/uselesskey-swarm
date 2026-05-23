@@ -511,6 +511,20 @@ fn run_ci_recipe_profile(
     let bundle_artifact = relative_artifact_from_path(&bundle_dir);
     let audit_artifact = relative_artifact_from_path(&audit_dir);
 
+    let mut doctor = Command::new(cli_bin);
+    doctor
+        .args(["doctor", "--format", "json"])
+        .current_dir(&project_dir);
+    let doctor_stdout = run_command_step(
+        receipt,
+        &format!("ci-recipe-doctor-{profile}"),
+        doctor,
+        &project_dir,
+        log_dir,
+        &[],
+    )?;
+    verify_doctor_json(&doctor_stdout)?;
+
     let mut bundle = Command::new(cli_bin);
     bundle
         .args(["bundle", "--profile", profile, "--out"])
@@ -1363,6 +1377,18 @@ mod tests {
         assert!(
             example.contains("uselesskey inspect-bundle"),
             "GitHub Actions recipe should preserve the bundle -> verify -> inspect -> audit path"
+        );
+    }
+
+    #[test]
+    fn external_adoption_ci_recipe_actions_include_doctor_preflight() {
+        let example = include_str!(
+            "../../examples/external/ci-recipes/github-actions-bundle-verify-audit.yml.example"
+        );
+
+        assert!(
+            example.contains("uselesskey doctor --format json"),
+            "GitHub Actions recipe should run installed CLI doctor before generating fixtures"
         );
     }
 
