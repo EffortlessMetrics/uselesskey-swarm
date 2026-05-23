@@ -2165,6 +2165,51 @@ fn verify_bundle_accepts_generated_bundle_and_detects_mismatch() -> TestResult<(
 }
 
 #[test]
+fn bundle_verify_and_inspect_reject_path_escape_class() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("bundle");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--profile",
+        "scanner-safe",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let manifest_path = bundle_dir.join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).test_context("read manifest")?)
+            .test_context("manifest json")?;
+    let files = manifest["files"]
+        .as_array_mut()
+        .test_context("manifest files")?;
+    let first_file = files.first_mut().test_context("first manifest file")?;
+    *first_file = serde_json::json!("../escape.json");
+    fs::write(
+        &manifest_path,
+        serde_json::to_vec_pretty(&manifest).test_context("serialize manifest")?,
+    )
+    .test_context("mutate manifest")?;
+
+    for command in ["verify-bundle", "inspect-bundle"] {
+        let mut cmd = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+        cmd.args([
+            command,
+            "--path",
+            bundle_dir.to_str().test_context("utf-8")?,
+        ]);
+        cmd.assert()
+            .failure()
+            .stderr(predicate::str::contains("path_escape"))
+            .stderr(predicate::str::contains("../escape.json"));
+    }
+    Ok(())
+}
+
+#[test]
 fn verify_bundle_rejects_manifest_metadata_drift() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("bundle");
