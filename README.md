@@ -318,7 +318,7 @@ Dependency snippets:
   ```toml
   [dev-dependencies]
   uselesskey = { version = "0.9.1", features = ["rsa", "ecdsa", "ed25519", "hmac"] }
-  uselesskey-jsonwebtoken = { version = "0.9.1" }
+  uselesskey-jsonwebtoken = { version = "0.9.1", features = ["all"] }
   ```
 <!-- docs-sync:dependency-snippets-end -->
 
