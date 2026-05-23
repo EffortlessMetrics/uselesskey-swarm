@@ -30,6 +30,7 @@ fixtures and metadata-only bundle receipts.
 ```bash
 uselesskey bundle --profile tls --out target/uselesskey-tls
 uselesskey verify-bundle target/uselesskey-tls
+uselesskey inspect-bundle target/uselesskey-tls
 uselesskey audit-bundle \
   target/uselesskey-tls \
   --ci \
@@ -43,4 +44,3 @@ uselesskey audit-bundle \
 This proves local fixture generation and bundle consistency. It does not prove
 browser trust-store behavior, production PKI, revocation policy, mTLS behavior,
 or downstream verifier correctness.
-

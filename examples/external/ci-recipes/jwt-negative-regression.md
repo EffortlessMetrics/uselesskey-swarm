@@ -34,6 +34,7 @@ job needs metadata-only bundle evidence:
 ```bash
 uselesskey bundle --profile oidc --out target/uselesskey-oidc
 uselesskey verify-bundle target/uselesskey-oidc
+uselesskey inspect-bundle target/uselesskey-oidc
 uselesskey audit-bundle \
   target/uselesskey-oidc \
   --ci \
@@ -47,4 +48,3 @@ uselesskey audit-bundle \
 This proves deterministic token-shape regressions for tests. It does not prove
 production token security, issuer policy, provider compatibility, or downstream
 verifier correctness.
-
