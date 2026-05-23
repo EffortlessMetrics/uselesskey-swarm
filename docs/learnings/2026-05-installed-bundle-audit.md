@@ -35,13 +35,15 @@ cloning the repo or running public-claim proof.
 The installed CLI now has a metadata-only audit handoff:
 
 ```text
-bundle -> verify-bundle -> audit-bundle -> inspect-bundle
+bundle -> verify-bundle -> inspect-bundle -> audit-bundle
 ```
 
-`audit-bundle` writes JSON and Markdown receipts that summarize manifest
-version, artifacts, scanner-safe labels, runtime-material classification,
-receipts, checks, and boundaries. External adoption smoke exercises the audit
-step for installed-style scanner-safe, TLS, OIDC, and webhook bundles.
+`inspect-bundle` gives an immediate human summary before the durable audit
+packet. `audit-bundle` writes JSON and Markdown receipts that summarize
+manifest version, artifacts, scanner-safe labels, runtime-material
+classification, receipts, checks, and boundaries. External adoption smoke
+exercises the inspect and audit steps for installed-style scanner-safe, TLS,
+OIDC, and webhook bundles.
 
 ## Evidence
 
@@ -50,8 +52,8 @@ step for installed-style scanner-safe, TLS, OIDC, and webhook bundles.
 - `uselesskey audit-bundle --path <bundle> --format json` emits machine-readable
   metadata for downstream CI.
 - `cargo xtask external-adoption-smoke --path . --format json` records
-  `cli-audit-*` steps and audit output directories for scanner-safe, TLS, OIDC,
-  and webhook bundles.
+  `cli-inspect-*` and `cli-audit-*` steps plus audit output directories for
+  scanner-safe, TLS, OIDC, and webhook bundles.
 - `cargo xtask adoption-regression --external` passes with the installed audit
   step included.
 
