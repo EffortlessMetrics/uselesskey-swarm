@@ -43,7 +43,13 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     OIDC_JWKS_VALIDATION_EXAMPLE,
     TLS_CHAIN_VALIDATION_EXAMPLE,
 ];
-const CI_RECIPE_EXAMPLES: &[ExternalExample] = LIBRARY_EXAMPLES;
+const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
+    RUST_TEST_FIXTURES_EXAMPLE,
+    WEBHOOK_VERIFIER_EXAMPLE,
+    OIDC_JWKS_VALIDATION_EXAMPLE,
+    TLS_CHAIN_VALIDATION_EXAMPLE,
+    DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
+];
 const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
     WEBHOOK_VERIFIER_EXAMPLE,
@@ -1415,6 +1421,7 @@ mod tests {
                 "webhook-verifier",
                 "oidc-jwks-validation",
                 "tls-chain-validation",
+                "downstream-ci-bundle-audit",
             ]
         );
     }
