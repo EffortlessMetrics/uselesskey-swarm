@@ -81,6 +81,13 @@ The audit receipt is metadata-only. It may include:
 - stable failure class names;
 - boundary and "does not prove" text.
 
+Audit path fields for bundle contents must be safe relative paths. Safe
+relative paths are non-empty and must not be absolute paths, Windows
+drive-prefixed paths, parent-directory traversals, or strings containing
+control characters. This applies to listed bundle files, artifact paths, receipt
+paths, missing file paths, and unexpected file paths. The bundle path itself is
+a display path, not a bundle-content path.
+
 The audit receipt must not include generated PEM, DER, token, JWK, JWKS,
 webhook request body, HMAC key, certificate payload, or other raw fixture
 payload contents.
@@ -88,7 +95,7 @@ payload contents.
 Profile-neutral checks cover:
 
 - `manifest.json` exists and parses;
-- manifest paths are relative and contained by the bundle path;
+- manifest paths are safe relative paths and contained by the bundle path;
 - listed artifacts exist;
 - bundle content verifies against the manifest and deterministic profile;
 - materialization and audit-surface receipts exist;
