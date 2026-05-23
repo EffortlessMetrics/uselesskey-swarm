@@ -433,6 +433,22 @@ fn run_cli_profile(
         &[bundle_artifact.as_str()],
     )?;
 
+    let mut inspect = Command::new(cli_bin);
+    inspect
+        .arg("inspect-bundle")
+        .arg(&bundle_dir)
+        .args(["--out"])
+        .arg(&inspect_out)
+        .current_dir(&project_dir);
+    run_command_step(
+        receipt,
+        &format!("cli-inspect-{profile}"),
+        inspect,
+        &project_dir,
+        log_dir,
+        &[bundle_artifact.as_str(), inspect_artifact.as_str()],
+    )?;
+
     let mut audit = Command::new(cli_bin);
     audit
         .arg("audit-bundle")
@@ -454,28 +470,12 @@ fn run_cli_profile(
     verify_ci_audit_json(&audit_stdout, profile, "CLI release audit")?;
     verify_ci_audit_receipt(&audit_dir, profile)?;
 
-    let mut inspect = Command::new(cli_bin);
-    inspect
-        .arg("inspect-bundle")
-        .arg(&bundle_dir)
-        .args(["--out"])
-        .arg(&inspect_out)
-        .current_dir(&project_dir);
-    run_command_step(
-        receipt,
-        &format!("cli-inspect-{profile}"),
-        inspect,
-        &project_dir,
-        log_dir,
-        &[bundle_artifact.as_str(), inspect_artifact.as_str()],
-    )?;
-
     verify_bundle_shape(&bundle_dir, profile)?;
     record_project(
         receipt,
         &project_name,
         &project_dir,
-        &[bundle_artifact, audit_artifact, inspect_artifact],
+        &[bundle_artifact, inspect_artifact, audit_artifact],
     );
 
     Ok(())
