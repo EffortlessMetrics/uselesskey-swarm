@@ -47,6 +47,13 @@ production security proof, or scanner-evasion proof.
 | `boundaries` | string array | Human-readable statements for what audit does prove. |
 | `does_not_prove` | string array | Human-readable statements for out-of-scope claims. |
 
+Path-bearing fields for bundle contents use safe relative paths. This applies
+to `files[]`, `artifacts[].path`, `receipts[].path`, `missing_files[]`, and
+`unexpected_files[]`. Safe relative paths are non-empty and must not be absolute
+paths, Windows drive-prefixed paths, parent-directory traversals, or strings
+containing control characters. `bundle_path` is a display path for the audited
+directory, and `manifest_path` is currently the constant `manifest.json`.
+
 ## Artifact Objects
 
 Each `artifacts[]` entry has:
@@ -103,7 +110,7 @@ The stable failure class set is:
 | --- | --- |
 | `missing_manifest` | `manifest.json` is missing. |
 | `invalid_manifest` | `manifest.json` could not be parsed or did not match the expected shape. |
-| `path_escape` | A manifest path is absolute or escapes the bundle root. |
+| `path_escape` | A manifest path is unsafe: absolute, drive-prefixed, parent-traversing, control-character-bearing, or otherwise not contained by the bundle root. |
 | `missing_artifact` | A manifest-listed file is missing from the bundle. |
 | `unexpected_artifact` | A file exists in the bundle tree but is not listed by the manifest. |
 | `missing_receipt` | A required receipt entry is missing. |
