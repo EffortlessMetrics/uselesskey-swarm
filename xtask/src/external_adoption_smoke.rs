@@ -49,6 +49,10 @@ const PGP_FIXTURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "pgp-fixture-validation",
     source_dir: "examples/external/pgp-fixture-validation",
 };
+const HMAC_SIGNATURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
+    name: "hmac-signature-validation",
+    source_dir: "examples/external/hmac-signature-validation",
+};
 const DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE: ExternalExample = ExternalExample {
     name: "downstream-ci-bundle-audit",
     source_dir: "examples/external/downstream-ci-bundle-audit",
@@ -62,6 +66,7 @@ const LIBRARY_EXAMPLES: &[ExternalExample] = &[
     PKCS11_MOCK_VALIDATION_EXAMPLE,
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
+    HMAC_SIGNATURE_VALIDATION_EXAMPLE,
 ];
 const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     RUST_TEST_FIXTURES_EXAMPLE,
@@ -72,6 +77,7 @@ const CI_RECIPE_EXAMPLES: &[ExternalExample] = &[
     PKCS11_MOCK_VALIDATION_EXAMPLE,
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
+    HMAC_SIGNATURE_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
@@ -83,6 +89,7 @@ const EXTERNAL_EXAMPLES: &[ExternalExample] = &[
     PKCS11_MOCK_VALIDATION_EXAMPLE,
     SSH_FIXTURE_VALIDATION_EXAMPLE,
     PGP_FIXTURE_VALIDATION_EXAMPLE,
+    HMAC_SIGNATURE_VALIDATION_EXAMPLE,
     DOWNSTREAM_CI_BUNDLE_AUDIT_EXAMPLE,
 ];
 const BOUNDARIES: &[&str] = &[
@@ -978,6 +985,11 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
                 "uselesskey-pgp",
                 &crates_dir.join("uselesskey-pgp"),
             );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-hmac",
+                &crates_dir.join("uselesskey-hmac"),
+            );
         }
         FacadeDependency::Version(version) => {
             manifest = patch_dependency_version(&manifest, "uselesskey", version);
@@ -987,6 +999,7 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
             manifest = patch_dependency_version(&manifest, "uselesskey-pkcs11-mock", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-ssh", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-pgp", version);
+            manifest = patch_dependency_version(&manifest, "uselesskey-hmac", version);
         }
     }
 
@@ -1486,6 +1499,7 @@ mod tests {
                 "pkcs11-mock-validation",
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
+                "hmac-signature-validation",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1508,6 +1522,7 @@ mod tests {
                 "pkcs11-mock-validation",
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
+                "hmac-signature-validation",
             ]
         );
     }
@@ -1529,6 +1544,7 @@ mod tests {
                 "pkcs11-mock-validation",
                 "ssh-fixture-validation",
                 "pgp-fixture-validation",
+                "hmac-signature-validation",
                 "downstream-ci-bundle-audit",
             ]
         );
@@ -1595,6 +1611,7 @@ uselesskey-webauthn = "0.9.1"
 uselesskey-pkcs11-mock = "0.9.1"
 uselesskey-ssh = "0.9.1"
 uselesskey-pgp = "0.9.1"
+uselesskey-hmac = "0.9.1"
 "#;
 
         let crates_dir = Path::new(r#"C:\Code\Rust\uselesskey\crates"#);
@@ -1607,31 +1624,34 @@ uselesskey-pgp = "0.9.1"
             "uselesskey-pkcs11-mock",
             "uselesskey-ssh",
             "uselesskey-pgp",
+            "uselesskey-hmac",
         ] {
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
         }
 
-        assert!(patched.contains(
-            r#"uselesskey = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey", default-features = false, features = ["rsa"] }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-rustls = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-rustls", features = ["tls-config", "rustls-ring"] }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-core = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-core" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-webauthn = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-webauthn" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-pkcs11-mock = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-pkcs11-mock" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-ssh = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-ssh" }"#
-        ));
-        assert!(patched.contains(
-            r#"uselesskey-pgp = { path = "C:\\Code\\Rust\\uselesskey\\crates\\uselesskey-pgp" }"#
-        ));
+        let expected_path =
+            |crate_name: &str| toml_escape(&crates_dir.join(crate_name).display().to_string());
+        assert!(patched.contains(&format!(
+            r#"uselesskey = {{ path = "{}", default-features = false, features = ["rsa"] }}"#,
+            expected_path("uselesskey")
+        )));
+        assert!(patched.contains(&format!(
+            r#"uselesskey-rustls = {{ path = "{}", features = ["tls-config", "rustls-ring"] }}"#,
+            expected_path("uselesskey-rustls")
+        )));
+        for crate_name in [
+            "uselesskey-core",
+            "uselesskey-webauthn",
+            "uselesskey-pkcs11-mock",
+            "uselesskey-ssh",
+            "uselesskey-pgp",
+            "uselesskey-hmac",
+        ] {
+            assert!(patched.contains(&format!(
+                r#"{crate_name} = {{ path = "{}" }}"#,
+                expected_path(crate_name)
+            )));
+        }
         assert!(!patched.contains("version = \"0.9.1\""));
     }
 
