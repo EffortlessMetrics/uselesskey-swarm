@@ -1253,9 +1253,12 @@ fn build_bundle_audit(bundle_dir: &Path) -> Result<BundleAudit> {
 fn render_bundle_audit_markdown(audit: &BundleAudit) -> String {
     let mut out = String::new();
     out.push_str("# uselesskey Bundle Audit\n\n");
-    out.push_str(&format!("- Status: {}\n", audit.status));
-    out.push_str(&format!("- Bundle: {}\n", audit.bundle_path));
-    out.push_str(&format!("- Profile: {}\n", audit.profile));
+    out.push_str(&format!("- Status: {}\n", markdown_inline(&audit.status)));
+    out.push_str(&format!(
+        "- Bundle: {}\n",
+        markdown_inline(&audit.bundle_path)
+    ));
+    out.push_str(&format!("- Profile: {}\n", markdown_inline(&audit.profile)));
     out.push_str("- Receipt type: durable metadata-only reviewer/CI receipt\n");
     out.push_str("- Quick summary: uselesskey inspect-bundle <bundle-dir>\n");
     out.push_str(
@@ -1263,7 +1266,8 @@ fn render_bundle_audit_markdown(audit: &BundleAudit) -> String {
     );
     out.push_str(&format!(
         "- Manifest: {} (version {})\n",
-        audit.manifest_path, audit.manifest_version
+        markdown_inline(&audit.manifest_path),
+        audit.manifest_version
     ));
     out.push_str(&format!("- Artifacts: {}\n", audit.artifact_count));
     out.push_str(&format!("- Receipts: {}\n", audit.receipt_count));
@@ -1282,7 +1286,10 @@ fn render_bundle_audit_markdown(audit: &BundleAudit) -> String {
     for check in &audit.checks {
         out.push_str(&format!(
             "| {} | {} | {} | {} |\n",
-            check.name, check.status, check.failure_class, check.detail
+            markdown_table_cell(&check.name),
+            markdown_table_cell(&check.status),
+            markdown_table_cell(&check.failure_class),
+            markdown_table_cell(&check.detail)
         ));
     }
 
@@ -1292,9 +1299,9 @@ fn render_bundle_audit_markdown(audit: &BundleAudit) -> String {
     for artifact in &audit.artifacts {
         out.push_str(&format!(
             "| {} | {} | {} | {} | {} |\n",
-            artifact.path,
-            artifact.kind,
-            artifact.format,
+            markdown_table_cell(&artifact.path),
+            markdown_table_cell(&artifact.kind),
+            markdown_table_cell(&artifact.format),
             yes_no(artifact.scanner_safe),
             yes_no(artifact.runtime_material)
         ));
@@ -1302,20 +1309,38 @@ fn render_bundle_audit_markdown(audit: &BundleAudit) -> String {
 
     out.push_str("\n## Receipts\n\n");
     for receipt in &audit.receipts {
-        out.push_str(&format!("- {}: {}\n", receipt.kind, receipt.path));
+        out.push_str(&format!(
+            "- {}: {}\n",
+            markdown_inline(&receipt.kind),
+            markdown_inline(&receipt.path)
+        ));
     }
 
     out.push_str("\n## Boundaries\n\n");
     for boundary in &audit.boundaries {
-        out.push_str(&format!("- {boundary}\n"));
+        out.push_str(&format!("- {}\n", markdown_inline(boundary)));
     }
 
     out.push_str("\n## Does Not Prove\n\n");
     for boundary in &audit.does_not_prove {
-        out.push_str(&format!("- {boundary}\n"));
+        out.push_str(&format!("- {}\n", markdown_inline(boundary)));
     }
 
     out
+}
+
+fn markdown_inline(value: &str) -> String {
+    value
+        .chars()
+        .map(|ch| match ch {
+            '\r' | '\n' => ' ',
+            _ => ch,
+        })
+        .collect()
+}
+
+fn markdown_table_cell(value: &str) -> String {
+    markdown_inline(value).replace('|', r"\|")
 }
 
 fn render_bundle_audit_summary(audit: &BundleAudit, out_dir: Option<&Path>) -> String {
@@ -2039,6 +2064,61 @@ mod tests {
             boundaries: vec!["audit-bundle proves local bundle consistency only".to_string()],
             does_not_prove: vec!["production security".to_string()],
         }
+    }
+
+    #[test]
+    fn bundle_audit_markdown_escapes_bundle_metadata() {
+        let audit = BundleAudit {
+            version: 1,
+            status: "pass".to_string(),
+            bundle_path: "target/uselesskey-webhook\n## forged-heading".to_string(),
+            profile: "webhook".to_string(),
+            manifest_version: 1,
+            manifest_path: "manifest.json".to_string(),
+            artifact_count: 1,
+            receipt_count: 1,
+            scanner_safe_count: 0,
+            runtime_material_count: 1,
+            files: vec![],
+            artifacts: vec![BundleAuditArtifact {
+                path: "requests/valid|request.json".to_string(),
+                kind: "webhook|request".to_string(),
+                format: "json|manifest".to_string(),
+                scanner_safe: false,
+                runtime_material: true,
+                description: "runtime webhook request".to_string(),
+            }],
+            receipts: vec![BundleReceiptRecord {
+                path: "receipts/audit-surface.json\n- forged receipt".to_string(),
+                kind: "audit|surface".to_string(),
+                profile: "webhook".to_string(),
+                description: "audit surface".to_string(),
+            }],
+            missing_files: vec![],
+            unexpected_files: vec![],
+            checks: vec![BundleAuditCheck::pass(
+                "profile|validation",
+                "profile_validation_failed",
+                "detail|with table separator\nand forged row",
+            )],
+            boundaries: vec!["audit receipts contain metadata only\nand stay local".to_string()],
+            does_not_prove: vec!["production security\nor provider compatibility".to_string()],
+        };
+
+        let markdown = render_bundle_audit_markdown(&audit);
+
+        assert!(markdown.contains("- Bundle: target/uselesskey-webhook ## forged-heading"));
+        assert!(!markdown.contains("\n## forged-heading"));
+        assert!(markdown.contains(
+            "| profile\\|validation | pass | profile_validation_failed | detail\\|with table separator and forged row |"
+        ));
+        assert!(markdown.contains(
+            "| requests/valid\\|request.json | webhook\\|request | json\\|manifest | no | yes |"
+        ));
+        assert!(markdown.contains("- audit|surface: receipts/audit-surface.json - forged receipt"));
+        assert!(!markdown.contains("\n- forged receipt"));
+        assert!(markdown.contains("- audit receipts contain metadata only and stay local"));
+        assert!(markdown.contains("- production security or provider compatibility"));
     }
 
     #[test]
