@@ -589,6 +589,10 @@ fn verify_ci_audit_markdown(markdown_path: &Path, expected_profile: &str) -> Res
         &format!("- Profile: {expected_profile}"),
         "- Receipt type: durable metadata-only reviewer/CI receipt",
         "- Payload posture: raw generated fixture payloads are not copied into this receipt",
+        "## Boundaries",
+        "- audit receipts contain metadata only and do not copy generated fixture payloads",
+        "## Does Not Prove",
+        "production",
     ] {
         if !markdown.contains(expected) {
             bail!(
@@ -1464,6 +1468,64 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
     }
 
     #[test]
+    fn external_adoption_rejects_ci_audit_markdown_without_metadata_boundary() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ci_audit_json(dir.path(), "oidc")?;
+        fs::write(
+            dir.path().join("bundle-audit.md"),
+            concat!(
+                "# uselesskey Bundle Audit\n\n",
+                "- Status: pass\n",
+                "- Bundle: target/uselesskey-oidc\n",
+                "- Profile: oidc\n",
+                "- Receipt type: durable metadata-only reviewer/CI receipt\n",
+                "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                "\n## Boundaries\n\n",
+                "- audit-bundle proves local bundle consistency only\n",
+                "\n## Does Not Prove\n\n",
+                "- production signing-key custody\n",
+            ),
+        )?;
+
+        let err = match verify_ci_audit_receipt(dir.path(), "oidc") {
+            Ok(()) => bail!("CI audit markdown without metadata boundary was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains(
+            "- audit receipts contain metadata only and do not copy generated fixture payloads"
+        ));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_ci_audit_markdown_without_production_non_claim() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ci_audit_json(dir.path(), "oidc")?;
+        fs::write(
+            dir.path().join("bundle-audit.md"),
+            concat!(
+                "# uselesskey Bundle Audit\n\n",
+                "- Status: pass\n",
+                "- Bundle: target/uselesskey-oidc\n",
+                "- Profile: oidc\n",
+                "- Receipt type: durable metadata-only reviewer/CI receipt\n",
+                "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                "\n## Boundaries\n\n",
+                "- audit receipts contain metadata only and do not copy generated fixture payloads\n",
+                "\n## Does Not Prove\n\n",
+                "- downstream validator correctness\n",
+            ),
+        )?;
+
+        let err = match verify_ci_audit_receipt(dir.path(), "oidc") {
+            Ok(()) => bail!("CI audit markdown without production non-claim was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("production"));
+        Ok(())
+    }
+
+    #[test]
     fn external_adoption_rejects_ci_audit_without_checks() -> Result<()> {
         let dir = tempfile::tempdir()?;
         fs::write(
@@ -1677,6 +1739,10 @@ uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"
                     "- Profile: {}\n",
                     "- Receipt type: durable metadata-only reviewer/CI receipt\n",
                     "- Payload posture: raw generated fixture payloads are not copied into this receipt\n",
+                    "\n## Boundaries\n\n",
+                    "- audit receipts contain metadata only and do not copy generated fixture payloads\n",
+                    "\n## Does Not Prove\n\n",
+                    "- production signing-key custody\n",
                 ),
                 profile, profile
             ),
