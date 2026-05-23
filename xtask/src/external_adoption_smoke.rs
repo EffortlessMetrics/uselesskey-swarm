@@ -1480,6 +1480,24 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_installed_audit_handoff_doc_is_current() {
+        let doc = include_str!("../../docs/how-to/share-installed-bundle-audit.md");
+
+        for expected in [
+            "uselesskey doctor --format json",
+            "uselesskey verify-bundle target/uselesskey-webhook",
+            "uselesskey inspect-bundle target/uselesskey-webhook",
+            "--expect-profile webhook",
+            "--policy strict",
+        ] {
+            assert!(
+                doc.contains(expected),
+                "installed audit handoff doc missing `{expected}`"
+            );
+        }
+    }
+
+    #[test]
     fn external_examples_share_target_dir() {
         assert_eq!(
             external_examples_target_dir(Path::new("target/external-adoption-smoke/work")),
