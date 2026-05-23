@@ -37,7 +37,7 @@ Workspace-only crates are load-bearing structure.
 | `uselesskey-ssh` | public family | Tests need SSH key and certificate fixtures. | OpenSSH fixture traits and specs. | `docs/how-to/test-ssh-fixtures.md` | keep |
 | `uselesskey-pgp` | public family | Tests need OpenPGP-shaped fixtures. | PGP fixture extension trait and armored/binary output. | `docs/how-to/test-pgp-fixtures.md` | keep |
 | `uselesskey-webhook` | public family | Tests need deterministic HMAC webhook requests. | Webhook fixture APIs for valid and negative verifier paths. | `docs/how-to/test-webhook-signature-validation.md` | keep |
-| `uselesskey-test-server` | public test infrastructure | Integration tests need OIDC/JWKS HTTP routes. | Test server fixture surface. | `docs/reference/support-matrix.md` | keep |
+| `uselesskey-test-server` | public test infrastructure | Integration tests need OIDC/JWKS HTTP routes. | Test server fixture surface. | `docs/how-to/test-oidc-jwks-test-server.md` | keep |
 | `uselesskey-pkcs11-mock` | public test infrastructure | Tests need PKCS#11 mock/provider fixtures. | Mock provider fixture surface. | `docs/how-to/use-pkcs11-mock-fixtures.md` | keep |
 | `uselesskey-webauthn` | public test infrastructure | Tests need WebAuthn credential/assertion fixtures. | WebAuthn fixture surface. | `docs/how-to/test-webauthn-validation.md` | keep |
 
