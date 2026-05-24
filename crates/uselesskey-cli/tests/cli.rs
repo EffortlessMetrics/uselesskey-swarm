@@ -2128,6 +2128,53 @@ fn audit_bundle_ci_reports_invalid_receipt_class() -> TestResult<()> {
 }
 
 #[test]
+fn audit_bundle_ci_reports_missing_receipt_class() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("webhook");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--profile",
+        "webhook",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let manifest_path = bundle_dir.join("manifest.json");
+    let mut manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).test_context("manifest")?)
+            .test_context("manifest json")?;
+    manifest["receipts"] = serde_json::json!([]);
+    let manifest_bytes = serde_json::to_vec_pretty(&manifest).test_context("manifest bytes")?;
+    fs::write(&manifest_path, manifest_bytes).test_context("mutate manifest")?;
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+    ]);
+    let assert = audit
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("audit failed: missing_receipt"))
+        .stderr(predicate::str::contains(
+            "a required bundle receipt is missing",
+        ));
+    let output = assert.get_output();
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+    assert_eq!(audit["status"], "fail");
+    assert_eq!(audit["profile"], "unknown");
+    assert_eq!(audit["checks"][0]["status"], "fail");
+    assert_eq!(audit["checks"][0]["failure_class"], "missing_receipt");
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("whsec_"));
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_reports_unsupported_profile_class() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("bundle");
