@@ -20,7 +20,7 @@ env:
 
 jobs:
   perf:
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 60
     steps:
       # actions/checkout@v6
