@@ -162,9 +162,10 @@ Acceptable:
 
 ```text
 uselesskey audit-bundle target/uselesskey-oidc --ci --policy strict --out target/uselesskey-oidc-audit
-  -> treats path_escape, missing_manifest, missing_receipt, unexpected_artifact,
-     scanner_safe_mismatch, runtime_material_mismatch, and unsupported_profile
-     as CI failures
+  -> treats missing_manifest, invalid_manifest, path_escape, missing_artifact,
+     unexpected_artifact, missing_receipt, invalid_receipt,
+     scanner_safe_mismatch, runtime_material_mismatch, profile_validation_failed,
+     and unsupported_profile as CI failures
 ```
 
 Not acceptable:
