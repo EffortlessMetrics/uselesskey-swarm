@@ -50,11 +50,11 @@ Typical signals:
 - `git diff --check`.
 
 In the swarm development repository, routed PR CI exposes one required contract
-check: `Uselesskey Rust Small Result`. The route, hosted fallback, and concrete
-runner jobs are implementation details; branch protection should require the
-normalized result check only. See
-[`routed-rust-workflow.md`](routed-rust-workflow.md) for the hosted fallback
-label and workflow-change routing rules.
+check: `Uselesskey Rust Small Result`. The route and concrete runner jobs are
+implementation details; branch protection should require the normalized result
+check only. All routed jobs run on self-hosted runners. See
+[`routed-rust-workflow.md`](routed-rust-workflow.md) for the routing contract
+and route-fail reasons.
 
 Blocking posture:
 

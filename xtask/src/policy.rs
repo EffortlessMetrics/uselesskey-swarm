@@ -2513,18 +2513,15 @@ mod tests {
 
         for expected in [
             "- cpx42",
-            "cpx42|cx43|cx53|github)",
+            "cpx42|cx43|cx53)",
             "orgs/${ORG}/actions/runners?per_page=100",
             "cancel-in-progress: false",
-            "fallback_allowed: ${{ steps.route.outputs.fallback_allowed }}",
-            "ALLOW_GITHUB_HOSTED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'allow-github-hosted') }}",
-            "local target=\"$1\" reason=\"$2\" error=\"$3\" fallback_allowed=\"$4\"",
-            "echo \"fallback_allowed=$fallback_allowed\"",
-            "emit \"github\" \"fork_pr\" \"false\" \"true\"",
-            "emit \"github\" \"workflow_change_hosted_allowlisted\" \"false\" \"true\"",
-            "emit \"route-fail\" \"workflow_change_requires_allow_github_hosted\" \"true\" \"false\"",
-            "emit \"route-fail\" \"runner_token_missing\" \"true\" \"false\"",
-            "emit \"route-fail\" \"runner_api_failed\" \"true\" \"false\"",
+            "local target=\"$1\" reason=\"$2\" error=\"$3\"",
+            "emit \"route-fail\" \"fork_pr_not_supported\" \"true\"",
+            "emit \"route-fail\" \"self_hosted_not_marked_ready\" \"true\"",
+            "emit \"route-fail\" \"runner_token_missing\" \"true\"",
+            "emit \"route-fail\" \"runner_api_failed\" \"true\"",
+            "emit \"route-fail\" \"no_idle_runner\" \"true\"",
             "local runner_size_label=\"$2\"",
             "--arg runner_size_label \"$runner_size_label\"",
             "($have | index($runner_size_label))",
@@ -2535,22 +2532,33 @@ mod tests {
             "docs/tracking/*",
             "ci/hardware/*",
             ".codex/campaigns/*",
-            "emit \"route-fail\" \"parse_failed\" \"true\" \"false\"",
+            "emit \"route-fail\" \"parse_failed\" \"true\"",
             "emit \"cpx42\" \"cpx42_idle\" \"false\"",
             "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
             "toolchain: 1.95.0",
             "- uselesskey-rust-small-cpx42",
             "- uselesskey-rust-small-cx43",
             "- uselesskey-rust-small-cx53",
-            "- uselesskey-rust-small-github",
             "- uselesskey-route-failed",
             "needs.route-uselesskey-rust-small.outputs.target == 'route-fail'",
-            "needs.route-uselesskey-rust-small.outputs.fallback_allowed == 'true'",
             "Uselesskey Rust Small Result",
         ] {
             assert!(
                 workflow.contains(expected),
                 "routed workflow missing expected contract text: {expected}"
+            );
+        }
+
+        for forbidden in [
+            "uselesskey-rust-small-github",
+            "ALLOW_GITHUB_HOSTED",
+            "allow-github-hosted",
+            "fallback_allowed",
+            "runs-on: ubuntu-latest",
+        ] {
+            assert!(
+                !workflow.contains(forbidden),
+                "routed workflow must not reference removed github-hosted contract: {forbidden}"
             );
         }
 

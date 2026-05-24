@@ -16,8 +16,9 @@ this swarm repository unless explicitly assigned.
 
 For swarm PRs, wait for the normalized `Uselesskey Rust Small Result` check.
 Conditional runner jobs are routing plumbing and should not be treated as
-separate required checks. For routed CI fallback rules, including the
-`allow-github-hosted` label, see `docs/ci/routed-rust-workflow.md`.
+separate required checks. Swarm workflows run on self-hosted runners only; see
+`docs/ci/routed-rust-workflow.md` for the routing contract and the route-fail
+reasons emitted when self-hosted capacity is unavailable.
 
 ## Source-of-truth control plane
 
