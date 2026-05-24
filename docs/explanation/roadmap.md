@@ -1,29 +1,59 @@
 # Roadmap
 
-This roadmap reflects the strategic direction for uselesskey as a **test-fixture layer** (not a crypto library).
+This roadmap reflects the strategic direction for uselesskey as a **test-fixture
+layer** (not a crypto library). It describes development direction in
+`uselesskey-swarm`; it does not move release, publish, signing, tag, crates.io,
+GitHub Release, or source-sync authority out of `EffortlessMetrics/uselesskey`.
 
-## Now (v0.7.0)
+Public install snippets stay on the current published version until a release
+version exists on crates.io. v0.10.0 references in this repo are release-review
+and source-handoff evidence, not a publication claim.
 
-*Rust 1.95 scanner-safe fixture platform release hardening*
+## Now
 
-- [x] Ship the lane-choice release: entropy, runtime fixtures, and build-time materialization.
-- [x] Add economics and audit-surface receipts as first-class CI artifacts.
-- [x] Refresh advisory-blocked dependency floors so PR checks start from a clean security baseline.
-- [x] Finish PR queue disposition: merge reviewed keepers, close superseded duplicates, and park broken dependency bumps with explicit rationale.
-- [x] Keep mutation-proof coverage aligned with fixture identity and shape contracts for touched crates.
+*Keep the swarm implementation lane green, useful, and release-boundary honest*
 
-## Next (after v0.7.0)
+- Keep `uselesskey-swarm` as the high-throughput development workspace for
+  fixture, CLI, docs, proof, and package-readiness improvements.
+- Land small, reversible PRs that make downstream verifier testing easier:
+  contract-pack docs, stable negative fixture IDs, metadata-only audit receipts,
+  clean-project examples, and package boundary proof.
+- Keep the committed source-of-truth graph healthy: `.rails/index.toml`,
+  `.rails/migration-status.md`, `.uselesskey/goals/`, `policy/*.toml`,
+  `docs/status/*`, plans, handoffs, and release records must agree.
+- Treat `Uselesskey Rust Small Result` and `Source of Truth Advisory` as the
+  current swarm proof surfaces for PR review.
+- Preserve the source/release boundary: swarm can prepare and validate release
+  readiness, but does not publish, tag, sign, push to crates.io, create GitHub
+  releases, or move source-sync authority without an explicit release lane.
 
-*Planned follow-up*
+## Next
 
-- [x] JWK/JWKS and token-shape negative fixture follow-ons.
-- [x] Docs/examples coverage for the remaining negative-fixture surface.
-- [x] Performance benchmarks for key generation and materialization paths.
-- [x] Export-bundle CLI integration: `uselesskey bundle`, `verify-bundle`,
-  scanner-safe profile metadata, deterministic receipts, and Kubernetes/Vault
-  payload emitters.
-- [x] Release governance and post-release audit automation.
-- [x] Release-facing reference bundle manifests and downstream fixture recipes.
+*Apply the completed v0.10.0 readiness packet at the source boundary*
+
+- Use [`docs/release/source-release-handoff.md`](../release/source-release-handoff.md)
+  and [`docs/release/v0.10.0-readiness-record.md`](../release/v0.10.0-readiness-record.md)
+  as the current swarm handoff packet.
+- In the source repo, rerun release-prep gates against the synced release
+  candidate before any version bump, publish, tag, signing, or GitHub Release.
+- Reconcile public install snippets only when the release version is actually
+  published or the release lane explicitly marks them as candidate-only.
+- After release execution, run published-version install smoke and update
+  post-release audit records from the source/public boundary.
+- Start the next product lane from repo truth, not chat history, and prefer
+  user-path improvements over new infrastructure unless the release/user path
+  needs it.
+
+## Completed Swarm Lanes
+
+- v0.10.0 release readiness packet, package dry-run, installed CLI smoke, and
+  facade smoke.
+- Source-of-truth control plane, PR body generation, repo contract reporting,
+  and closeout generation.
+- Contract-pack and workflow binding for OIDC/JWKS, JWT/token negatives,
+  webhook, TLS/X.509, downstream CI recipes, and metadata-only audit packets.
+- Historical v0.7.0 follow-up execution is archived in
+  [`roadmap-followups-0251.md`](roadmap-followups-0251.md).
 
 ## Shipped
 
