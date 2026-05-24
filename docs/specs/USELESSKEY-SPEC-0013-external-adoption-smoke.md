@@ -97,10 +97,12 @@ Local path mode must create clean temporary projects under the repository's
 `target/external-adoption-smoke/` tree, use the current checkout through path
 dependencies or a local CLI binary, and run only documented user-facing
 commands. Generated fixture payloads and temp project outputs must stay under
-that `target/` subtree. Clean-project Cargo build artifacts may share a Cargo
-target directory under `target/external-adoption-smoke/work/cargo-target/` so
-the smoke can reuse dependencies without writing build outputs outside the
-receipt tree.
+that `target/` subtree. Clean-project Cargo build artifacts must use an
+external-adoption-specific child of the caller's `CARGO_TARGET_DIR` when that
+environment variable is set; otherwise they may share a Cargo target directory
+under `target/external-adoption-smoke/work/cargo-target/`. Receipts must record
+the actual build-artifact path so reviewers can distinguish fixture outputs
+from dependency build caches.
 
 Published-version mode is an audit/reference mode:
 
@@ -261,6 +263,7 @@ projects:
 outputs:
 - target/external-adoption-smoke/work/webhook-cli/target/uselesskey-webhook
 - target/external-adoption-smoke/work/cargo-target/external-examples
+  # or <CARGO_TARGET_DIR>/external-adoption-smoke/external-examples
 ```
 
 Valid published-version audit:
@@ -323,8 +326,10 @@ External adoption smoke maps to:
 External adoption smoke is owned by:
 
 - `xtask` command parsing and receipt code for `external-adoption-smoke`;
-- `target/external-adoption-smoke/` for temp projects, shared Cargo target
-  directories, generated outputs, and receipts;
+- `target/external-adoption-smoke/` for temp projects, generated fixture
+  outputs, logs, and receipts;
+- `CARGO_TARGET_DIR` when set, or `target/external-adoption-smoke/work/cargo-target/`
+  otherwise, for dependency build artifacts created by child Cargo commands;
 - `examples/external/` for clean-project examples once added;
 - `crates/uselesskey-cli` for installed-style profile, bundle, verify, and
   inspect commands;
