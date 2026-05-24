@@ -23,6 +23,32 @@ hosted CI, release evidence, or any claim-ledger proof command. If `doctor`
 warns only about a host prerequisite unrelated to the current slice, report the
 warning and continue with the slice-specific proof commands.
 
+## Workspace Drive Pressure
+
+If the workspace drive is too small for Cargo build caches, set
+`CARGO_TARGET_DIR` to a larger local disk before running repo proof commands.
+This moves compiler artifacts only; generated receipts and fixture payloads
+still use the command-specific `target/` paths documented by each proof
+surface.
+
+PowerShell:
+
+```powershell
+$env:CARGO_TARGET_DIR = "E:\Code\Rust\uselesskey-swarm-target"
+cargo xtask docs-sync --check
+```
+
+POSIX shell:
+
+```bash
+CARGO_TARGET_DIR=/mnt/large/uselesskey-swarm-target \
+  cargo xtask docs-sync --check
+```
+
+Report the override when it matters for reproducibility. Do not describe the
+external Cargo target directory as release evidence, fixture output, or a
+reviewer packet.
+
 ## First Command
 
 For non-trivial repo work, start with:
