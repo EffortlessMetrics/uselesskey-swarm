@@ -141,3 +141,20 @@ cargo xtask verification-pack --out target/uselesskey-verification
 `verification-pack` runs the relevant claim-proof handlers and copies their
 receipts into the pack. Use `cargo xtask claim-proof --claim <id>` only when the
 reviewer needs standalone claim-proof receipts outside the pack.
+
+## Local Proof Cache
+
+The repo proof for this page builds temporary downstream-style projects. Fixture
+payloads and audit receipts stay under `target/external-adoption-smoke/`, but
+Cargo dependency build caches can be redirected when the workspace drive is
+tight:
+
+```bash
+CARGO_TARGET_DIR=/mnt/large/uselesskey-target \
+  cargo xtask external-adoption-smoke --path . --ci-recipes --format json
+```
+
+When `CARGO_TARGET_DIR` is set, `external-adoption-smoke` writes child Cargo
+build artifacts under an `external-adoption-smoke/` child of that target
+directory and records the path in the receipt. That cache is not fixture
+payload material.
