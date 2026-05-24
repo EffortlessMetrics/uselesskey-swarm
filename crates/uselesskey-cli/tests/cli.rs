@@ -2049,6 +2049,61 @@ fn audit_bundle_fails_on_unexpected_bundle_file() -> TestResult<()> {
 }
 
 #[test]
+fn audit_bundle_ci_reports_missing_artifact_class() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("webhook");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--profile",
+        "webhook",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let manifest_path = bundle_dir.join("manifest.json");
+    let manifest: Value =
+        serde_json::from_slice(&fs::read(&manifest_path).test_context("manifest")?)
+            .test_context("manifest json")?;
+    let missing_file = manifest["files"]
+        .as_array()
+        .test_context("manifest files")?
+        .first()
+        .and_then(Value::as_str)
+        .test_context("first manifest file")?;
+    fs::remove_file(bundle_dir.join(missing_file)).test_context("remove manifest artifact")?;
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+    ]);
+    let assert = audit
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("audit failed: missing_artifact"))
+        .stderr(predicate::str::contains(
+            "manifest.json lists files that are absent",
+        ));
+    let output = assert.get_output();
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+    assert_eq!(audit["status"], "fail");
+    assert_eq!(audit["profile"], "unknown");
+    assert_eq!(audit["checks"][0]["status"], "fail");
+    assert_eq!(audit["checks"][0]["failure_class"], "missing_artifact");
+    let detail = audit["checks"][0]["detail"]
+        .as_str()
+        .test_context("failure detail")?;
+    assert!(detail.contains(missing_file));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("whsec_"));
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_reports_runtime_material_mismatch_class() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("webhook");
