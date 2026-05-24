@@ -30,6 +30,7 @@ agent state do not drift into one document.
 - [plans](../plans/README.md) - PR sequencing and rollback plans
 - [active goals](../.uselesskey/goals/README.md) - Machine-readable current agent lane state
 - [agent bootstrap](handoffs/agent-bootstrap.md) - Read order and validation defaults for agents resuming work
+- [local validation](handoffs/local-validation.md) - Local proof boundaries, workspace target-dir guidance, and hosted-CI handoff rules
 
 ## How-to Guides
 
@@ -124,7 +125,7 @@ Understanding-oriented material on design and direction.
 - [architecture.md](explanation/architecture.md) — Workspace structure and crate map
 - [cli-proof-handoff-boundary.md](explanation/cli-proof-handoff-boundary.md) — Why installed CLI proof remains a handoff instead of an executable proof runner
 - [public-surface.md](architecture/public-surface.md) — Supported public crates versus published internal implementation shards
-- [roadmap.md](explanation/roadmap.md) — Future plans and priorities (Now/Next/Later framework)
+- [roadmap.md](explanation/roadmap.md) — Current swarm direction, completed lanes, and source/release boundary
 - [requirements.md](explanation/requirements.md) — Problem statement and design requirements
 
 ## Reference
