@@ -53,8 +53,11 @@ jobs:
 ```
 
 `--ci` emits machine-readable audit JSON on stdout and exits non-zero when the
-bundle fails a stable audit class such as `missing_manifest`, `path_escape`,
-`missing_artifact`, `scanner_safe_mismatch`, or `runtime_material_mismatch`.
+bundle fails a stable audit class such as `missing_manifest`,
+`invalid_manifest`, `path_escape`, `missing_artifact`, `unexpected_artifact`,
+`missing_receipt`, `invalid_receipt`, `scanner_safe_mismatch`,
+`runtime_material_mismatch`, `profile_validation_failed`, or
+`unsupported_profile`.
 `--expect-profile webhook --policy strict` makes the job fail if a reused CI step
 audits the wrong profile or the audit is not clean.
 
