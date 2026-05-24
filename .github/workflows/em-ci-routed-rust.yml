@@ -42,7 +42,7 @@ env:
 jobs:
   route-uselesskey-rust-small:
     name: Route Uselesskey Rust Small
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 5
     outputs:
       target: ${{ steps.route.outputs.target }}
@@ -651,7 +651,7 @@ jobs:
     name: Uselesskey Rust Small on GitHub Hosted
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'github' && needs.route-uselesskey-rust-small.outputs.fallback_allowed == 'true'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 75
     steps:
       - uses: actions/checkout@v6
@@ -666,7 +666,7 @@ jobs:
     name: Uselesskey Route Failed
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'route-fail'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 5
     steps:
       - name: Fail with explicit routing reason
@@ -680,7 +680,7 @@ jobs:
     name: Uselesskey Docs/Policy Light on GitHub Hosted
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'docs'
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -716,7 +716,7 @@ jobs:
       - uselesskey-docs-policy-light
       - uselesskey-route-failed
     if: always()
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 5
     steps:
       - name: Evaluate router and selected target
@@ -786,7 +786,7 @@ jobs:
   main-full-gate:
     name: Uselesskey Main Full Gate
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_full_gate)
-    runs-on: ubuntu-latest
+    runs-on: self-hosted
     timeout-minutes: 120
     steps:
       - uses: actions/checkout@v6
