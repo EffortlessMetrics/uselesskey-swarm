@@ -1,3 +1,4 @@
+use std::ffi::OsStr;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
@@ -311,9 +312,16 @@ fn prepare_cli(
 ) -> Result<PathBuf> {
     match &source.cli_source {
         CliSource::LocalPath(cli_dir) => {
-            let target_dir = work_dir.join("cargo-target/local-cli");
+            let inherited_target_dir = std::env::var_os("CARGO_TARGET_DIR");
+            let target_dir = smoke_cargo_target_dir(
+                root,
+                work_dir,
+                "local-cli",
+                inherited_target_dir.as_deref(),
+            );
             fs::create_dir_all(&target_dir)
                 .with_context(|| format!("failed to create {}", target_dir.display()))?;
+            let target_artifact = relative_artifact_from_path(&target_dir);
             let mut cmd = Command::new("cargo");
             cmd.args(["build", "--quiet", "--bin", "uselesskey", "--manifest-path"])
                 .arg(cli_dir.join("Cargo.toml"))
@@ -324,7 +332,7 @@ fn prepare_cli(
                 cmd,
                 root,
                 log_dir,
-                &["target/external-adoption-smoke/work/cargo-target/local-cli/"],
+                &[target_artifact.as_str()],
             )?;
             let bin = target_dir.join("debug").join(cli_binary_name());
             if !bin.is_file() {
@@ -385,7 +393,8 @@ fn run_external_example(
         .with_context(|| format!("failed to patch {}", project_dir.display()))?;
 
     let project_artifact = relative_artifact_from_path(&project_dir);
-    let target_dir = external_examples_target_dir(work_dir);
+    let inherited_target_dir = std::env::var_os("CARGO_TARGET_DIR");
+    let target_dir = external_examples_target_dir(root, work_dir, inherited_target_dir.as_deref());
     fs::create_dir_all(&target_dir)
         .with_context(|| format!("failed to create {}", target_dir.display()))?;
     let target_artifact = relative_artifact_from_path(&target_dir);
@@ -406,8 +415,36 @@ fn run_external_example(
     Ok(())
 }
 
-fn external_examples_target_dir(work_dir: &Path) -> PathBuf {
-    work_dir.join("cargo-target/external-examples")
+fn external_examples_target_dir(
+    root: &Path,
+    work_dir: &Path,
+    inherited_target_dir: Option<&OsStr>,
+) -> PathBuf {
+    smoke_cargo_target_dir(root, work_dir, "external-examples", inherited_target_dir)
+}
+
+fn smoke_cargo_target_dir(
+    root: &Path,
+    work_dir: &Path,
+    child: &str,
+    inherited_target_dir: Option<&OsStr>,
+) -> PathBuf {
+    inherited_target_dir
+        .filter(|value| !value.is_empty())
+        .map(|value| {
+            normalize_target_dir(root, PathBuf::from(value))
+                .join("external-adoption-smoke")
+                .join(child)
+        })
+        .unwrap_or_else(|| work_dir.join("cargo-target").join(child))
+}
+
+fn normalize_target_dir(root: &Path, target_dir: PathBuf) -> PathBuf {
+    if target_dir.is_absolute() {
+        target_dir
+    } else {
+        root.join(target_dir)
+    }
 }
 
 fn run_cli_discovery(
@@ -1681,9 +1718,53 @@ mod tests {
 
     #[test]
     fn external_examples_share_target_dir() {
+        let root = Path::new("repo");
+        let work_dir = Path::new("repo/target/external-adoption-smoke/work");
+
         assert_eq!(
-            external_examples_target_dir(Path::new("target/external-adoption-smoke/work")),
-            PathBuf::from("target/external-adoption-smoke/work/cargo-target/external-examples")
+            external_examples_target_dir(root, work_dir, None),
+            PathBuf::from(
+                "repo/target/external-adoption-smoke/work/cargo-target/external-examples"
+            )
+        );
+    }
+
+    #[test]
+    fn external_examples_target_dir_uses_inherited_cargo_target_dir() {
+        let root = Path::new("repo");
+        let work_dir = Path::new("repo/target/external-adoption-smoke/work");
+        let inherited = std::env::temp_dir().join("uselesskey-external-target");
+
+        assert_eq!(
+            external_examples_target_dir(root, work_dir, Some(inherited.as_os_str())),
+            inherited
+                .join("external-adoption-smoke")
+                .join("external-examples")
+        );
+    }
+
+    #[test]
+    fn smoke_target_dir_resolves_relative_inherited_cargo_target_dir_from_root() {
+        let root = Path::new("repo");
+        let work_dir = Path::new("repo/target/external-adoption-smoke/work");
+
+        assert_eq!(
+            smoke_cargo_target_dir(root, work_dir, "local-cli", Some(OsStr::new("cargo-cache"))),
+            PathBuf::from("repo")
+                .join("cargo-cache")
+                .join("external-adoption-smoke")
+                .join("local-cli")
+        );
+    }
+
+    #[test]
+    fn smoke_target_dir_ignores_empty_inherited_cargo_target_dir() {
+        let root = Path::new("repo");
+        let work_dir = Path::new("repo/target/external-adoption-smoke/work");
+
+        assert_eq!(
+            smoke_cargo_target_dir(root, work_dir, "local-cli", Some(OsStr::new(""))),
+            PathBuf::from("repo/target/external-adoption-smoke/work/cargo-target/local-cli")
         );
     }
 
