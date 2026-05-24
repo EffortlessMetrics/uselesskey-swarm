@@ -2087,6 +2087,59 @@ fn audit_bundle_reports_runtime_material_mismatch_class() -> TestResult<()> {
 }
 
 #[test]
+fn audit_bundle_ci_reports_scanner_safe_mismatch_class() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("webhook");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--profile",
+        "webhook",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let receipt_path = bundle_dir.join("receipts/audit-surface.json");
+    let mut receipt: Value =
+        serde_json::from_slice(&fs::read(&receipt_path).test_context("audit receipt")?)
+            .test_context("audit receipt json")?;
+    receipt["scanner_safe_count"] = serde_json::json!(999);
+    let receipt_bytes = serde_json::to_vec_pretty(&receipt).test_context("receipt bytes")?;
+    fs::write(&receipt_path, receipt_bytes).test_context("mutate audit receipt")?;
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+    ]);
+    let assert = audit
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains(
+            "audit failed: scanner_safe_mismatch",
+        ))
+        .stderr(predicate::str::contains(
+            "audit-surface scanner-safe metadata differs",
+        ));
+    let output = assert.get_output();
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+    assert_eq!(audit["status"], "fail");
+    assert_eq!(audit["profile"], "unknown");
+    assert_eq!(audit["checks"][0]["status"], "fail");
+    assert_eq!(audit["checks"][0]["failure_class"], "scanner_safe_mismatch");
+    let detail = audit["checks"][0]["detail"]
+        .as_str()
+        .test_context("failure detail")?;
+    assert!(detail.contains("scanner_safe_count"));
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("whsec_"));
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_ci_reports_invalid_receipt_class() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("webhook");
