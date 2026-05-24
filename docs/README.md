@@ -92,6 +92,7 @@ Validation lanes and the claim boundaries behind them.
 
 - [VERIFICATION.md](VERIFICATION.md) — README badge meanings, generated endpoints, and PR evidence boundaries
 - [coverage.md](ci/coverage.md) — Coverage workflow scope, artifacts, and advisory status
+- [routed-rust-workflow.md](ci/routed-rust-workflow.md) - Swarm routed Rust CI targets, hosted fallback labels, and normalized check boundaries
 - [test-evidence-lanes.md](ci/test-evidence-lanes.md) — PR, targeted mutation, nightly mutation, and release evidence model
 
 ## Release

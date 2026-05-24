@@ -52,7 +52,9 @@ Typical signals:
 In the swarm development repository, routed PR CI exposes one required contract
 check: `Uselesskey Rust Small Result`. The route, hosted fallback, and concrete
 runner jobs are implementation details; branch protection should require the
-normalized result check only.
+normalized result check only. See
+[`routed-rust-workflow.md`](routed-rust-workflow.md) for the hosted fallback
+label and workflow-change routing rules.
 
 Blocking posture:
 
