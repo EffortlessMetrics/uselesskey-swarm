@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
     inputs:
       force_target:
-        description: "Force a runner target for proof runs"
+        description: "Force a self-hosted runner target for proof runs"
         required: false
         default: "auto"
         type: choice
@@ -19,9 +19,8 @@ on:
           - cpx42
           - cx43
           - cx53
-          - github
       run_full_gate:
-        description: "Also run the hosted full main gate"
+        description: "Also run the full main gate"
         required: false
         default: false
         type: boolean
@@ -48,7 +47,6 @@ jobs:
       target: ${{ steps.route.outputs.target }}
       reason: ${{ steps.route.outputs.reason }}
       error: ${{ steps.route.outputs.error }}
-      fallback_allowed: ${{ steps.route.outputs.fallback_allowed }}
     steps:
       - uses: actions/checkout@v6
         with:
@@ -62,7 +60,6 @@ jobs:
           ORG: EffortlessMetrics
           FORCE_TARGET: ${{ inputs.force_target || 'auto' }}
           EVENT_NAME: ${{ github.event_name }}
-          ALLOW_GITHUB_HOSTED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'allow-github-hosted') }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           BEFORE_SHA: ${{ github.event.before || '' }}
           HEAD_SHA: ${{ github.sha }}
@@ -73,33 +70,31 @@ jobs:
           set -eu
 
           emit() {
-            local target="$1" reason="$2" error="$3" fallback_allowed="$4"
+            local target="$1" reason="$2" error="$3"
             echo "router_target=$target"
             echo "router_reason=$reason"
             echo "router_error=$error"
-            echo "router_fallback_allowed=$fallback_allowed"
             {
               echo "target=$target"
               echo "reason=$reason"
               echo "error=$error"
-              echo "fallback_allowed=$fallback_allowed"
             } >> "$GITHUB_OUTPUT"
           }
 
           case "${FORCE_TARGET}" in
             auto|"") ;;
-            cpx42|cx43|cx53|github)
-              emit "${FORCE_TARGET}" "forced_${FORCE_TARGET}" "false" "true"
+            cpx42|cx43|cx53)
+              emit "${FORCE_TARGET}" "forced_${FORCE_TARGET}" "false"
               exit 0
               ;;
             *)
-              emit "github" "invalid_force_target" "true" "false"
+              emit "route-fail" "invalid_force_target" "true"
               exit 0
               ;;
           esac
 
           if [ "${IS_FORK_PR}" = "true" ]; then
-            emit "github" "fork_pr" "false" "true"
+            emit "route-fail" "fork_pr_not_supported" "true"
             exit 0
           fi
 
@@ -140,10 +135,6 @@ jobs:
             local all_light="true"
             while IFS= read -r path; do
               case "${path}" in
-                .github/workflows/*)
-                  echo "workflow"
-                  return 0
-                  ;;
                 README.md|CHANGELOG.md|SECURITY.md|CONTRIBUTING.md|LICENSE|LICENSE-*|NOTICE|AGENTS.md|docs/*|docs/tracking/*|badges/*|policy/*|plans/*|ci/hardware/*|.rails/*|.uselesskey/*|.codex/campaigns/*|.github/CODEOWNERS|.github/dependabot.yml|.github/pull_request_template.md|.github/PULL_REQUEST_TEMPLATE/*)
                   ;;
                 *)
@@ -166,35 +157,23 @@ jobs:
 
           case "${change_class}" in
             docs)
-              emit "docs" "docs_policy_light" "false" "false"
-              exit 0
-              ;;
-            workflow)
-              if [ "${ALLOW_GITHUB_HOSTED}" = "true" ]; then
-                emit "github" "workflow_change_hosted_allowlisted" "false" "true"
-              else
-                emit "route-fail" "workflow_change_requires_allow_github_hosted" "true" "false"
-              fi
+              emit "docs" "docs_policy_light" "false"
               exit 0
               ;;
             rust) ;;
             *)
-              emit "route-fail" "unknown_change_class" "true" "false"
+              emit "route-fail" "unknown_change_class" "true"
               exit 0
               ;;
           esac
 
           if [ "${SELF_HOSTED_READY}" != "true" ]; then
-            if [ "${ALLOW_GITHUB_HOSTED}" = "true" ]; then
-              emit "github" "self_hosted_not_marked_ready_allowlisted" "false" "true"
-            else
-              emit "route-fail" "self_hosted_not_marked_ready" "true" "false"
-            fi
+            emit "route-fail" "self_hosted_not_marked_ready" "true"
             exit 0
           fi
 
           if [ -z "${RUNNER_READ_TOKEN:-}" ]; then
-            emit "route-fail" "runner_token_missing" "true" "false"
+            emit "route-fail" "runner_token_missing" "true"
             exit 0
           fi
 
@@ -205,11 +184,11 @@ jobs:
             echo "runner API request failed:" >&2
             cat /tmp/gh.err >&2 || true
             if rg -q "401|Bad credentials" /tmp/gh.err; then
-              emit "route-fail" "runner_token_unauthorized" "true" "false"
+              emit "route-fail" "runner_token_unauthorized" "true"
             elif rg -q "403|Resource not accessible" /tmp/gh.err; then
-              emit "route-fail" "runner_token_forbidden" "true" "false"
+              emit "route-fail" "runner_token_forbidden" "true"
             else
-              emit "route-fail" "runner_api_failed" "true" "false"
+              emit "route-fail" "runner_api_failed" "true"
             fi
             exit 0
           fi
@@ -238,21 +217,21 @@ jobs:
           if ! idle_cpx42="$(idle_runner_count "cpx42" "rust-medium" 2>/tmp/jq.err)"; then
             echo "runner API parse failed:" >&2
             cat /tmp/jq.err >&2 || true
-            emit "route-fail" "parse_failed" "true" "false"
+            emit "route-fail" "parse_failed" "true"
             exit 0
           fi
 
           if ! idle_cx43="$(idle_runner_count "cx43" "rust-small" 2>/tmp/jq.err)"; then
             echo "runner API parse failed:" >&2
             cat /tmp/jq.err >&2 || true
-            emit "route-fail" "parse_failed" "true" "false"
+            emit "route-fail" "parse_failed" "true"
             exit 0
           fi
 
           if ! idle_cx53="$(idle_runner_count "cx53" "rust-small" 2>/tmp/jq.err)"; then
             echo "runner API parse failed:" >&2
             cat /tmp/jq.err >&2 || true
-            emit "route-fail" "parse_failed" "true" "false"
+            emit "route-fail" "parse_failed" "true"
             exit 0
           fi
 
@@ -261,17 +240,13 @@ jobs:
           echo "idle_cx53=${idle_cx53:-0}"
 
           if [ "${idle_cpx42:-0}" -gt 0 ]; then
-            emit "cpx42" "cpx42_idle" "false" "false"
+            emit "cpx42" "cpx42_idle" "false"
           elif [ "${idle_cx43:-0}" -gt 0 ]; then
-            emit "cx43" "cx43_idle" "false" "false"
+            emit "cx43" "cx43_idle" "false"
           elif [ "${idle_cx53:-0}" -gt 0 ]; then
-            emit "cx53" "cx53_idle" "false" "false"
+            emit "cx53" "cx53_idle" "false"
           else
-            if [ "${ALLOW_GITHUB_HOSTED}" = "true" ]; then
-              emit "github" "no_idle_runner_allowlisted" "false" "true"
-            else
-              emit "route-fail" "no_idle_runner" "true" "false"
-            fi
+            emit "route-fail" "no_idle_runner" "true"
           fi
 
   uselesskey-rust-small-cpx42:
@@ -647,21 +622,6 @@ jobs:
         shell: bash
         run: df -h / /mnt/docker /mnt/actions /mnt/ci-scratch /mnt/ci-cache /mnt/ci-artifacts 2>/dev/null || true
 
-  uselesskey-rust-small-github:
-    name: Uselesskey Rust Small on GitHub Hosted
-    needs: route-uselesskey-rust-small
-    if: needs.route-uselesskey-rust-small.outputs.target == 'github' && needs.route-uselesskey-rust-small.outputs.fallback_allowed == 'true'
-    runs-on: self-hosted
-    timeout-minutes: 75
-    steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - uses: dtolnay/rust-toolchain@stable
-      - name: Tiny hosted fallback check
-        run: cargo check --workspace --locked --all-targets
-
   uselesskey-route-failed:
     name: Uselesskey Route Failed
     needs: route-uselesskey-rust-small
@@ -673,11 +633,11 @@ jobs:
         shell: bash
         run: |
           echo "Routing failed: ${{ needs.route-uselesskey-rust-small.outputs.reason }}" >&2
-          echo "To allow hosted fallback, add the allow-github-hosted label on the PR or force route=github via workflow_dispatch." >&2
+          echo "Self-hosted runners are the only supported routing target; investigate runner availability or use workflow_dispatch to force a specific self-hosted target." >&2
           exit 1
 
   uselesskey-docs-policy-light:
-    name: Uselesskey Docs/Policy Light on GitHub Hosted
+    name: Uselesskey Docs/Policy Light
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'docs'
     runs-on: self-hosted
@@ -712,7 +672,6 @@ jobs:
       - uselesskey-rust-small-cpx42
       - uselesskey-rust-small-cx43
       - uselesskey-rust-small-cx53
-      - uselesskey-rust-small-github
       - uselesskey-docs-policy-light
       - uselesskey-route-failed
     if: always()
@@ -727,7 +686,6 @@ jobs:
           CPX42_RESULT: ${{ needs.uselesskey-rust-small-cpx42.result }}
           CX43_RESULT: ${{ needs.uselesskey-rust-small-cx43.result }}
           CX53_RESULT: ${{ needs.uselesskey-rust-small-cx53.result }}
-          GITHUB_RESULT: ${{ needs.uselesskey-rust-small-github.result }}
           DOCS_RESULT: ${{ needs.uselesskey-docs-policy-light.result }}
         run: |
           set -eu
@@ -736,7 +694,6 @@ jobs:
           echo "cpx42_result=${CPX42_RESULT:-<empty>}"
           echo "cx43_result=${CX43_RESULT:-<empty>}"
           echo "cx53_result=${CX53_RESULT:-<empty>}"
-          echo "github_result=${GITHUB_RESULT:-<empty>}"
           echo "docs_result=${DOCS_RESULT:-<empty>}"
 
           if [ "${ROUTER_RESULT}" != "success" ]; then
@@ -760,12 +717,6 @@ jobs:
             cx53)
               if [ "${CX53_RESULT}" != "success" ]; then
                 echo "selected target cx53 but result was ${CX53_RESULT}" >&2
-                exit 1
-              fi
-              ;;
-            github)
-              if [ "${GITHUB_RESULT}" != "success" ]; then
-                echo "selected target github but result was ${GITHUB_RESULT}" >&2
                 exit 1
               fi
               ;;
