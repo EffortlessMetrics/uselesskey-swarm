@@ -134,6 +134,7 @@ const BOUNDARIES: &[&str] = &[
     "installed-style CLI smoke does not claim provider compatibility",
     "repo-local claim-proof and verification-pack remain separate proof surfaces",
     "generated fixture payloads and temp projects stay under target/external-adoption-smoke/",
+    "child Cargo build caches may use CARGO_TARGET_DIR and are not fixture payloads",
 ];
 
 #[derive(Clone, Copy, Debug)]
@@ -1982,6 +1983,7 @@ uselesskey-test-server = "0.9.1"
         let markdown = render_markdown(&receipt);
         assert!(markdown.contains("External Adoption Smoke Receipt"));
         assert!(markdown.contains("installed-style CLI smoke does not claim provider"));
+        assert!(markdown.contains("child Cargo build caches may use CARGO_TARGET_DIR"));
         let bundle_pos = markdown.find("cli-bundle-webhook").expect("bundle step");
         let verify_pos = markdown.find("cli-verify-webhook").expect("verify step");
         let inspect_pos = markdown.find("cli-inspect-webhook").expect("inspect step");
