@@ -102,7 +102,9 @@ external-adoption-specific child of the caller's `CARGO_TARGET_DIR` when that
 environment variable is set; otherwise they may share a Cargo target directory
 under `target/external-adoption-smoke/work/cargo-target/`. Receipts must record
 the actual build-artifact path so reviewers can distinguish fixture outputs
-from dependency build caches.
+from dependency build caches. The receipt boundary list must also state that
+child Cargo build caches may use `CARGO_TARGET_DIR` and are not fixture
+payloads.
 
 Published-version mode is an audit/reference mode:
 
