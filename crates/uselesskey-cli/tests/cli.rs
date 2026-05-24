@@ -2087,6 +2087,47 @@ fn audit_bundle_reports_runtime_material_mismatch_class() -> TestResult<()> {
 }
 
 #[test]
+fn audit_bundle_ci_reports_invalid_receipt_class() -> TestResult<()> {
+    let dir = tempdir().test_context("tempdir")?;
+    let bundle_dir = dir.path().join("webhook");
+
+    let mut bundle = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    bundle.args([
+        "bundle",
+        "--profile",
+        "webhook",
+        "--out",
+        bundle_dir.to_str().test_context("utf-8")?,
+    ]);
+    bundle.assert().success();
+
+    let receipt_path = bundle_dir.join("receipts/audit-surface.json");
+    fs::write(&receipt_path, "{not-json").test_context("mutate audit receipt")?;
+
+    let mut audit = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+    audit.args([
+        "audit-bundle",
+        "--path",
+        bundle_dir.to_str().test_context("utf-8")?,
+        "--ci",
+    ]);
+    let assert = audit
+        .assert()
+        .code(1)
+        .stderr(predicate::str::contains("audit failed: invalid_receipt"))
+        .stderr(predicate::str::contains(
+            "a bundle receipt could not be parsed",
+        ));
+    let output = assert.get_output();
+    let audit: Value = serde_json::from_slice(&output.stdout).test_context("audit failure json")?;
+    assert_eq!(audit["status"], "fail");
+    assert_eq!(audit["checks"][0]["status"], "fail");
+    assert_eq!(audit["checks"][0]["failure_class"], "invalid_receipt");
+    assert!(!String::from_utf8_lossy(&output.stdout).contains("whsec_"));
+    Ok(())
+}
+
+#[test]
 fn audit_bundle_reports_unsupported_profile_class() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let bundle_dir = dir.path().join("bundle");
