@@ -172,3 +172,8 @@ These are explicitly out of scope:
 - **Feature flags**: New key types are opt-in via Cargo features to keep compile times reasonable.
 
 [roadmap-followups]: roadmap-followups-0251.md
+
+
+## Swarm operating roadmap
+
+For no-active-lane/no-active-goal control-plane improvement work in this repository, use [swarm-improvement-roadmap.md](swarm-improvement-roadmap.md) and its companion checklist [swarm-improvement-followups.md](swarm-improvement-followups.md).

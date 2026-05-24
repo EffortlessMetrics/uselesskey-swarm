@@ -124,7 +124,9 @@ Understanding-oriented material on design and direction.
 - [architecture.md](explanation/architecture.md) — Workspace structure and crate map
 - [cli-proof-handoff-boundary.md](explanation/cli-proof-handoff-boundary.md) — Why installed CLI proof remains a handoff instead of an executable proof runner
 - [public-surface.md](architecture/public-surface.md) — Supported public crates versus published internal implementation shards
-- [roadmap.md](explanation/roadmap.md) — Future plans and priorities (Now/Next/Later framework)
+- [roadmap.md](explanation/roadmap.md) — Historical product roadmap (Now/Next/Later framework)
+- [swarm-improvement-roadmap.md](explanation/swarm-improvement-roadmap.md) — Swarm operating roadmap for no-active-lane/no-active-goal improvement work
+- [swarm-improvement-followups.md](explanation/swarm-improvement-followups.md) — Execution checklist for swarm-roadmap horizons
 - [requirements.md](explanation/requirements.md) — Problem statement and design requirements
 
 ## Reference
