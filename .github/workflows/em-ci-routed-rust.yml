@@ -28,7 +28,9 @@ on:
 
 concurrency:
   group: em-ci-routed-rust-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
-  cancel-in-progress: true
+  # Keep one active run plus one pending replacement slot for heavy/core CI.
+  # New pushes replace older pending runs, but do not cancel an in-progress run.
+  cancel-in-progress: false
 
 permissions:
   contents: read
@@ -142,7 +144,7 @@ jobs:
                   echo "workflow"
                   return 0
                   ;;
-                README.md|CHANGELOG.md|SECURITY.md|LICENSE|LICENSE-*|NOTICE|AGENTS.md|docs/*|badges/*|policy/*|plans/*|.rails/*|.uselesskey/*|.github/CODEOWNERS|.github/dependabot.yml|.github/pull_request_template.md|.github/PULL_REQUEST_TEMPLATE/*)
+                README.md|CHANGELOG.md|SECURITY.md|CONTRIBUTING.md|LICENSE|LICENSE-*|NOTICE|AGENTS.md|docs/*|docs/tracking/*|badges/*|policy/*|plans/*|ci/hardware/*|.rails/*|.uselesskey/*|.codex/campaigns/*|.github/CODEOWNERS|.github/dependabot.yml|.github/pull_request_template.md|.github/PULL_REQUEST_TEMPLATE/*)
                   ;;
                 *)
                   all_light="false"
