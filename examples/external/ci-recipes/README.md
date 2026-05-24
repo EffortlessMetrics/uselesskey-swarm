@@ -44,6 +44,17 @@ OIDC, webhook, and TLS bundles under `target/`; that library regression recipes
 compile and run against the checkout; and that audit outputs are metadata-only
 reviewer receipts.
 
+If the local workspace drive is small, set `CARGO_TARGET_DIR` before running the
+repo proof. Generated fixture payloads and audit receipts still stay under
+`target/external-adoption-smoke/`, while child Cargo build caches move under an
+`external-adoption-smoke/` child of the target directory and are recorded in the
+receipt:
+
+```bash
+CARGO_TARGET_DIR=/mnt/large/uselesskey-target \
+  cargo xtask external-adoption-smoke --path . --ci-recipes --format json
+```
+
 ## Reviewer Packet
 
 Upload only metadata-only audit receipts:
