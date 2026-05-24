@@ -49,9 +49,9 @@ uselesskey audit-bundle \
 ```
 
 The strict preset exits non-zero when the installed bundle audit reports a
-stable failure class such as `missing_manifest`, `path_escape`,
-`missing_artifact`, `unexpected_artifact`, `missing_receipt`,
-`scanner_safe_mismatch`, `runtime_material_mismatch`,
+stable failure class such as `missing_manifest`, `invalid_manifest`,
+`path_escape`, `missing_artifact`, `unexpected_artifact`, `missing_receipt`,
+`invalid_receipt`, `scanner_safe_mismatch`, `runtime_material_mismatch`,
 `profile_validation_failed`, or `unsupported_profile`.
 
 Use `--expect-profile <profile>` so a reused CI step cannot accidentally audit
