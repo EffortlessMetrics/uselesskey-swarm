@@ -1395,12 +1395,23 @@ fn is_safe_bundle_relative_path(path: &str) -> bool {
     if path.is_empty() || path.chars().any(|ch| ch.is_control()) {
         return false;
     }
+    if has_windows_absolute_or_drive_prefix(path) {
+        return false;
+    }
 
     let path = Path::new(path);
     !path.is_absolute()
         && path
             .components()
             .all(|component| matches!(component, Component::Normal(_) | Component::CurDir))
+}
+
+fn has_windows_absolute_or_drive_prefix(path: &str) -> bool {
+    let bytes = path.as_bytes();
+    path.starts_with('\\')
+        || bytes
+            .get(..2)
+            .is_some_and(|prefix| prefix[0].is_ascii_alphabetic() && prefix[1] == b':')
 }
 
 fn bundle_manifest_path_context(path: &str) -> String {
@@ -2240,6 +2251,26 @@ mod tests {
         assert!(!is_safe_bundle_relative_path(
             "receipts/audit-surface\t.json"
         ));
+    }
+
+    #[test]
+    fn bundle_relative_path_safety_rejects_absolute_and_parent_paths() {
+        assert!(is_safe_bundle_relative_path("receipts/audit-surface.json"));
+        assert!(is_safe_bundle_relative_path(
+            "./receipts/audit-surface.json"
+        ));
+        assert!(!is_safe_bundle_relative_path("../escape.json"));
+        assert!(!is_safe_bundle_relative_path("receipts/../escape.json"));
+        assert!(!is_safe_bundle_relative_path("/tmp/secret.pem"));
+        assert!(!is_safe_bundle_relative_path(r"\secret.pem"));
+        assert!(!is_safe_bundle_relative_path(r"\\server\share\secret.pem"));
+    }
+
+    #[test]
+    fn bundle_relative_path_safety_rejects_windows_drive_prefixes() {
+        assert!(!is_safe_bundle_relative_path(r"C:\secret.pem"));
+        assert!(!is_safe_bundle_relative_path("C:/secret.pem"));
+        assert!(!is_safe_bundle_relative_path("C:secret.pem"));
     }
 
     #[test]
