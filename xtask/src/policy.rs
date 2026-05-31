@@ -2565,8 +2565,10 @@ mod tests {
             "routed workflow must use org-level runner discovery"
         );
         assert!(
-            workflow.find("emit \"cx43\" \"cx43_idle\"") < workflow.find("emit \"cpx42\" \"cpx42_idle\"")
-                && workflow.find("emit \"cpx42\" \"cpx42_idle\"") < workflow.find("emit \"cx53\" \"cx53_idle\""),
+            workflow.find("emit \"cx43\" \"cx43_idle\"")
+                < workflow.find("emit \"cpx42\" \"cpx42_idle\"")
+                && workflow.find("emit \"cpx42\" \"cpx42_idle\"")
+                    < workflow.find("emit \"cx53\" \"cx53_idle\""),
             "normal Rust route must prefer cx43, then cpx42, then cx53"
         );
         assert!(
