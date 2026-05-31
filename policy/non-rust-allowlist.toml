@@ -93,6 +93,15 @@ reason = "Small CI helper scripts used to project generated evidence into GitHub
 covered_by = ["python scripts/ripr-annotations.py", "cargo xtask check-file-policy"]
 
 [[allow]]
+glob = "ci/check-bare-self-hosted.sh"
+kind = "ci_runner_policy_script"
+owner = "release/ci"
+surface = "ci"
+classification = "tooling"
+reason = "CI guard script that rejects bare self-hosted runner labels without the routed runner capacity labels."
+covered_by = ["ci/check-bare-self-hosted.sh", "cargo xtask check-file-policy"]
+
+[[allow]]
 glob = ".uselesskey/goals/archive/.gitkeep"
 kind = "active_goal_archive_placeholder"
 owner = "repo-policy"
