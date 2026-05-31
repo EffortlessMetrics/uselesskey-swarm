@@ -8,6 +8,8 @@ Proposal:
 Spec:
 ADR:
 Rails lane:
+Active goal:
+Work item:
 Plan item:
 Issue:
 
