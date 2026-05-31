@@ -61,6 +61,7 @@ jobs:
           GH_TOKEN: ${{ secrets.EM_RUNNER_READ_TOKEN }}
           ORG: EffortlessMetrics
           FORCE_TARGET: ${{ inputs.force_target || 'auto' }}
+          RUN_FULL_GATE: ${{ inputs.run_full_gate || false }}
           EVENT_NAME: ${{ github.event_name }}
           ALLOW_GITHUB_HOSTED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'allow-github-hosted') }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
@@ -97,6 +98,11 @@ jobs:
               exit 0
               ;;
           esac
+
+          if [ "${EVENT_NAME}" = "push" ] || [ "${RUN_FULL_GATE}" = "true" ]; then
+            emit "main-full" "main_full_gate" "false" "false"
+            exit 0
+          fi
 
           if [ "${IS_FORK_PR}" = "true" ]; then
             emit "github" "fork_pr" "false" "true"
@@ -733,6 +739,7 @@ jobs:
       - uselesskey-workflow-validation
       - uselesskey-docs-policy-light
       - uselesskey-route-failed
+      - main-full-gate
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -748,6 +755,7 @@ jobs:
           GITHUB_RESULT: ${{ needs.uselesskey-rust-small-github.result }}
           WORKFLOW_RESULT: ${{ needs.uselesskey-workflow-validation.result }}
           DOCS_RESULT: ${{ needs.uselesskey-docs-policy-light.result }}
+          MAIN_FULL_RESULT: ${{ needs.main-full-gate.result }}
         run: |
           set -eu
           echo "router_target=${TARGET:-<empty>}"
@@ -758,6 +766,7 @@ jobs:
           echo "github_result=${GITHUB_RESULT:-<empty>}"
           echo "workflow_result=${WORKFLOW_RESULT:-<empty>}"
           echo "docs_result=${DOCS_RESULT:-<empty>}"
+          echo "main_full_result=${MAIN_FULL_RESULT:-<empty>}"
 
           if [ "${ROUTER_RESULT}" != "success" ]; then
             echo "router job did not succeed; failing normalized result" >&2
@@ -798,6 +807,12 @@ jobs:
             docs)
               if [ "${DOCS_RESULT}" != "success" ]; then
                 echo "selected target docs but result was ${DOCS_RESULT}" >&2
+                exit 1
+              fi
+              ;;
+            main-full)
+              if [ "${MAIN_FULL_RESULT}" != "success" ]; then
+                echo "selected target main-full but result was ${MAIN_FULL_RESULT}" >&2
                 exit 1
               fi
               ;;

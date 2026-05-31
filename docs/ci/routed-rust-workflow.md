@@ -15,10 +15,16 @@ The router first classifies the change:
 | Workflow changes | `workflow` | Runs hosted workflow validation and the no-bare-self-hosted guard; it does not run Rust CI. |
 | Rust or mixed implementation changes | self-hosted Rust runner when available | Uses org-level runner discovery and the CX43/CPX42/CX53 capacity contract. |
 | Fork PRs | `github` | Hosted fallback is allowed for fork safety. |
+| Push to `main`, or `workflow_dispatch` with `run_full_gate=true` | `main-full` | Runs the hosted full gate and makes the normalized result follow that job. |
 
 The workflow keeps `cancel-in-progress: false` so a heavy/core run that is
 already executing is not canceled by a newer push. GitHub Actions may still keep
 only one pending replacement run for the same concurrency group.
+
+Pushes to `main` do not use PR runner discovery. They run
+`Uselesskey Main Full Gate`, and the normalized `Uselesskey Rust Small Result`
+waits for that full gate so the branch state is not marked red merely because no
+self-hosted PR runner is idle.
 
 ## Hosted Fallback
 
