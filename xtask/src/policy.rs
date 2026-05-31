@@ -2505,15 +2505,16 @@ mod tests {
     }
 
     #[test]
-    fn routed_rust_workflow_uses_org_runner_discovery_and_cpx42_contract() -> Result<()> {
+    fn routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract() -> Result<()> {
         let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../.github/workflows/em-ci-routed-rust.yml");
         let workflow = fs::read_to_string(&workflow_path)
             .with_context(|| format!("read {}", workflow_path.display()))?;
 
         for expected in [
+            "- cx43",
             "- cpx42",
-            "cpx42|cx43|cx53|github)",
+            "cx43|cpx42|cx53|github)",
             "orgs/${ORG}/actions/runners?per_page=100",
             "cancel-in-progress: false",
             "fallback_allowed: ${{ steps.route.outputs.fallback_allowed }}",
@@ -2521,31 +2522,36 @@ mod tests {
             "local target=\"$1\" reason=\"$2\" error=\"$3\" fallback_allowed=\"$4\"",
             "echo \"fallback_allowed=$fallback_allowed\"",
             "emit \"github\" \"fork_pr\" \"false\" \"true\"",
-            "emit \"github\" \"workflow_change_hosted_allowlisted\" \"false\" \"true\"",
-            "emit \"route-fail\" \"workflow_change_requires_allow_github_hosted\" \"true\" \"false\"",
+            "emit \"workflow\" \"workflow_validation\" \"false\" \"false\"",
             "emit \"route-fail\" \"runner_token_missing\" \"true\" \"false\"",
             "emit \"route-fail\" \"runner_api_failed\" \"true\" \"false\"",
             "local runner_size_label=\"$2\"",
             "--arg runner_size_label \"$runner_size_label\"",
             "($have | index($runner_size_label))",
+            "idle_runner_count \"cx43\" \"rust-medium\"",
             "idle_runner_count \"cpx42\" \"rust-medium\"",
-            "idle_runner_count \"cx43\" \"rust-small\"",
-            "idle_runner_count \"cx53\" \"rust-small\"",
+            "idle_runner_count \"cx53\" \"rust-large\"",
             "CONTRIBUTING.md",
             "docs/tracking/*",
             "ci/hardware/*",
             ".codex/campaigns/*",
             "emit \"route-fail\" \"parse_failed\" \"true\" \"false\"",
+            "emit \"cx43\" \"cx43_idle\" \"false\"",
             "emit \"cpx42\" \"cpx42_idle\" \"false\"",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
             "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
+            "labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]",
+            "github.event.pull_request.head.repo.full_name == github.repository",
             "toolchain: 1.95.0",
             "- uselesskey-rust-small-cpx42",
             "- uselesskey-rust-small-cx43",
             "- uselesskey-rust-small-cx53",
             "- uselesskey-rust-small-github",
+            "- uselesskey-workflow-validation",
             "- uselesskey-route-failed",
             "needs.route-uselesskey-rust-small.outputs.target == 'route-fail'",
             "needs.route-uselesskey-rust-small.outputs.fallback_allowed == 'true'",
+            "ci/check-bare-self-hosted.sh",
             "Uselesskey Rust Small Result",
         ] {
             assert!(
@@ -2557,6 +2563,11 @@ mod tests {
         assert!(
             !workflow.contains("repos/${{ github.repository }}/actions/runners"),
             "routed workflow must use org-level runner discovery"
+        );
+        assert!(
+            workflow.find("emit \"cx43\" \"cx43_idle\"") < workflow.find("emit \"cpx42\" \"cpx42_idle\"")
+                && workflow.find("emit \"cpx42\" \"cpx42_idle\"") < workflow.find("emit \"cx53\" \"cx53_idle\""),
+            "normal Rust route must prefer cx43, then cpx42, then cx53"
         );
         assert!(
             workflow.find("Prepare CPX42 scratch") < workflow.find("dtolnay/rust-toolchain@v1"),
