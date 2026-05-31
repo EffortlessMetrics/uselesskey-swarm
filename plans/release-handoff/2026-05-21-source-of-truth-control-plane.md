@@ -143,8 +143,8 @@ release from this handoff.
 - New docs and ledgers increase public-claim precision; release notes must not
   overstate production security, provider compatibility, or downstream verifier
   correctness.
-- Stabilizing claims should remain clearly labeled until their proof commands
-  are treated as release-quality evidence.
+- Stabilizing workflows and advisory public claims should remain clearly
+  labeled until their proof commands are treated as release-quality evidence.
 - Generated runtime material must remain out of docs, receipts, schemas, and
   review artifacts.
 - Advisory source-of-truth checks should not become required until burn-in
