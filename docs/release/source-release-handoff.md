@@ -94,6 +94,12 @@ cargo xtask pr
 git diff --check
 ```
 
+Run the `external-adoption-smoke` variants sequentially. Each variant rewrites
+`target/external-adoption-smoke/report.md` and
+`target/external-adoption-smoke/report.json`; archive or upload the default
+path-mode receipt before running the library-example variant when the handoff
+needs both records.
+
 Record:
 
 - swarm commit range;
