@@ -9,6 +9,9 @@ What changed in this PR.
 Proposal: `USELESSKEY-PROP-0000`
 Spec: `USELESSKEY-SPEC-0000`
 ADR: none
+Rails lane: none
+Active goal: `source-of-truth-control-plane`
+Work item: `first-work-item`
 Plan item: `first-work-item`
 Issue: none
 

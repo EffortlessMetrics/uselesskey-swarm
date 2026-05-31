@@ -32,6 +32,12 @@ body:
       label: Rails lane
       description: Rails lane ID or path, when this slice is tied to `.rails/index.toml`.
       placeholder: RAILS-LANE-0000 or none
+  - type: input
+    id: active_goal
+    attributes:
+      label: Active goal
+      description: `.uselesskey/goals` goal ID when this slice is tied to the legacy active-goal control plane.
+      placeholder: v0.10.0-release-readiness or none
   - type: textarea
     id: expected_files
     attributes:

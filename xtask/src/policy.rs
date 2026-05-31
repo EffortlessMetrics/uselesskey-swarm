@@ -2537,6 +2537,7 @@ mod tests {
             "docs/tracking/*",
             "ci/hardware/*",
             ".codex/campaigns/*",
+            ".github/PULL_REQUEST_TEMPLATE.md",
             "emit \"route-fail\" \"parse_failed\" \"true\" \"false\"",
             "emit \"cx43\" \"cx43_idle\" \"false\"",
             "emit \"cpx42\" \"cpx42_idle\" \"false\"",
