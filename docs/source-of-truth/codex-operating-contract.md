@@ -62,6 +62,11 @@ linked source-of-truth artifacts.
 Use the narrow listed proof first. Broaden validation only when the change
 touches shared behavior, public claims, policy ledgers, or checker code.
 
+Only parallelize commands when their output roots are independent. The
+`external-adoption-smoke` modes all share `target/external-adoption-smoke/` and
+must be run sequentially in one checkout because each mode owns the same lock
+and receipt files.
+
 For docs-only source-of-truth slices, the normal proof set is:
 
 ```bash
