@@ -4763,7 +4763,7 @@ dependencies = [
  "base64",
  "ed25519-dalek",
  "insta",
- "pkcs8 0.10.2",
+ "pkcs8 0.11.0",
  "proptest",
  "rstest",
  "serde",
