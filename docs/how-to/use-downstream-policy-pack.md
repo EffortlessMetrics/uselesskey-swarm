@@ -158,3 +158,8 @@ When `CARGO_TARGET_DIR` is set, `external-adoption-smoke` writes child Cargo
 build artifacts under an `external-adoption-smoke/` child of that target
 directory and records the path in the receipt. That cache is not fixture
 payload material.
+
+Run external-adoption smoke variants sequentially in one checkout. The default
+path smoke, library-example smoke, CI-recipe smoke, and JSON variants share one
+`target/external-adoption-smoke/` receipt tree and reset it at the start of
+each run.

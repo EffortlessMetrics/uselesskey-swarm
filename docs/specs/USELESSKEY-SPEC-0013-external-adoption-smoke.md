@@ -123,6 +123,12 @@ target/external-adoption-smoke/report.md
 target/external-adoption-smoke/report.json
 ```
 
+All external-adoption smoke modes in one checkout share that receipt tree and
+its output lock. Operators and agents must run `--path`, `--library-examples`,
+`--ci-recipes`, and `--format json` variants sequentially in the same checkout.
+Running variants concurrently is invalid because each run resets
+`target/external-adoption-smoke/` before writing the next receipt.
+
 The receipts must summarize:
 
 - command mode (`path` or `version`);
