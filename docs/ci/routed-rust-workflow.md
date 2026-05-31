@@ -12,13 +12,19 @@ The router first classifies the change:
 | Change class | Target | Notes |
 | --- | --- | --- |
 | Docs, policy, plans, Rails, goal, and selected metadata paths | `docs` | Runs the hosted docs/policy light path. |
-| Workflow changes | `route-fail` unless allowlisted | Requires explicit hosted fallback approval. |
-| Rust or mixed implementation changes | self-hosted Rust runner when available | Uses org-level runner discovery and the CPX42/CX43/CX53 contract. |
+| Workflow changes | `workflow` | Runs hosted workflow validation and the no-bare-self-hosted guard; it does not run Rust CI. |
+| Rust or mixed implementation changes | self-hosted Rust runner when available | Uses org-level runner discovery and the CX43/CPX42/CX53 capacity contract. |
 | Fork PRs | `github` | Hosted fallback is allowed for fork safety. |
+| Push to `main`, or `workflow_dispatch` with `run_full_gate=true` | `main-full` | Runs the hosted full gate and makes the normalized result follow that job. |
 
 The workflow keeps `cancel-in-progress: false` so a heavy/core run that is
 already executing is not canceled by a newer push. GitHub Actions may still keep
 only one pending replacement run for the same concurrency group.
+
+Pushes to `main` do not use PR runner discovery. They run
+`Uselesskey Main Full Gate`, and the normalized `Uselesskey Rust Small Result`
+waits for that full gate so the branch state is not marked red merely because no
+self-hosted PR runner is idle.
 
 ## Hosted Fallback
 
@@ -33,7 +39,6 @@ adding the label:
 
 | Reason | Meaning | Normal response |
 | --- | --- | --- |
-| `workflow_change_requires_allow_github_hosted` | The PR changes `.github/workflows/*`. | Review the workflow diff, then add `allow-github-hosted` if the hosted fallback proof is acceptable. |
 | `self_hosted_not_marked_ready` | Repo variable says self-hosted runners are not ready. | Add the label only for a PR that can safely use hosted fallback. |
 | `no_idle_runner` | No matching idle self-hosted runner was found. | Add the label when waiting for a self-hosted runner is not necessary. |
 | `runner_token_missing`, `runner_token_unauthorized`, `runner_token_forbidden`, `runner_api_failed`, `parse_failed` | Runner discovery failed. | Treat as CI infrastructure triage; do not paper over repeated discovery failures without recording the reason. |
@@ -47,7 +52,8 @@ old event payload and miss the new label.
 When changing the routed workflow or its policy test, run:
 
 ```bash
-cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_cpx42_contract
+cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract
+ci/check-bare-self-hosted.sh
 git diff --check
 ```
 

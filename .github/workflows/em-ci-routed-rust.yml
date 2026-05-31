@@ -16,8 +16,8 @@ on:
         type: choice
         options:
           - auto
-          - cpx42
           - cx43
+          - cpx42
           - cx53
           - github
       run_full_gate:
@@ -58,9 +58,10 @@ jobs:
       - name: Decide target runner
         id: route
         env:
-          RUNNER_READ_TOKEN: ${{ secrets.EM_RUNNER_READ_TOKEN }}
+          GH_TOKEN: ${{ secrets.EM_RUNNER_READ_TOKEN }}
           ORG: EffortlessMetrics
           FORCE_TARGET: ${{ inputs.force_target || 'auto' }}
+          RUN_FULL_GATE: ${{ inputs.run_full_gate || false }}
           EVENT_NAME: ${{ github.event_name }}
           ALLOW_GITHUB_HOSTED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'allow-github-hosted') }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
@@ -88,7 +89,7 @@ jobs:
 
           case "${FORCE_TARGET}" in
             auto|"") ;;
-            cpx42|cx43|cx53|github)
+            cx43|cpx42|cx53|github)
               emit "${FORCE_TARGET}" "forced_${FORCE_TARGET}" "false" "true"
               exit 0
               ;;
@@ -97,6 +98,11 @@ jobs:
               exit 0
               ;;
           esac
+
+          if [ "${EVENT_NAME}" = "push" ] || [ "${RUN_FULL_GATE}" = "true" ]; then
+            emit "main-full" "main_full_gate" "false" "false"
+            exit 0
+          fi
 
           if [ "${IS_FORK_PR}" = "true" ]; then
             emit "github" "fork_pr" "false" "true"
@@ -170,11 +176,7 @@ jobs:
               exit 0
               ;;
             workflow)
-              if [ "${ALLOW_GITHUB_HOSTED}" = "true" ]; then
-                emit "github" "workflow_change_hosted_allowlisted" "false" "true"
-              else
-                emit "route-fail" "workflow_change_requires_allow_github_hosted" "true" "false"
-              fi
+              emit "workflow" "workflow_validation" "false" "false"
               exit 0
               ;;
             rust) ;;
@@ -193,12 +195,12 @@ jobs:
             exit 0
           fi
 
-          if [ -z "${RUNNER_READ_TOKEN:-}" ]; then
+          if [ -z "${GH_TOKEN:-}" ]; then
             emit "route-fail" "runner_token_missing" "true" "false"
             exit 0
           fi
 
-          if ! runners_json="$(GH_TOKEN="${RUNNER_READ_TOKEN}" gh api \
+          if ! runners_json="$(gh api \
               -H "Accept: application/vnd.github+json" \
               -H "X-GitHub-Api-Version: 2022-11-28" \
               "orgs/${ORG}/actions/runners?per_page=100" 2>/tmp/gh.err)"; then
@@ -235,6 +237,20 @@ jobs:
             '
           }
 
+          if ! idle_cx43="$(idle_runner_count "cx43" "rust-medium" 2>/tmp/jq.err)"; then
+            echo "runner API parse failed:" >&2
+            cat /tmp/jq.err >&2 || true
+            emit "route-fail" "parse_failed" "true" "false"
+            exit 0
+          fi
+
+          if ! idle_cx53="$(idle_runner_count "cx53" "rust-large" 2>/tmp/jq.err)"; then
+            echo "runner API parse failed:" >&2
+            cat /tmp/jq.err >&2 || true
+            emit "route-fail" "parse_failed" "true" "false"
+            exit 0
+          fi
+
           if ! idle_cpx42="$(idle_runner_count "cpx42" "rust-medium" 2>/tmp/jq.err)"; then
             echo "runner API parse failed:" >&2
             cat /tmp/jq.err >&2 || true
@@ -242,28 +258,14 @@ jobs:
             exit 0
           fi
 
-          if ! idle_cx43="$(idle_runner_count "cx43" "rust-small" 2>/tmp/jq.err)"; then
-            echo "runner API parse failed:" >&2
-            cat /tmp/jq.err >&2 || true
-            emit "route-fail" "parse_failed" "true" "false"
-            exit 0
-          fi
-
-          if ! idle_cx53="$(idle_runner_count "cx53" "rust-small" 2>/tmp/jq.err)"; then
-            echo "runner API parse failed:" >&2
-            cat /tmp/jq.err >&2 || true
-            emit "route-fail" "parse_failed" "true" "false"
-            exit 0
-          fi
-
-          echo "idle_cpx42=${idle_cpx42:-0}"
           echo "idle_cx43=${idle_cx43:-0}"
+          echo "idle_cpx42=${idle_cpx42:-0}"
           echo "idle_cx53=${idle_cx53:-0}"
 
-          if [ "${idle_cpx42:-0}" -gt 0 ]; then
-            emit "cpx42" "cpx42_idle" "false" "false"
-          elif [ "${idle_cx43:-0}" -gt 0 ]; then
+          if [ "${idle_cx43:-0}" -gt 0 ]; then
             emit "cx43" "cx43_idle" "false" "false"
+          elif [ "${idle_cpx42:-0}" -gt 0 ]; then
+            emit "cpx42" "cpx42_idle" "false" "false"
           elif [ "${idle_cx53:-0}" -gt 0 ]; then
             emit "cx53" "cx53_idle" "false" "false"
           else
@@ -277,7 +279,7 @@ jobs:
   uselesskey-rust-small-cpx42:
     name: Uselesskey Rust Small on CPX42
     needs: route-uselesskey-rust-small
-    if: needs.route-uselesskey-rust-small.outputs.target == 'cpx42'
+    if: needs.route-uselesskey-rust-small.outputs.target == 'cpx42' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on:
       group: em-ci-small
       labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]
@@ -334,10 +336,10 @@ jobs:
   uselesskey-rust-small-cx43:
     name: Uselesskey Rust Small on CX43
     needs: route-uselesskey-rust-small
-    if: needs.route-uselesskey-rust-small.outputs.target == 'cx43'
+    if: needs.route-uselesskey-rust-small.outputs.target == 'cx43' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on:
       group: em-ci-small
-      labels: [self-hosted, linux, x64, em-ci, cx43, rust-small, trusted-pr]
+      labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]
     timeout-minutes: 90
     env:
       CARGO_HOME: /mnt/ci-cache/cargo-home
@@ -492,10 +494,10 @@ jobs:
   uselesskey-rust-small-cx53:
     name: Uselesskey Rust Small on CX53
     needs: route-uselesskey-rust-small
-    if: needs.route-uselesskey-rust-small.outputs.target == 'cx53'
+    if: needs.route-uselesskey-rust-small.outputs.target == 'cx53' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
     runs-on:
       group: em-ci-small
-      labels: [self-hosted, linux, x64, em-ci, cx53, rust-small, trusted-pr]
+      labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]
     timeout-minutes: 90
     env:
       CARGO_HOME: /mnt/ci-cache/cargo-home
@@ -662,6 +664,27 @@ jobs:
       - name: Tiny hosted fallback check
         run: cargo check --workspace --locked --all-targets
 
+  uselesskey-workflow-validation:
+    name: Uselesskey Workflow Validation on GitHub Hosted
+    needs: route-uselesskey-rust-small
+    if: needs.route-uselesskey-rust-small.outputs.target == 'workflow'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+
+      - name: Check runner routing guard
+        run: ci/check-bare-self-hosted.sh
+
+      - name: Parse workflow YAML
+        shell: bash
+        run: |
+          set -euo pipefail
+          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "parsed #{path}" }' .github/workflows/*.yml
+
   uselesskey-route-failed:
     name: Uselesskey Route Failed
     needs: route-uselesskey-rust-small
@@ -713,8 +736,10 @@ jobs:
       - uselesskey-rust-small-cx43
       - uselesskey-rust-small-cx53
       - uselesskey-rust-small-github
+      - uselesskey-workflow-validation
       - uselesskey-docs-policy-light
       - uselesskey-route-failed
+      - main-full-gate
     if: always()
     runs-on: ubuntu-latest
     timeout-minutes: 5
@@ -728,7 +753,9 @@ jobs:
           CX43_RESULT: ${{ needs.uselesskey-rust-small-cx43.result }}
           CX53_RESULT: ${{ needs.uselesskey-rust-small-cx53.result }}
           GITHUB_RESULT: ${{ needs.uselesskey-rust-small-github.result }}
+          WORKFLOW_RESULT: ${{ needs.uselesskey-workflow-validation.result }}
           DOCS_RESULT: ${{ needs.uselesskey-docs-policy-light.result }}
+          MAIN_FULL_RESULT: ${{ needs.main-full-gate.result }}
         run: |
           set -eu
           echo "router_target=${TARGET:-<empty>}"
@@ -737,7 +764,9 @@ jobs:
           echo "cx43_result=${CX43_RESULT:-<empty>}"
           echo "cx53_result=${CX53_RESULT:-<empty>}"
           echo "github_result=${GITHUB_RESULT:-<empty>}"
+          echo "workflow_result=${WORKFLOW_RESULT:-<empty>}"
           echo "docs_result=${DOCS_RESULT:-<empty>}"
+          echo "main_full_result=${MAIN_FULL_RESULT:-<empty>}"
 
           if [ "${ROUTER_RESULT}" != "success" ]; then
             echo "router job did not succeed; failing normalized result" >&2
@@ -769,9 +798,21 @@ jobs:
                 exit 1
               fi
               ;;
+            workflow)
+              if [ "${WORKFLOW_RESULT}" != "success" ]; then
+                echo "selected target workflow but result was ${WORKFLOW_RESULT}" >&2
+                exit 1
+              fi
+              ;;
             docs)
               if [ "${DOCS_RESULT}" != "success" ]; then
                 echo "selected target docs but result was ${DOCS_RESULT}" >&2
+                exit 1
+              fi
+              ;;
+            main-full)
+              if [ "${MAIN_FULL_RESULT}" != "success" ]; then
+                echo "selected target main-full but result was ${MAIN_FULL_RESULT}" >&2
                 exit 1
               fi
               ;;
