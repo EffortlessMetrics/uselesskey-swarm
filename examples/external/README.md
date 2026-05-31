@@ -25,6 +25,12 @@ first.
 | Test WebAuthn ceremony validation | [webauthn-ceremony-validation](webauthn-ceremony-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test webhook signature validation | [webhook-verifier](webhook-verifier/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 
+Run proof modes sequentially in one checkout. The default path smoke,
+library-example smoke, and CI-recipe smoke all write
+`target/external-adoption-smoke/report.md` and
+`target/external-adoption-smoke/report.json`, so keep any receipt you need
+before running the next mode.
+
 ## Review Boundary
 
 Keep generated fixture payloads under `target/` or another ignored output
