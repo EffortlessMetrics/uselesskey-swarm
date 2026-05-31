@@ -111,7 +111,7 @@ rsa = { version = "0.10.0-rc.18", features = ["sha2"] }
 
 # Ed25519
 ed25519-dalek = { version = "2.2.0", features = ["pkcs8", "pem", "rand_core"] }
-pkcs8 = { version = "0.10.2", features = ["pem"] }
+pkcs8 = { version = "0.11.0", features = ["pem"] }
 
 # optional JWK helpers
 serde = { version = "1.0.228", features = ["derive"] }
