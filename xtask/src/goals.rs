@@ -293,9 +293,11 @@ fn validate_work_item(
 
     match item.plan.as_deref() {
         Some(plan) if !plan.trim().is_empty() => {
-            let plan_path = root.join(plan.replace('/', std::path::MAIN_SEPARATOR_STR));
-            if !plan_path.exists() {
-                errors.push(format!("{label} links missing plan `{plan}`"));
+            if validate_plan_path_shape(&label, plan, errors) {
+                let plan_path = root.join(plan.replace('/', std::path::MAIN_SEPARATOR_STR));
+                if !plan_path.exists() {
+                    errors.push(format!("{label} links missing plan `{plan}`"));
+                }
             }
         }
         _ => errors.push(format!("{label} missing plan")),
@@ -364,6 +366,55 @@ fn blocked_by_is_empty(value: Option<&toml::Value>) -> bool {
         Some(toml::Value::Array(items)) => items.is_empty(),
         Some(_) => false,
     }
+}
+
+fn validate_plan_path_shape(label: &str, plan: &str, errors: &mut Vec<String>) -> bool {
+    let trimmed = plan.trim();
+    let mut valid = true;
+
+    if trimmed != plan {
+        errors.push(format!(
+            "{label} plan `{plan}` has leading or trailing whitespace"
+        ));
+        valid = false;
+    }
+    if trimmed.contains('\\') {
+        errors.push(format!("{label} plan `{trimmed}` must use `/` separators"));
+        valid = false;
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        errors.push(format!("{label} plan `{trimmed}` must be relative"));
+        valid = false;
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        errors.push(format!(
+            "{label} plan `{trimmed}` has an empty path component"
+        ));
+        valid = false;
+    }
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        errors.push(format!(
+            "{label} plan `{trimmed}` must not contain `.` or `..` path components"
+        ));
+        valid = false;
+    }
+    if !trimmed.starts_with("plans/") || !trimmed.ends_with(".md") {
+        errors.push(format!(
+            "{label} plan `{trimmed}` must start with `plans/` and end with `.md`"
+        ));
+        valid = false;
+    }
+
+    valid
+}
+
+fn is_absolute_or_drive_path(path: &str) -> bool {
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || path.as_bytes().get(1).is_some_and(|byte| *byte == b':')
 }
 
 fn rel_path(root: &Path, path: &Path) -> String {
@@ -449,6 +500,72 @@ commands = ["cargo xtask check-goals"]
             ),
         )?;
         assert_error(dir.path(), "work_item `missing-plan` missing plan")
+    }
+
+    #[test]
+    fn rejects_plan_with_parent_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(dir.path(), "plans/test/.keep", "")?;
+        write_file(dir.path(), "plans/escaped.md", "# Escaped plan\n")?;
+        write_active(
+            dir.path(),
+            work_item(
+                "parent-plan",
+                "ready",
+                r#"proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0001"
+plan = "plans/test/../escaped.md"
+commands = ["cargo xtask check-goals"]
+"#,
+            ),
+        )?;
+        assert_error(
+            dir.path(),
+            "plan `plans/test/../escaped.md` must not contain `.` or `..` path components",
+        )
+    }
+
+    #[test]
+    fn rejects_plan_with_backslashes() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_active(
+            dir.path(),
+            work_item(
+                "backslash-plan",
+                "ready",
+                r#"proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0001"
+plan = "plans\\test\\implementation-plan.md"
+commands = ["cargo xtask check-goals"]
+"#,
+            ),
+        )?;
+        assert_error(
+            dir.path(),
+            "plan `plans\\test\\implementation-plan.md` must use `/` separators",
+        )
+    }
+
+    #[test]
+    fn rejects_plan_outside_plans_tree() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(dir.path(), "docs/plan.md", "# Plan\n")?;
+        write_active(
+            dir.path(),
+            work_item(
+                "outside-plan",
+                "ready",
+                r#"proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0001"
+plan = "docs/plan.md"
+commands = ["cargo xtask check-goals"]
+"#,
+            ),
+        )?;
+        assert_error(
+            dir.path(),
+            "plan `docs/plan.md` must start with `plans/` and end with `.md`",
+        )
     }
 
     #[test]
