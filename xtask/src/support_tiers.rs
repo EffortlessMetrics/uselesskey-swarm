@@ -30,6 +30,8 @@ struct ClaimEntry {
     #[serde(default)]
     spec: String,
     #[serde(default)]
+    surfaces: Vec<String>,
+    #[serde(default)]
     proof_commands: Vec<String>,
     #[serde(default)]
     docs: Vec<String>,
@@ -173,6 +175,16 @@ fn validate(root: &Path) -> Result<Vec<String>> {
         }
         for doc in &claim.docs {
             validate_existing_path(root, CLAIM_LEDGER_TOML, &claim.id, doc, &mut errors);
+        }
+        let mut seen_surfaces = BTreeSet::new();
+        for surface in &claim.surfaces {
+            if !seen_surfaces.insert(surface.as_str()) {
+                errors.push(format!(
+                    "{CLAIM_LEDGER_TOML}: claim `{}` repeats surface `{}`",
+                    claim.id, surface
+                ));
+            }
+            validate_claim_surface(root, &claim.id, surface, &mut errors);
         }
         let mut seen_artifacts = BTreeSet::new();
         for artifact in &claim.artifacts {
@@ -675,6 +687,24 @@ fn validate_existing_path(
     }
 }
 
+fn validate_claim_surface(root: &Path, claim_id: &str, surface: &str, errors: &mut Vec<String>) {
+    let trimmed = surface.trim();
+    if trimmed.is_empty() {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` has an empty surface"
+        ));
+        return;
+    }
+    if trimmed != surface {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` surface `{surface}` has leading or trailing whitespace"
+        ));
+    }
+    if is_repo_path(trimmed) {
+        validate_existing_path(root, CLAIM_LEDGER_TOML, claim_id, trimmed, errors);
+    }
+}
+
 fn validate_claim_artifact_path(
     root: &Path,
     claim_id: &str,
@@ -802,6 +832,35 @@ mod tests {
             &valid_claim_with_docs("scanner-safe-fixtures", &["docs/missing.md"]),
         )?;
         assert_error(dir.path(), "references missing path `docs/missing.md`")
+    }
+
+    #[test]
+    fn rejects_missing_claim_surface_path() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_surfaces(
+                "scanner-safe-fixtures",
+                &["README badge", "docs/missing-surface.md"],
+            ),
+        )?;
+        assert_error(
+            dir.path(),
+            "references missing path `docs/missing-surface.md`",
+        )
+    }
+
+    #[test]
+    fn rejects_duplicate_claim_surface() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_surfaces(
+                "scanner-safe-fixtures",
+                &["docs/VERIFICATION.md", "docs/VERIFICATION.md"],
+            ),
+        )?;
+        assert_error(dir.path(), "repeats surface `docs/VERIFICATION.md`")
     }
 
     #[test]
@@ -1366,14 +1425,43 @@ standalone_reason = "test"
     }
 
     fn valid_claim_with_docs(id: &str, docs: &[&str]) -> String {
-        valid_claim_with_docs_and_artifacts(id, docs, &["target/release-evidence/proof.json"])
+        valid_claim_with_surfaces_docs_and_artifacts(
+            id,
+            &["README"],
+            docs,
+            &["target/release-evidence/proof.json"],
+        )
+    }
+
+    fn valid_claim_with_surfaces(id: &str, surfaces: &[&str]) -> String {
+        valid_claim_with_surfaces_docs_and_artifacts(
+            id,
+            surfaces,
+            &["docs/VERIFICATION.md"],
+            &["target/release-evidence/proof.json"],
+        )
     }
 
     fn valid_claim_with_artifacts(id: &str, artifacts: &[&str]) -> String {
-        valid_claim_with_docs_and_artifacts(id, &["docs/VERIFICATION.md"], artifacts)
+        valid_claim_with_surfaces_docs_and_artifacts(
+            id,
+            &["README"],
+            &["docs/VERIFICATION.md"],
+            artifacts,
+        )
     }
 
-    fn valid_claim_with_docs_and_artifacts(id: &str, docs: &[&str], artifacts: &[&str]) -> String {
+    fn valid_claim_with_surfaces_docs_and_artifacts(
+        id: &str,
+        surfaces: &[&str],
+        docs: &[&str],
+        artifacts: &[&str],
+    ) -> String {
+        let surfaces = surfaces
+            .iter()
+            .map(|surface| format!("\"{surface}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
         let docs = docs
             .iter()
             .map(|doc| format!("\"{doc}\""))
@@ -1391,7 +1479,7 @@ id = "{id}"
 title = "Scanner-safe fixtures"
 status = "stable"
 spec = "USELESSKEY-SPEC-0002"
-surfaces = ["README"]
+surfaces = [{surfaces}]
 proof_commands = ["cargo xtask no-blob"]
 docs = [{docs}]
 artifacts = [{artifacts}]
