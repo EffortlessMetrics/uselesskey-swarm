@@ -22,7 +22,7 @@ jobs:
 
       - uses: dtolnay/rust-toolchain@stable
 
-      - name: Check runner routing guard
+      - name: Check workflow hygiene guard
         run: ci/check-bare-self-hosted.sh
 
       - name: Check doc artifacts
