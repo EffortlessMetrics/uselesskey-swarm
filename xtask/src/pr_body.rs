@@ -113,11 +113,7 @@ fn generate_pr_body(root: &Path, work_item_id: &str) -> Result<String> {
 
     let proposal = linked_artifact(work_item.proposal.as_deref(), "proposal", &artifacts)?;
     let spec = linked_artifact(work_item.spec.as_deref(), "spec", &artifacts)?;
-    let plan = work_item
-        .plan
-        .as_deref()
-        .filter(|plan| !plan.trim().is_empty())
-        .unwrap_or("none");
+    let plan = validate_work_item_plan(root, work_item)?;
 
     let spec_text = read_artifact_text(root, spec)?;
     let proposal_text = read_artifact_text(root, proposal)?;
@@ -308,6 +304,29 @@ fn validate_artifact_path(artifact: &DocArtifact) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn validate_work_item_plan<'a>(root: &Path, work_item: &'a WorkItem) -> Result<&'a str> {
+    let Some(plan) = work_item
+        .plan
+        .as_deref()
+        .filter(|plan| !plan.trim().is_empty())
+    else {
+        bail!(
+            "{ACTIVE_GOAL_TOML}: work item `{}` missing plan",
+            work_item.id
+        );
+    };
+    let label = format!("{ACTIVE_GOAL_TOML}: work item `{}` plan", work_item.id);
+    validate_path_shape(&label, plan)?;
+    if !plan.starts_with("plans/") || !plan.ends_with(".md") {
+        bail!("{label} `{plan}` must start with `plans/` and end with `.md`");
+    }
+    let path = root.join(to_path(plan));
+    if !path.exists() {
+        bail!("{label} links missing plan `{plan}`");
+    }
+    Ok(plan)
 }
 
 fn validate_path_shape(label: &str, rel: &str) -> Result<()> {
@@ -557,6 +576,69 @@ mod tests {
     }
 
     #[test]
+    fn pr_body_rejects_missing_plan() -> Result<()> {
+        let dir = minimal_repo()?;
+        let active_path = dir.path().join(to_path(ACTIVE_GOAL_TOML));
+        let active = fs::read_to_string(&active_path)?.replace(
+            "plan = \"plans/source-of-truth-control-plane/implementation-plan.md\"\n",
+            "",
+        );
+        fs::write(&active_path, active)?;
+
+        let err = generate_pr_body(dir.path(), "goal-manifest-checker")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains("work item `goal-manifest-checker` missing plan"),
+            "{err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pr_body_rejects_plan_path_with_parent_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        let active_path = dir.path().join(to_path(ACTIVE_GOAL_TOML));
+        let active = fs::read_to_string(&active_path)?.replace(
+            "plan = \"plans/source-of-truth-control-plane/implementation-plan.md\"",
+            "plan = \"plans/source-of-truth-control-plane/../escaped.md\"",
+        );
+        fs::write(&active_path, active)?;
+
+        let err = generate_pr_body(dir.path(), "goal-manifest-checker")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains("plan `plans/source-of-truth-control-plane/../escaped.md` must not contain `.` or `..`"),
+            "{err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pr_body_rejects_missing_plan_file() -> Result<()> {
+        let dir = minimal_repo()?;
+        let plan_path = dir.path().join(to_path(
+            "plans/source-of-truth-control-plane/implementation-plan.md",
+        ));
+        fs::remove_file(plan_path)?;
+
+        let err = generate_pr_body(dir.path(), "goal-manifest-checker")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains(
+                "links missing plan `plans/source-of-truth-control-plane/implementation-plan.md`"
+            ),
+            "{err}"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn pr_body_output_lock_is_target_local() -> Result<()> {
         let dir = tempfile::tempdir()?;
         let _lock = acquire_output_lock(dir.path())?;
@@ -644,6 +726,11 @@ id = "metadata-only-audit-packets"
 spec = "USELESSKEY-SPEC-0023"
 surfaces = ["uselesskey audit-bundle --ci"]
 "#,
+        )?;
+        write_file(
+            dir.path(),
+            "plans/source-of-truth-control-plane/implementation-plan.md",
+            "# Implementation plan\n",
         )?;
         write_file(
             dir.path(),
