@@ -135,6 +135,7 @@ fn validate(root: &Path) -> Result<Vec<String>> {
 
     let mut claim_ids = BTreeSet::new();
     for claim in &ledger.claim {
+        validate_claim_id(&claim.id, &mut errors);
         if !claim_ids.insert(claim.id.clone()) {
             errors.push(format!(
                 "{CLAIM_LEDGER_TOML}: duplicate claim id `{}`",
@@ -569,6 +570,27 @@ fn read_workflow_tier_definitions(root: &Path) -> Result<Vec<WorkflowTierDefinit
     Ok(parse_workflow_tier_definitions(&markdown))
 }
 
+fn validate_claim_id(claim_id: &str, errors: &mut Vec<String>) {
+    let trimmed = claim_id.trim();
+    if trimmed.is_empty() {
+        errors.push(format!("{CLAIM_LEDGER_TOML}: claim id must not be empty"));
+        return;
+    }
+    if trimmed != claim_id {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim id `{claim_id}` has leading or trailing whitespace"
+        ));
+    }
+    if !trimmed
+        .chars()
+        .all(|ch| ch.is_ascii_lowercase() || ch.is_ascii_digit() || ch == '-')
+    {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim id `{trimmed}` must contain only lowercase ASCII letters, digits, and hyphens"
+        ));
+    }
+}
+
 fn parse_support_rows(markdown: &str) -> Vec<SupportRow> {
     let mut rows = Vec::new();
     let mut in_map = false;
@@ -880,6 +902,33 @@ mod tests {
         let dir = minimal_repo()?;
         append_claim(dir.path(), valid_claim("scanner-safe-fixtures"))?;
         assert_error(dir.path(), "duplicate claim id `scanner-safe-fixtures`")
+    }
+
+    #[test]
+    fn rejects_empty_claim_id() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(dir.path(), &valid_claim(""))?;
+        assert_error(dir.path(), "claim id must not be empty")
+    }
+
+    #[test]
+    fn rejects_claim_id_with_whitespace() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(dir.path(), &valid_claim(" scanner-safe-fixtures "))?;
+        assert_error(
+            dir.path(),
+            "claim id ` scanner-safe-fixtures ` has leading or trailing whitespace",
+        )
+    }
+
+    #[test]
+    fn rejects_malformed_claim_id() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(dir.path(), &valid_claim("Scanner_safe_fixtures"))?;
+        assert_error(
+            dir.path(),
+            "claim id `Scanner_safe_fixtures` must contain only lowercase ASCII letters, digits, and hyphens",
+        )
     }
 
     #[test]
