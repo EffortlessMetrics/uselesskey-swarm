@@ -173,8 +173,15 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                 claim.id
             ));
         }
+        let mut seen_docs = BTreeSet::new();
         for doc in &claim.docs {
-            validate_existing_path(root, CLAIM_LEDGER_TOML, &claim.id, doc, &mut errors);
+            if !seen_docs.insert(doc.as_str()) {
+                errors.push(format!(
+                    "{CLAIM_LEDGER_TOML}: claim `{}` repeats docs path `{}`",
+                    claim.id, doc
+                ));
+            }
+            validate_claim_doc_path(root, &claim.id, doc, &mut errors);
         }
         let mut seen_surfaces = BTreeSet::new();
         for surface in &claim.surfaces {
@@ -705,6 +712,49 @@ fn validate_claim_surface(root: &Path, claim_id: &str, surface: &str, errors: &m
     }
 }
 
+fn validate_claim_doc_path(root: &Path, claim_id: &str, doc: &str, errors: &mut Vec<String>) {
+    let trimmed = doc.trim();
+    if trimmed.is_empty() {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` has an empty docs path"
+        ));
+        return;
+    }
+    if trimmed != doc {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{doc}` has leading or trailing whitespace"
+        ));
+    }
+    if trimmed.contains('\\') {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{trimmed}` must use `/` separators"
+        ));
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{trimmed}` must be relative"
+        ));
+    }
+    if trimmed.split('/').any(|part| part == "..") {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{trimmed}` must not contain `..`"
+        ));
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{trimmed}` has an empty path component"
+        ));
+    }
+
+    if is_repo_path(trimmed) {
+        validate_existing_path(root, CLAIM_LEDGER_TOML, claim_id, trimmed, errors);
+    } else if trimmed != "README.md" {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{trimmed}` must start with `docs/`, `badges/`, `policy/`, `examples/`, or be `README.md`"
+        ));
+    }
+}
+
 fn validate_claim_artifact_path(
     root: &Path,
     claim_id: &str,
@@ -832,6 +882,45 @@ mod tests {
             &valid_claim_with_docs("scanner-safe-fixtures", &["docs/missing.md"]),
         )?;
         assert_error(dir.path(), "references missing path `docs/missing.md`")
+    }
+
+    #[test]
+    fn rejects_duplicate_claim_doc_path() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_docs(
+                "scanner-safe-fixtures",
+                &["docs/VERIFICATION.md", "docs/VERIFICATION.md"],
+            ),
+        )?;
+        assert_error(dir.path(), "repeats docs path `docs/VERIFICATION.md`")
+    }
+
+    #[test]
+    fn rejects_claim_doc_path_with_backslashes() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_docs("scanner-safe-fixtures", &[r"docs\\VERIFICATION.md"]),
+        )?;
+        assert_error(
+            dir.path(),
+            "docs path `docs\\VERIFICATION.md` must use `/` separators",
+        )
+    }
+
+    #[test]
+    fn rejects_claim_doc_path_outside_allowed_roots() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_docs("scanner-safe-fixtures", &["target/docs.md"]),
+        )?;
+        assert_error(
+            dir.path(),
+            "docs path `target/docs.md` must start with `docs/`, `badges/`, `policy/`, `examples/`, or be `README.md`",
+        )
     }
 
     #[test]
