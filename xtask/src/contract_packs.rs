@@ -7,6 +7,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::bundle_proof::BUNDLE_PROOF_SUPPORTED_PROFILES;
 
+const CONTRACT_PACKS_TOML: &str = "policy/contract-packs.toml";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum OutputFormat {
     Human,
@@ -68,6 +70,8 @@ struct ClaimEntry {
     proof_commands: Vec<String>,
     #[serde(default)]
     docs: Vec<String>,
+    #[serde(default)]
+    release_lanes: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -122,11 +126,11 @@ pub(crate) fn write_target_receipt(root: &Path) -> Result<()> {
 }
 
 fn build_report(root: &Path) -> Result<ContractPackReport> {
-    let registry_path = root.join("policy/contract-packs.toml");
+    let registry_path = root.join(CONTRACT_PACKS_TOML);
     let registry_text = fs::read_to_string(&registry_path)
         .with_context(|| format!("read {}", registry_path.display()))?;
     let registry: ContractPackRegistry =
-        toml::from_str(&registry_text).context("parse policy/contract-packs.toml")?;
+        toml::from_str(&registry_text).with_context(|| format!("parse {CONTRACT_PACKS_TOML}"))?;
 
     let spec_ids = collect_spec_ids(root)?;
     let claims = collect_claims(root)?;
@@ -226,6 +230,14 @@ fn validate_pack(
             pack.id, expected_profile_arg
         ));
     }
+    crate::proof_commands::validate_repo_cargo_command(
+        root,
+        CONTRACT_PACKS_TOML,
+        &pack.id,
+        &pack.proof_command,
+        "proof",
+        errors,
+    );
 
     let Some(claim) = claims.get(&pack.claim) else {
         errors.push(format!(
@@ -245,6 +257,12 @@ fn validate_pack(
         errors.push(format!(
             "pack `{}` proof_command is not listed on claim `{}`",
             pack.id, pack.claim
+        ));
+    }
+    if !claim.release_lanes.contains(&pack.release_lane) {
+        errors.push(format!(
+            "pack `{}` release_lane `{}` is not listed on claim `{}`",
+            pack.id, pack.release_lane, pack.claim
         ));
     }
     if !claim.docs.contains(&pack.how_to) {
@@ -444,6 +462,54 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn registry_rejects_unknown_xtask_proof_command() -> Result<()> {
+        let dir = minimal_repo()?;
+        let invalid = "cargo xtask bundle-proofy --profile tls --out target/release-evidence/tls";
+        replace_registry(
+            dir.path(),
+            "cargo xtask bundle-proof --profile tls --out target/release-evidence/tls",
+            invalid,
+        )?;
+        replace_claim_ledger(
+            dir.path(),
+            "cargo xtask bundle-proof --profile tls --out target/release-evidence/tls",
+            invalid,
+        )?;
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.contains("unknown xtask proof command")),
+            "errors: {:?}",
+            report.errors
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn registry_rejects_release_lane_not_on_claim() -> Result<()> {
+        let dir = minimal_repo()?;
+        replace_registry(
+            dir.path(),
+            "release_lane = \"minor\"",
+            "release_lane = \"patch\"",
+        )?;
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report
+                .errors
+                .iter()
+                .any(|error| error.contains("release_lane `patch` is not listed on claim")),
+            "errors: {:?}",
+            report.errors
+        );
+        Ok(())
+    }
+
     fn minimal_repo() -> Result<tempfile::TempDir> {
         let dir = tempfile::tempdir()?;
         fs::create_dir_all(dir.path().join("policy"))?;
@@ -469,6 +535,7 @@ id = "test-pack"
 status = "stable"
 proof_commands = ["cargo xtask bundle-proof --profile tls --out target/release-evidence/tls"]
 docs = ["docs/how-to/test.md"]
+release_lanes = ["minor"]
 "#,
         )?;
         fs::write(
@@ -491,6 +558,13 @@ boundary = "Boundary."
 
     fn replace_registry(root: &Path, from: &str, to: &str) -> Result<()> {
         let path = root.join("policy/contract-packs.toml");
+        let text = fs::read_to_string(&path)?;
+        fs::write(path, text.replace(from, to))?;
+        Ok(())
+    }
+
+    fn replace_claim_ledger(root: &Path, from: &str, to: &str) -> Result<()> {
+        let path = root.join("policy/claim-ledger.toml");
         let text = fs::read_to_string(&path)?;
         fs::write(path, text.replace(from, to))?;
         Ok(())
