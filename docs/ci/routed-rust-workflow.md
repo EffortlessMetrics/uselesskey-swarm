@@ -63,7 +63,9 @@ adding the label:
 
 After adding the label, create a fresh `synchronize` event if the failed run was
 already queued before the label existed. Rerunning the old workflow can reuse the
-old event payload and miss the new label.
+old event payload and miss the new label. A `workflow_dispatch` run with
+`force_target=github` is useful as ad hoc branch proof, but it does not update
+the PR's `pull_request` check rollup used by branch protection.
 
 ## Local Proof
 
