@@ -362,6 +362,7 @@ Initial tooling PR:
 cargo test -p xtask external_adoption_smoke
 cargo xtask external-adoption-smoke --path .
 cargo xtask external-adoption-smoke --path . --format json
+cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 cargo xtask pr-lite
 git diff --check
 ```
