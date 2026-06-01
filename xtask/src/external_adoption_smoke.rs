@@ -1612,6 +1612,43 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_ci_recipes_readme_lists_recipe_files() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("xtask lives under the workspace root");
+        let recipes_dir = root.join("examples/external/ci-recipes");
+        let recipe_files = fs::read_dir(&recipes_dir)
+            .expect("ci-recipes directory should exist")
+            .map(|entry| {
+                entry
+                    .expect("ci-recipes entry should be readable")
+                    .file_name()
+                    .to_string_lossy()
+                    .into_owned()
+            })
+            .filter(|name| name != "README.md")
+            .collect::<std::collections::BTreeSet<_>>();
+        let doc = include_str!("../../examples/external/ci-recipes/README.md");
+        let readme_links = doc
+            .lines()
+            .filter(|line| line.starts_with('|') && line.contains("]("))
+            .filter_map(|line| {
+                let href = line.split("](").nth(1)?.split(')').next()?.trim();
+                if href.contains('/') {
+                    None
+                } else {
+                    Some(href.to_string())
+                }
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(
+            readme_links, recipe_files,
+            "ci-recipes README should link every committed recipe file and no missing recipe files"
+        );
+    }
+
+    #[test]
     fn external_adoption_library_examples_are_bounded() {
         let names: Vec<&str> = LIBRARY_EXAMPLES
             .iter()
