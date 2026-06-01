@@ -28,11 +28,7 @@ struct ClaimLedger {
 struct ClaimEntry {
     id: String,
     #[serde(default)]
-    status: String,
-    #[serde(default)]
     spec: String,
-    #[serde(default)]
-    surfaces: Vec<String>,
     #[serde(default)]
     proof_commands: Vec<String>,
     #[serde(default)]
@@ -202,6 +198,15 @@ fn validate(root: &Path) -> Result<Vec<String>> {
         .collect::<BTreeSet<_>>();
     let mut seen_surfaces = BTreeSet::new();
 
+    for claim in &ledger.claim {
+        if !support_claims.contains(claim.id.as_str()) {
+            errors.push(format!(
+                "{SUPPORT_TIERS_MD}: claim `{}` is missing from the support map",
+                claim.id
+            ));
+        }
+    }
+
     for row in &rows {
         if !seen_surfaces.insert(row.surface.as_str()) {
             errors.push(format!(
@@ -316,25 +321,6 @@ fn validate(root: &Path) -> Result<Vec<String>> {
     validate_workflow_tier_definitions(&workflow_tiers, &mut errors);
     validate_workflow_rows(&workflow_rows, &workflow_tiers, &claims, root, &mut errors);
     validate_matching_workflow_support_proofs(&rows, &workflow_rows, &mut errors);
-
-    for claim in ledger
-        .claim
-        .iter()
-        .filter(|claim| claim.status == "stable")
-        .filter(|claim| {
-            claim
-                .surfaces
-                .iter()
-                .any(|surface| surface.to_ascii_lowercase().contains("readme"))
-        })
-    {
-        if !support_claims.contains(claim.id.as_str()) {
-            errors.push(format!(
-                "{SUPPORT_TIERS_MD}: README stable claim `{}` is missing from the support map",
-                claim.id
-            ));
-        }
-    }
 
     Ok(errors)
 }
@@ -769,6 +755,16 @@ docs = ["docs/VERIFICATION.md"]
             "`cargo xtask no-blob`",
         )?;
         assert_error(dir.path(), "references unknown claim `unknown-claim`")
+    }
+
+    #[test]
+    fn rejects_claim_without_support_row() -> Result<()> {
+        let dir = minimal_repo()?;
+        append_claim(dir.path(), valid_claim("ripr-pr-review-evidence"))?;
+        assert_error(
+            dir.path(),
+            "claim `ripr-pr-review-evidence` is missing from the support map",
+        )
     }
 
     #[test]
