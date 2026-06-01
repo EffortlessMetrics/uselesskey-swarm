@@ -99,7 +99,7 @@ fn cargo_test_package<'a>(tokens: &'a [&'a str]) -> Option<&'a str> {
     None
 }
 
-fn cargo_package_exists(root: &Path, package: &str) -> bool {
+pub(crate) fn cargo_package_exists(root: &Path, package: &str) -> bool {
     [
         root.join("crates").join(package).join("Cargo.toml"),
         root.join(package).join("Cargo.toml"),
