@@ -47,6 +47,7 @@ struct DocArtifactLedger {
 #[derive(Debug, Deserialize)]
 struct DocArtifact {
     id: String,
+    kind: String,
     path: String,
     #[serde(default)]
     linked_adrs: Vec<String>,
@@ -202,7 +203,7 @@ fn build_context(
         spec_context
             .linked_adrs
             .extend(artifact.linked_adrs.iter().cloned());
-        let spec_text = read_text(root, &artifact.path)?;
+        let spec_text = read_linked_spec_text(root, artifact)?;
         let front_matter = parse_front_matter(&spec_text);
         spec_context.linked_adrs.extend(front_matter.linked_adrs);
         spec_context
@@ -545,6 +546,78 @@ fn read_text(root: &Path, rel: &str) -> Result<String> {
     fs::read_to_string(&path).with_context(|| format!("read {}", path.display()))
 }
 
+fn read_linked_spec_text(root: &Path, artifact: &DocArtifact) -> Result<String> {
+    if artifact.kind != "spec" {
+        bail!(
+            "linked spec `{}` has kind `{}` in {DOC_ARTIFACTS_TOML}",
+            artifact.id,
+            artifact.kind
+        );
+    }
+    validate_artifact_path(artifact)?;
+    read_text(root, &artifact.path)
+}
+
+fn validate_artifact_path(artifact: &DocArtifact) -> Result<()> {
+    let label = format!(
+        "{DOC_ARTIFACTS_TOML}: {} artifact `{}` path",
+        artifact.kind, artifact.id
+    );
+    validate_path_shape(&label, &artifact.path)?;
+    if !kind_matches_path(&artifact.kind, &artifact.path) {
+        bail!(
+            "{label} `{}` does not match kind `{}`",
+            artifact.path,
+            artifact.kind
+        );
+    }
+    Ok(())
+}
+
+fn validate_path_shape(label: &str, rel: &str) -> Result<()> {
+    let trimmed = rel.trim();
+    if trimmed.is_empty() {
+        bail!("{label} is empty");
+    }
+    if trimmed != rel {
+        bail!("{label} `{rel}` has leading or trailing whitespace");
+    }
+    if trimmed.contains('\\') {
+        bail!("{label} `{trimmed}` must use `/` separators");
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        bail!("{label} `{trimmed}` must be relative");
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        bail!("{label} `{trimmed}` has an empty path component");
+    }
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        bail!("{label} `{trimmed}` must not contain `.` or `..` path components");
+    }
+    Ok(())
+}
+
+fn is_absolute_or_drive_path(path: &str) -> bool {
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || path.as_bytes().get(1).is_some_and(|byte| *byte == b':')
+}
+
+fn kind_matches_path(kind: &str, path: &str) -> bool {
+    match kind {
+        "proposal" => path.starts_with("docs/proposals/") && path.ends_with(".md"),
+        "spec" => path.starts_with("docs/specs/") && path.ends_with(".md"),
+        "adr" => path.starts_with("docs/adr/") && path.ends_with(".md"),
+        "plan" => path.starts_with("plans/") && path.ends_with(".md"),
+        "policy" => path.starts_with("policy/") && path.ends_with(".toml"),
+        "status" => path.starts_with("docs/status/") && path.ends_with(".md"),
+        _ => false,
+    }
+}
+
 fn write_new_file(root: &Path, rel: &str, content: &str) -> Result<()> {
     let path = root.join(to_path(rel));
     if path.exists() {
@@ -824,6 +897,48 @@ mod tests {
 
         assert!(
             err.contains("must contain at least one ASCII letter or digit"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn closeout_rejects_linked_spec_path_with_parent_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        let ledger_path = dir.path().join(to_path(DOC_ARTIFACTS_TOML));
+        let ledger = fs::read_to_string(&ledger_path)?.replace(
+            "path = \"docs/specs/spec.md\"",
+            "path = \"docs/specs/../spec.md\"",
+        );
+        fs::write(&ledger_path, ledger)?;
+
+        let err = write_closeout(dir.path(), "test-goal", "2026-05-21")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains("path `docs/specs/../spec.md` must not contain `.` or `..`"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn closeout_rejects_linked_spec_with_wrong_artifact_kind() -> Result<()> {
+        let dir = minimal_repo()?;
+        let ledger_path = dir.path().join(to_path(DOC_ARTIFACTS_TOML));
+        let ledger = fs::read_to_string(&ledger_path)?.replace(
+            "kind = \"spec\"\npath = \"docs/specs/spec.md\"",
+            "kind = \"status\"\npath = \"docs/status/spec.md\"",
+        );
+        fs::write(&ledger_path, ledger)?;
+
+        let err = write_closeout(dir.path(), "test-goal", "2026-05-21")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains("linked spec `USELESSKEY-SPEC-0023` has kind `status`"),
             "unexpected error: {err}"
         );
         Ok(())
