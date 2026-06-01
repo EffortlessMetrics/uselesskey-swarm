@@ -372,8 +372,10 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                 row.line, row.surface
             ));
         }
-        for doc in row_docs.into_iter().filter(|path| is_repo_path(path)) {
-            validate_existing_path(root, SUPPORT_TIERS_MD, &row.surface, &doc, &mut errors);
+        for doc in row_docs.iter().filter(|path| is_repo_path(path)) {
+            if validate_support_row_doc_path_shape(row, doc, &mut errors) {
+                validate_existing_path(root, SUPPORT_TIERS_MD, &row.surface, doc, &mut errors);
+            }
         }
     }
 
@@ -765,6 +767,63 @@ fn validate_existing_path(
     }
 }
 
+fn validate_support_row_doc_path_shape(
+    row: &SupportRow,
+    doc: &str,
+    errors: &mut Vec<String>,
+) -> bool {
+    let trimmed = doc.trim();
+    let mut valid = true;
+
+    if trimmed.is_empty() {
+        errors.push(format!(
+            "{SUPPORT_TIERS_MD}:{} surface `{}` has an empty docs path",
+            row.line, row.surface
+        ));
+        return false;
+    }
+    if trimmed != doc {
+        errors.push(format!(
+            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{doc}` has leading or trailing whitespace",
+            row.line, row.surface
+        ));
+        valid = false;
+    }
+    if trimmed.contains('\\') {
+        errors.push(format!(
+            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{trimmed}` must use `/` separators",
+            row.line, row.surface
+        ));
+        valid = false;
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        errors.push(format!(
+            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{trimmed}` must be relative",
+            row.line, row.surface
+        ));
+        valid = false;
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        errors.push(format!(
+            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{trimmed}` has an empty path component",
+            row.line, row.surface
+        ));
+        valid = false;
+    }
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        errors.push(format!(
+            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{trimmed}` must not contain `.` or `..` path components",
+            row.line, row.surface
+        ));
+        valid = false;
+    }
+
+    valid
+}
+
 fn validate_claim_surface(root: &Path, claim_id: &str, surface: &str, errors: &mut Vec<String>) {
     let trimmed = surface.trim();
     if trimmed.is_empty() {
@@ -1048,6 +1107,39 @@ mod tests {
             ),
         )?;
         assert_error(dir.path(), "repeats surface `docs/VERIFICATION.md`")
+    }
+
+    #[test]
+    fn rejects_support_tier_docs_path_traversal() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(dir.path(), "Cargo.toml", "[workspace]\n")?;
+        write_support_tiers_full(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`",
+            "`docs/../Cargo.toml`",
+        )?;
+        assert_error(
+            dir.path(),
+            "docs path `docs/../Cargo.toml` must not contain `.` or `..` path components",
+        )
+    }
+
+    #[test]
+    fn rejects_support_tier_docs_path_empty_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_support_tiers_full(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`",
+            "`docs//VERIFICATION.md`",
+        )?;
+        assert_error(
+            dir.path(),
+            "docs path `docs//VERIFICATION.md` has an empty path component",
+        )
     }
 
     #[test]
