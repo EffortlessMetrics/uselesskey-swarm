@@ -2431,6 +2431,30 @@ pub fn policy_report() -> Result<()> {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::process::Output;
+
+    fn workspace_root() -> Result<PathBuf> {
+        Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("..")
+            .canonicalize()
+            .context("canonicalize workspace root")
+    }
+
+    fn workflow_guard_arg(root: &Path, workflow_dir: &Path) -> Result<String> {
+        let relative = workflow_dir
+            .strip_prefix(root)
+            .with_context(|| format!("{} under {}", workflow_dir.display(), root.display()))?;
+        Ok(relative.to_string_lossy().replace('\\', "/"))
+    }
+
+    fn run_workflow_hygiene_guard(root: &Path, workflow_dir: &str) -> Result<Output> {
+        Command::new("bash")
+            .current_dir(root)
+            .arg("ci/check-bare-self-hosted.sh")
+            .arg(workflow_dir)
+            .output()
+            .context("run ci/check-bare-self-hosted.sh")
+    }
 
     #[test]
     fn glob_double_star_matches_nested() {
@@ -2463,6 +2487,63 @@ mod tests {
         assert!(msrv_reached("1.95", "1.94"));
         assert!(!msrv_reached("1.92", "1.94"));
         assert!(!msrv_reached("1.93", "1.94"));
+    }
+
+    #[test]
+    fn workflow_hygiene_guard_accepts_current_workflows() -> Result<()> {
+        let root = workspace_root()?;
+        let output = run_workflow_hygiene_guard(&root, ".github/workflows")?;
+        assert!(
+            output.status.success(),
+            "workflow hygiene guard failed\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn workflow_hygiene_guard_rejects_quoted_mutable_action_refs() -> Result<()> {
+        let root = workspace_root()?;
+        let tmp_root = root.join("target/tmp");
+        fs::create_dir_all(&tmp_root).context("create target/tmp")?;
+        let dir = tempfile::Builder::new()
+            .prefix("workflow-hygiene-")
+            .tempdir_in(&tmp_root)
+            .context("create workflow hygiene tempdir")?;
+        fs::write(
+            dir.path().join("bad.yml"),
+            r#"name: bad
+jobs:
+  unquoted:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: Factory-AI/droid-action@main
+  double_quoted:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: "Factory-AI/droid-action@main"
+  single_quoted:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: 'Factory-AI/droid-action@master'
+"#,
+        )
+        .context("write bad workflow")?;
+
+        let workflow_dir = workflow_guard_arg(&root, dir.path())?;
+        let output = run_workflow_hygiene_guard(&root, &workflow_dir)?;
+        assert!(
+            !output.status.success(),
+            "workflow hygiene guard accepted mutable action refs\nstdout:\n{}\nstderr:\n{}",
+            String::from_utf8_lossy(&output.stdout),
+            String::from_utf8_lossy(&output.stderr)
+        );
+        let stderr = String::from_utf8_lossy(&output.stderr);
+        assert!(stderr.contains("Factory-AI/droid-action@main"));
+        assert!(stderr.contains("\"Factory-AI/droid-action@main\""));
+        assert!(stderr.contains("'Factory-AI/droid-action@master'"));
+        Ok(())
     }
 
     #[test]
