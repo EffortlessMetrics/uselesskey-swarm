@@ -28,9 +28,11 @@ on:
 
 concurrency:
   group: em-ci-routed-rust-${{ github.repository }}-${{ github.event.pull_request.number || github.ref }}
-  # Keep one active run plus one pending replacement slot for heavy/core CI.
-  # New pushes replace older pending runs, but do not cancel an in-progress run.
-  cancel-in-progress: false
+  # PR and merge-group runs keep one active run plus one pending replacement slot
+  # so heavy/core PR proof is not cancelled mid-flight. Pushes to main cancel
+  # older in-progress full gates because only the latest main commit represents
+  # the branch state that should be reported as green.
+  cancel-in-progress: ${{ github.event_name == 'push' }}
 
 permissions:
   contents: read

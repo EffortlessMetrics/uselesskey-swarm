@@ -17,9 +17,11 @@ The router first classifies the change:
 | Fork PRs | `github` | Hosted fallback is allowed for fork safety. |
 | Push to `main`, or `workflow_dispatch` with `run_full_gate=true` | `main-full` | Runs the hosted full gate and makes the normalized result follow that job. |
 
-The workflow keeps `cancel-in-progress: false` so a heavy/core run that is
-already executing is not canceled by a newer push. GitHub Actions may still keep
-only one pending replacement run for the same concurrency group.
+The workflow cancels in-progress runs only for `push` events. Pull request and
+merge-group runs keep the non-canceling heavy/core behavior, while main pushes
+replace obsolete in-progress full gates so the latest main commit is the branch
+state being proven. GitHub Actions may still keep only one pending replacement
+run for the same concurrency group when cancellation is disabled for the event.
 
 Pushes to `main` do not use PR runner discovery. They run
 `Uselesskey Main Full Gate`, and the normalized `Uselesskey Rust Small Result`
@@ -28,20 +30,21 @@ self-hosted PR runner is idle.
 
 ## Main Branch Queue Behavior
 
-Because main pushes share one routed Rust concurrency group, a newer main push
-can stay `pending` while an older `Uselesskey Main Full Gate` is still running.
-That is expected while the older run is within the workflow timeout. Treat the
-pending newer run as queued, not failed.
+Because main pushes share one routed Rust concurrency group and
+`cancel-in-progress` is enabled for `push`, a newer main push cancels an older
+in-progress `Uselesskey Main Full Gate`. Treat the cancellation on the older
+commit as superseded proof, not a product failure. The newest main run is the
+authoritative branch proof.
 
 Normal response:
 
-- inspect the older run and confirm it is still progressing or still within its
-  timeout;
+- inspect the newest main run and confirm it has started or is waiting for
+  GitHub runner capacity;
 - inspect the latest main `Source of Truth` run separately;
-- do not rerun, cancel, or label a main run merely because a newer replacement
-  run is pending.
+- do not label a main run; the hosted fallback label is a PR-only routing
+  control.
 
-Escalate only when the active full gate fails, exceeds its timeout, or is
+Escalate only when the newest active full gate fails, exceeds its timeout, or is
 clearly stuck in the same step beyond the timeout policy.
 
 ## Hosted Fallback
