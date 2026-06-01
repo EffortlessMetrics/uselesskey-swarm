@@ -1490,12 +1490,14 @@ fn validate_negative_fixture_entry(
         validate_required_vec(&entry.tests, &entry.stable_id, "tests", errors);
         validate_negative_fixture_docs(entry, errors);
         for command in &entry.tests {
-            if !(command.starts_with("cargo test ") || command.starts_with("cargo xtask ")) {
-                errors.push(format!(
-                    "{NEGATIVE_FIXTURES_TOML}: `{}` test command `{command}` must start with `cargo test` or `cargo xtask`",
-                    entry.stable_id
-                ));
-            }
+            crate::proof_commands::validate_repo_cargo_command(
+                &workspace_root_path(),
+                NEGATIVE_FIXTURES_TOML,
+                &entry.stable_id,
+                command,
+                "test",
+                errors,
+            );
         }
     } else {
         validate_required_text(entry.reason.as_deref(), &entry.stable_id, "reason", errors);
@@ -2757,6 +2759,62 @@ jobs:
             errors
                 .iter()
                 .all(|error| !error.contains("docs/reference/failure-atlas.md")),
+            "errors: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn implemented_negative_fixture_tests_must_reference_known_xtask_command() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "jwt_missing_kid".into(),
+            family: "jwt_token".into(),
+            status: "implemented".into(),
+            owner_crate: Some("uselesskey-token".into()),
+            public_surface: Some("NegativeToken::MissingKid".into()),
+            docs: vec!["docs/reference/failure-atlas.md".into()],
+            tests: vec!["cargo xtask fake-proof".into()],
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(false),
+            claim: Some("jwt-token-negative-fixtures".into()),
+            does_not_prove: vec!["provider compatibility".into()],
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["jwt-token-negative-fixtures"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("unknown xtask test command `cargo xtask fake-proof`")),
+            "errors: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn implemented_negative_fixture_tests_must_reference_known_cargo_package() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "jwt_missing_kid".into(),
+            family: "jwt_token".into(),
+            status: "implemented".into(),
+            owner_crate: Some("uselesskey-token".into()),
+            public_surface: Some("NegativeToken::MissingKid".into()),
+            docs: vec!["docs/reference/failure-atlas.md".into()],
+            tests: vec!["cargo test -p missing-crate --all-features".into()],
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(false),
+            claim: Some("jwt-token-negative-fixtures".into()),
+            does_not_prove: vec!["provider compatibility".into()],
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["jwt-token-negative-fixtures"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("unknown cargo test package `missing-crate`")),
             "errors: {errors:?}"
         );
     }

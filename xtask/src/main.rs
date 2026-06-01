@@ -33,6 +33,7 @@ mod plan;
 mod policy;
 mod pr_body;
 mod pr_bundles;
+mod proof_commands;
 mod public_surface;
 mod receipt;
 mod repo_contract_report;
