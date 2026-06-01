@@ -98,6 +98,7 @@ cargo xtask check-negative-fixtures
 cargo xtask check-bundle-schemas
 cargo xtask external-adoption-smoke --path .
 cargo xtask external-adoption-smoke --path . --library-examples
+cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 cargo xtask pr
 git diff --check
 ```
