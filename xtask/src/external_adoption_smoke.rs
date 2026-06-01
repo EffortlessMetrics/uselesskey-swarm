@@ -1840,6 +1840,26 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_workflow_support_doc_paths_exist() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("xtask lives under the workspace root");
+        let doc = include_str!("../../docs/status/workflow-support.md");
+
+        for path in doc
+            .split('`')
+            .skip(1)
+            .step_by(2)
+            .filter(|path| path.starts_with("docs/") || path.starts_with("examples/external/"))
+        {
+            assert!(
+                root.join(path).is_file(),
+                "workflow support matrix references missing doc path `{path}`"
+            );
+        }
+    }
+
+    #[test]
     fn external_adoption_release_facade_record_lists_library_examples() {
         let doc = include_str!("../../docs/release/v0.10.0-facade-release-smoke.md");
 
