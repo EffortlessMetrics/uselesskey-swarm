@@ -1910,6 +1910,7 @@ fn render_bundle_schema_check_markdown(report: &BundleSchemaCheckReport) -> Stri
 #[cfg(test)]
 mod tests {
     use super::*;
+    use regex::Regex;
     use serde_json::json;
 
     fn audit_schema_for_tests() -> Value {
@@ -2025,12 +2026,40 @@ mod tests {
             .collect()
     }
 
+    fn relative_path_rejection_patterns(schema_path: &str) -> Result<Vec<Regex>> {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .context("xtask has workspace parent")?;
+        let schema: Value = serde_json::from_str(&fs::read_to_string(root.join(schema_path))?)?;
+        let patterns = schema
+            .pointer("/$defs/relative_path/not/anyOf")
+            .and_then(Value::as_array)
+            .context("relative_path not.anyOf")?;
+        patterns
+            .iter()
+            .filter_map(|pattern| pattern.get("pattern").and_then(Value::as_str))
+            .map(|pattern| Regex::new(pattern).with_context(|| format!("compile {pattern:?}")))
+            .collect()
+    }
+
+    fn path_rejected_by_patterns(patterns: &[Regex], path: &str) -> bool {
+        patterns.iter().any(|pattern| pattern.is_match(path))
+    }
+
     #[test]
     fn safe_relative_path_rejects_absolute_and_parent_paths() {
         assert!(is_safe_relative_path("receipts/negative-coverage.json"));
         assert!(!is_safe_relative_path("../secret.pem"));
         assert!(!is_safe_relative_path("/tmp/secret.pem"));
+        assert!(!is_safe_relative_path(r"\tmp\secret.pem"));
         assert!(!is_safe_relative_path("C:/tmp/secret.pem"));
+    }
+
+    #[test]
+    fn safe_relative_path_rejects_empty_components() {
+        assert!(!is_safe_relative_path("receipts//negative-coverage.json"));
+        assert!(!is_safe_relative_path("receipts/"));
+        assert!(!is_safe_relative_path(r"receipts\"));
     }
 
     #[test]
@@ -2038,6 +2067,43 @@ mod tests {
         assert!(!is_safe_relative_path("receipts/negative-coverage\n.json"));
         assert!(!is_safe_relative_path("receipts/negative-coverage\r.json"));
         assert!(!is_safe_relative_path("receipts/negative-coverage\t.json"));
+    }
+
+    #[test]
+    fn published_relative_path_schemas_reject_cli_unsafe_shapes() -> Result<()> {
+        for schema_path in [
+            BUNDLE_MANIFEST_SCHEMA_JSON,
+            NEGATIVE_COVERAGE_SCHEMA_JSON,
+            BUNDLE_AUDIT_SCHEMA_JSON,
+        ] {
+            let patterns = relative_path_rejection_patterns(schema_path)?;
+            for unsafe_path in [
+                r"\tmp\secret.pem",
+                r"\\server\share\secret.pem",
+                "receipts//negative-coverage.json",
+                "receipts/negative-coverage.json/",
+                r"receipts\",
+                "../secret.pem",
+                "C:/tmp/secret.pem",
+                "receipts/negative-coverage\n.json",
+            ] {
+                assert!(
+                    path_rejected_by_patterns(&patterns, unsafe_path),
+                    "{schema_path} did not reject {unsafe_path:?}"
+                );
+            }
+            for safe_path in [
+                "receipts/negative-coverage.json",
+                "jwks/valid.json",
+                r"receipts\negative-coverage.json",
+            ] {
+                assert!(
+                    !path_rejected_by_patterns(&patterns, safe_path),
+                    "{schema_path} rejected safe relative path {safe_path:?}"
+                );
+            }
+        }
+        Ok(())
     }
 
     #[test]
