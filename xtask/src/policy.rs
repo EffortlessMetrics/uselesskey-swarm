@@ -2554,6 +2554,8 @@ mod tests {
             "- uselesskey-route-failed",
             "- main-full-gate",
             "needs.route-uselesskey-rust-small.outputs.target == 'route-fail'",
+            "To allow hosted fallback for PR branch protection, add the allow-github-hosted label and push or reopen the PR to create a fresh pull_request event.",
+            "Use workflow_dispatch force_target=github only as ad hoc branch proof; it does not update the PR-required check.",
             "needs.route-uselesskey-rust-small.outputs.fallback_allowed == 'true'",
             "MAIN_FULL_RESULT: ${{ needs.main-full-gate.result }}",
             "main_full_result=${MAIN_FULL_RESULT:-<empty>}",

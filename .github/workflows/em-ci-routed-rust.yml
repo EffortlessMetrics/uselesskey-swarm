@@ -696,7 +696,8 @@ jobs:
         shell: bash
         run: |
           echo "Routing failed: ${{ needs.route-uselesskey-rust-small.outputs.reason }}" >&2
-          echo "To allow hosted fallback, add the allow-github-hosted label on the PR or force route=github via workflow_dispatch." >&2
+          echo "To allow hosted fallback for PR branch protection, add the allow-github-hosted label and push or reopen the PR to create a fresh pull_request event." >&2
+          echo "Use workflow_dispatch force_target=github only as ad hoc branch proof; it does not update the PR-required check." >&2
           exit 1
 
   uselesskey-docs-policy-light:
