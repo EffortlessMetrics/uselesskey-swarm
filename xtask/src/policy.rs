@@ -1524,15 +1524,61 @@ fn validate_negative_fixture_owner_crate(entry: &NegativeFixtureEntry, errors: &
 fn validate_negative_fixture_docs(entry: &NegativeFixtureEntry, errors: &mut Vec<String>) {
     let root = workspace_root_path();
     for doc in &entry.docs {
-        if !doc.starts_with("docs/") {
+        let doc_path = doc.trim();
+        if doc_path.is_empty() {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` docs path is empty",
+                entry.stable_id
+            ));
+            continue;
+        }
+        if doc_path != doc {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` must not have leading or trailing whitespace",
+                entry.stable_id
+            ));
+            continue;
+        }
+        if doc_path.contains('\\') {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` must use `/` separators",
+                entry.stable_id
+            ));
+            continue;
+        }
+        if Path::new(doc_path).is_absolute() || doc_path.as_bytes().get(1) == Some(&b':') {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` must be repo-relative",
+                entry.stable_id
+            ));
+            continue;
+        }
+        if !doc_path.starts_with("docs/") {
             errors.push(format!(
                 "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` must start with `docs/`",
                 entry.stable_id
             ));
             continue;
         }
+        if doc_path.split('/').any(str::is_empty) {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` must not contain empty path components",
+                entry.stable_id
+            ));
+            continue;
+        }
+        if doc_path
+            .split('/')
+            .any(|component| matches!(component, "." | ".."))
+        {
+            errors.push(format!(
+                "{NEGATIVE_FIXTURES_TOML}: `{}` docs path `{doc}` must not contain `.` or `..` path components",
+                entry.stable_id
+            ));
+            continue;
+        }
         if !root
-            .join(doc.replace('/', std::path::MAIN_SEPARATOR_STR))
+            .join(doc_path.replace('/', std::path::MAIN_SEPARATOR_STR))
             .exists()
         {
             errors.push(format!(
@@ -2776,6 +2822,76 @@ jobs:
             errors
                 .iter()
                 .all(|error| !error.contains("docs/reference/failure-atlas.md")),
+            "errors: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn implemented_negative_fixture_docs_reject_escaped_or_malformed_paths() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "jwt_missing_kid".into(),
+            family: "jwt_token".into(),
+            status: "implemented".into(),
+            owner_crate: Some("uselesskey-token".into()),
+            public_surface: Some("NegativeToken::MissingKid".into()),
+            docs: vec![
+                "docs/../Cargo.toml".into(),
+                "docs//reference/failure-atlas.md".into(),
+                "docs/./reference/failure-atlas.md".into(),
+                "docs/reference\\failure-atlas.md".into(),
+                " docs/reference/failure-atlas.md ".into(),
+                "".into(),
+            ],
+            tests: vec!["cargo test -p uselesskey-token --all-features".into()],
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(false),
+            claim: Some("jwt-token-negative-fixtures".into()),
+            does_not_prove: vec!["provider compatibility".into()],
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["jwt-token-negative-fixtures"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("docs/../Cargo.toml")
+                    && error.contains("must not contain `.` or `..`")
+            }),
+            "errors: {errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("docs//reference/failure-atlas.md")
+                    && error.contains("empty path components")
+            }),
+            "errors: {errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("docs/./reference/failure-atlas.md")
+                    && error.contains("must not contain `.` or `..`")
+            }),
+            "errors: {errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("docs/reference\\failure-atlas.md")
+                    && error.contains("must use `/` separators")
+            }),
+            "errors: {errors:?}"
+        );
+        assert!(
+            errors.iter().any(|error| {
+                error.contains(" docs/reference/failure-atlas.md ")
+                    && error.contains("must not have leading or trailing whitespace")
+            }),
+            "errors: {errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("docs path is empty")),
             "errors: {errors:?}"
         );
     }
