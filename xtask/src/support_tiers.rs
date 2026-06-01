@@ -199,6 +199,7 @@ fn validate(root: &Path) -> Result<Vec<String>> {
             ));
         }
 
+        let row_docs = inline_code_values(&row.docs);
         let Some(claim) = claims.get(row.claim.as_str()) else {
             errors.push(format!(
                 "{SUPPORT_TIERS_MD}:{} surface `{}` references unknown claim `{}`",
@@ -250,6 +251,12 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                     row.line, row.tier
                 ));
             }
+            if !row_docs.iter().any(|path| is_repo_path(path)) {
+                errors.push(format!(
+                    "{SUPPORT_TIERS_MD}:{} `{}` tier requires at least one visible docs path",
+                    row.line, row.tier
+                ));
+            }
         }
 
         if row.boundary.trim().is_empty() {
@@ -258,10 +265,7 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                 row.line, row.surface
             ));
         }
-        for doc in inline_code_values(&row.docs)
-            .into_iter()
-            .filter(|path| is_repo_path(path))
-        {
+        for doc in row_docs.into_iter().filter(|path| is_repo_path(path)) {
             validate_existing_path(root, SUPPORT_TIERS_MD, &row.surface, &doc, &mut errors);
         }
     }
@@ -709,6 +713,19 @@ docs = ["docs/VERIFICATION.md"]
     }
 
     #[test]
+    fn rejects_stable_without_docs_path() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_support_tiers_full(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`",
+            "none",
+        )?;
+        assert_error(dir.path(), "tier requires at least one visible docs path")
+    }
+
+    #[test]
     fn rejects_support_row_unbacked_proof_command() -> Result<()> {
         let dir = minimal_repo()?;
         write_support_tiers(
@@ -1024,6 +1041,16 @@ updated = "2026-05-21"
     }
 
     fn write_support_tiers(root: &Path, tier: &str, claim: &str, proof: &str) -> Result<()> {
+        write_support_tiers_full(root, tier, claim, proof, "`docs/VERIFICATION.md`")
+    }
+
+    fn write_support_tiers_full(
+        root: &Path,
+        tier: &str,
+        claim: &str,
+        proof: &str,
+        docs: &str,
+    ) -> Result<()> {
         write_file(
             root,
             SUPPORT_TIERS_MD,
@@ -1034,7 +1061,7 @@ updated = "2026-05-21"
 
 | Surface | Tier | Claim | Proof command | Docs | Boundary | Release lane |
 | --- | --- | --- | --- | --- | --- | --- |
-| Scanner-safe fixtures | {tier} | {claim} | {proof} | `docs/VERIFICATION.md` | Boundary. | `pr` |
+| Scanner-safe fixtures | {tier} | {claim} | {proof} | {docs} | Boundary. | `pr` |
 
 ## Explicit Non-Support
 "#
