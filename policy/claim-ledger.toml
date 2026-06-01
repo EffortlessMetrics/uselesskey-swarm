@@ -222,6 +222,8 @@ status = "advisory"
 spec = "USELESSKEY-SPEC-0014"
 surfaces = [
   "uselesskey audit-bundle --ci",
+  "docs/how-to/use-downstream-policy-pack.md",
+  "examples/external/ci-recipes/",
   "docs/reference/bundle-audit-json.md",
   "docs/schemas/bundle-audit.schema.json",
   "docs/status/PUBLIC_CLAIMS.md",
@@ -238,8 +240,12 @@ artifacts = [
 docs = [
   "docs/how-to/share-installed-bundle-audit.md",
   "docs/how-to/use-uselesskey-in-downstream-ci.md",
+  "docs/how-to/use-uselesskey-in-github-actions.md",
+  "docs/how-to/use-downstream-policy-pack.md",
+  "examples/external/ci-recipes/README.md",
   "docs/reference/bundle-audit-json.md",
   "docs/specs/USELESSKEY-SPEC-0014-installed-bundle-audit.md",
+  "docs/specs/USELESSKEY-SPEC-0020-downstream-policy-pack.md",
   "docs/specs/USELESSKEY-SPEC-0021-material-classification.md",
 ]
 release_lanes = ["minor"]
