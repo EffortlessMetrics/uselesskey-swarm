@@ -119,8 +119,8 @@ fn generate_pr_body(root: &Path, work_item_id: &str) -> Result<String> {
         .filter(|plan| !plan.trim().is_empty())
         .unwrap_or("none");
 
-    let spec_text = read_optional_text(root, spec.map(|artifact| artifact.path.as_str()))?;
-    let proposal_text = read_optional_text(root, proposal.map(|artifact| artifact.path.as_str()))?;
+    let spec_text = read_artifact_text(root, spec)?;
+    let proposal_text = read_artifact_text(root, proposal)?;
     let spec_front_matter = spec_text
         .as_deref()
         .map(parse_front_matter)
@@ -283,14 +283,75 @@ where
     toml::from_str(&text).with_context(|| format!("parse {rel}"))
 }
 
-fn read_optional_text(root: &Path, rel: Option<&str>) -> Result<Option<String>> {
-    let Some(rel) = rel else {
+fn read_artifact_text(root: &Path, artifact: Option<&DocArtifact>) -> Result<Option<String>> {
+    let Some(artifact) = artifact else {
         return Ok(None);
     };
-    let path = root.join(to_path(rel));
+    validate_artifact_path(artifact)?;
+    let path = root.join(to_path(&artifact.path));
     fs::read_to_string(&path)
         .with_context(|| format!("read {}", path.display()))
         .map(Some)
+}
+
+fn validate_artifact_path(artifact: &DocArtifact) -> Result<()> {
+    let label = format!(
+        "{DOC_ARTIFACTS_TOML}: {} artifact `{}` path",
+        artifact.kind, artifact.id
+    );
+    validate_path_shape(&label, &artifact.path)?;
+    if !kind_matches_path(&artifact.kind, &artifact.path) {
+        bail!(
+            "{label} `{}` does not match kind `{}`",
+            artifact.path,
+            artifact.kind
+        );
+    }
+    Ok(())
+}
+
+fn validate_path_shape(label: &str, rel: &str) -> Result<()> {
+    let trimmed = rel.trim();
+    if trimmed.is_empty() {
+        bail!("{label} is empty");
+    }
+    if trimmed != rel {
+        bail!("{label} `{rel}` has leading or trailing whitespace");
+    }
+    if trimmed.contains('\\') {
+        bail!("{label} `{trimmed}` must use `/` separators");
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        bail!("{label} `{trimmed}` must be relative");
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        bail!("{label} `{trimmed}` has an empty path component");
+    }
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        bail!("{label} `{trimmed}` must not contain `.` or `..` path components");
+    }
+    Ok(())
+}
+
+fn is_absolute_or_drive_path(path: &str) -> bool {
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || path.as_bytes().get(1).is_some_and(|byte| *byte == b':')
+}
+
+fn kind_matches_path(kind: &str, path: &str) -> bool {
+    match kind {
+        "proposal" => path.starts_with("docs/proposals/") && path.ends_with(".md"),
+        "spec" => path.starts_with("docs/specs/") && path.ends_with(".md"),
+        "adr" => path.starts_with("docs/adr/") && path.ends_with(".md"),
+        "plan" => path.starts_with("plans/") && path.ends_with(".md"),
+        "policy" => path.starts_with("policy/") && path.ends_with(".toml"),
+        "status" => path.starts_with("docs/status/") && path.ends_with(".md"),
+        _ => false,
+    }
 }
 
 fn linked_artifact<'a>(
@@ -453,6 +514,45 @@ mod tests {
             "{err}"
         );
         assert!(err.contains("requires status `active`"), "{err}");
+        Ok(())
+    }
+
+    #[test]
+    fn pr_body_rejects_linked_spec_path_with_parent_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        let ledger_path = dir.path().join(to_path(DOC_ARTIFACTS_TOML));
+        let ledger = fs::read_to_string(&ledger_path)?.replace(
+            "path = \"docs/specs/spec.md\"",
+            "path = \"docs/specs/../spec.md\"",
+        );
+        fs::write(&ledger_path, ledger)?;
+
+        let err = generate_pr_body(dir.path(), "goal-manifest-checker")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains("path `docs/specs/../spec.md` must not contain `.` or `..`"),
+            "{err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn pr_body_rejects_linked_proposal_path_outside_expected_tree() -> Result<()> {
+        let dir = minimal_repo()?;
+        let ledger_path = dir.path().join(to_path(DOC_ARTIFACTS_TOML));
+        let ledger = fs::read_to_string(&ledger_path)?.replace(
+            "path = \"docs/proposals/prop.md\"",
+            "path = \"docs/status/prop.md\"",
+        );
+        fs::write(&ledger_path, ledger)?;
+
+        let err = generate_pr_body(dir.path(), "goal-manifest-checker")
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("does not match kind `proposal`"), "{err}");
         Ok(())
     }
 
