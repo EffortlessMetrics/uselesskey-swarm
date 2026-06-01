@@ -436,23 +436,20 @@ fn missing_artifact_links(
 ) -> Vec<String> {
     let mut missing = BTreeSet::new();
     for artifact in &artifacts.artifact {
-        if let Some(proposal) = artifact.linked_proposal.as_deref()
-            && !artifact_index.contains_key(proposal)
-        {
-            missing.insert(format!(
-                "{} links missing proposal `{proposal}`",
-                artifact.id
-            ));
+        if let Some(proposal) = artifact.linked_proposal.as_deref() {
+            record_artifact_link(
+                &mut missing,
+                &artifact.id,
+                "proposal",
+                proposal,
+                artifact_index,
+            );
         }
         for spec in &artifact.linked_specs {
-            if !artifact_index.contains_key(spec.as_str()) {
-                missing.insert(format!("{} links missing spec `{spec}`", artifact.id));
-            }
+            record_artifact_link(&mut missing, &artifact.id, "spec", spec, artifact_index);
         }
         for adr in &artifact.linked_adrs {
-            if !artifact_index.contains_key(adr.as_str()) {
-                missing.insert(format!("{} links missing ADR `{adr}`", artifact.id));
-            }
+            record_artifact_link(&mut missing, &artifact.id, "adr", adr, artifact_index);
         }
         if let Some(replaced_by) = artifact.replaced_by.as_deref()
             && !artifact_index.contains_key(replaced_by)
@@ -476,21 +473,23 @@ fn missing_goal_links(
 ) -> Vec<String> {
     let mut missing = BTreeSet::new();
     for item in &goal.work_items {
-        if let Some(proposal) = item.proposal.as_deref()
-            && !artifact_index.contains_key(proposal)
-        {
-            missing.insert(format!(
-                "work item `{}` links missing proposal `{proposal}`",
-                item.id
-            ));
+        if let Some(proposal) = item.proposal.as_deref() {
+            record_artifact_link(
+                &mut missing,
+                &format!("work item `{}`", item.id),
+                "proposal",
+                proposal,
+                artifact_index,
+            );
         }
-        if let Some(spec) = item.spec.as_deref()
-            && !artifact_index.contains_key(spec)
-        {
-            missing.insert(format!(
-                "work item `{}` links missing spec `{spec}`",
-                item.id
-            ));
+        if let Some(spec) = item.spec.as_deref() {
+            record_artifact_link(
+                &mut missing,
+                &format!("work item `{}`", item.id),
+                "spec",
+                spec,
+                artifact_index,
+            );
         }
         if let Some(plan) = item.plan.as_deref() {
             record_plan_link(
@@ -511,11 +510,14 @@ fn missing_claim_links(
 ) -> Vec<String> {
     let mut missing = BTreeSet::new();
     for claim in &claims.claim {
-        if !claim.spec.trim().is_empty() && !artifact_index.contains_key(claim.spec.as_str()) {
-            missing.insert(format!(
-                "claim `{}` links missing spec `{}`",
-                claim.id, claim.spec
-            ));
+        if !claim.spec.trim().is_empty() {
+            record_artifact_link(
+                &mut missing,
+                &format!("claim `{}`", claim.id),
+                "spec",
+                &claim.spec,
+                artifact_index,
+            );
         }
         for doc in &claim.docs {
             if is_repo_path(doc) {
@@ -589,6 +591,27 @@ fn record_plan_link(root: &Path, missing: &mut BTreeSet<String>, owner: &str, pl
     }
     if !root.join(to_path(plan)).exists() {
         missing.insert(format!("{owner} links missing plan `{plan}`"));
+    }
+}
+
+fn record_artifact_link(
+    missing: &mut BTreeSet<String>,
+    owner: &str,
+    expected_kind: &str,
+    linked_id: &str,
+    artifact_index: &BTreeMap<&str, &DocArtifact>,
+) {
+    let Some(target) = artifact_index.get(linked_id) else {
+        missing.insert(format!(
+            "{owner} links missing {expected_kind} `{linked_id}`"
+        ));
+        return;
+    };
+    if target.kind != expected_kind {
+        missing.insert(format!(
+            "{owner} links `{linked_id}` as {expected_kind}, but it is {}",
+            target.kind
+        ));
     }
 }
 
@@ -1175,6 +1198,86 @@ commands = ["cargo xtask repo-contract-report"]
                 .missing_links
                 .iter()
                 .any(|link| link.contains("USELESSKEY-SPEC-9999")),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn repo_contract_report_records_wrong_kind_goal_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_active(
+            dir.path(),
+            r#"[[work_item]]
+id = "wrong-kind-proposal"
+status = "ready"
+proposal = "USELESSKEY-SPEC-0023"
+spec = "USELESSKEY-SPEC-0023"
+plan = "plans/source-of-truth-control-plane/implementation-plan.md"
+commands = ["cargo xtask repo-contract-report"]
+"#,
+        )?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| link.contains(
+                "work item `wrong-kind-proposal` links `USELESSKEY-SPEC-0023` as proposal, but it is spec"
+            )),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn repo_contract_report_records_wrong_kind_artifact_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        let ledger_path = dir.path().join(to_path(DOC_ARTIFACTS_TOML));
+        let ledger = fs::read_to_string(&ledger_path)?.replace(
+            "linked_proposal = \"USELESSKEY-PROP-0002\"",
+            "linked_proposal = \"USELESSKEY-SPEC-0023\"",
+        );
+        fs::write(&ledger_path, ledger)?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| link.contains(
+                "USELESSKEY-SPEC-0023 links `USELESSKEY-SPEC-0023` as proposal, but it is spec"
+            )),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn repo_contract_report_records_wrong_kind_claim_spec_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(
+            dir.path(),
+            "policy/claim-ledger.toml",
+            r#"schema_version = "1.0"
+
+[[claim]]
+id = "metadata-only-audit-packets"
+title = "Metadata-only audit packets"
+status = "advisory"
+spec = "USELESSKEY-PROP-0002"
+surfaces = ["uselesskey audit-bundle --ci"]
+proof_commands = ["cargo xtask no-blob"]
+docs = ["docs/how-to/audit.md"]
+"#,
+        )?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| link.contains(
+                "claim `metadata-only-audit-packets` links `USELESSKEY-PROP-0002` as spec, but it is proposal"
+            )),
             "missing links: {:?}",
             report.missing_links
         );
