@@ -678,7 +678,7 @@ jobs:
           persist-credentials: false
           fetch-depth: 0
 
-      - name: Check runner routing guard
+      - name: Check workflow hygiene guard
         run: ci/check-bare-self-hosted.sh
 
       - name: Parse workflow YAML

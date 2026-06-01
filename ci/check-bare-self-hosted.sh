@@ -4,7 +4,7 @@ set -euo pipefail
 bad=0
 workflow_dir="${1:-.github/workflows}"
 
-echo "Checking for bare self-hosted runner usage in ${workflow_dir}..."
+echo "Checking workflow runner and action-ref hygiene in ${workflow_dir}..."
 
 if [ ! -d "${workflow_dir}" ]; then
   echo "Workflow directory not found: ${workflow_dir}" >&2
@@ -15,6 +15,11 @@ if rg -n --glob '*.yml' --glob '*.yaml' 'runs-on:[[:space:]]*\[[^]]*self-hosted[
   echo "Bare inline self-hosted/linux/x64 runs-on is forbidden." >&2
   bad=1
 fi
+
+while IFS=: read -r file line text; do
+  echo "$file:$line: mutable action ref is forbidden: $text" >&2
+  bad=1
+done < <(rg -n --glob '*.yml' --glob '*.yaml' '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]*[^[:space:]#]+@(main|master)([[:space:]#]|$)' "${workflow_dir}" || true)
 
 while IFS=: read -r file line _; do
   window="$(sed -n "${line},$((line+16))p" "$file")"

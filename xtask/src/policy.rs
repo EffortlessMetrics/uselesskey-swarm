@@ -2561,6 +2561,7 @@ mod tests {
             "MAIN_FULL_RESULT: ${{ needs.main-full-gate.result }}",
             "main_full_result=${MAIN_FULL_RESULT:-<empty>}",
             "selected target main-full but result was ${MAIN_FULL_RESULT}",
+            "Check workflow hygiene guard",
             "ci/check-bare-self-hosted.sh",
             "Uselesskey Rust Small Result",
         ] {
