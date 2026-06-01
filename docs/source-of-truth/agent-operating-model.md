@@ -39,7 +39,8 @@ read .rails/index.toml
         -> update affected ledgers only
           -> run listed proof commands
             -> write PR body from repo truth
-              -> merge when required checks are green
+              -> inspect Source of Truth Advisory when it runs
+                -> merge when required checks are green
                 -> update closeout or next work item when appropriate
 ```
 
@@ -67,6 +68,11 @@ git diff --check
 
 When source-of-truth enforcement exists, add the relevant checker command rather
 than inventing ad hoc validation.
+
+For hosted PR checks, `Uselesskey Rust Small Result` is the normalized required
+Rust signal. `Source of Truth Advisory` is the repo-contract signal; inspect it
+when present and treat failures as source-of-truth triage, not as conditional
+runner plumbing.
 
 ## Ledger Updates
 
