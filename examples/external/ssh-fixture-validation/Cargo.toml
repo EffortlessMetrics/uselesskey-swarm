@@ -9,4 +9,9 @@ ssh-key = { version = "0.6.7", default-features = false, features = ["std", "ed2
 uselesskey-core = { version = "0.9.1", default-features = false }
 uselesskey-ssh = "0.9.1"
 
+[profile.test]
+# RSA OpenSSH fixture generation is intentionally realistic enough that debug
+# builds can dominate external smoke time on Windows.
+opt-level = 2
+
 [workspace]

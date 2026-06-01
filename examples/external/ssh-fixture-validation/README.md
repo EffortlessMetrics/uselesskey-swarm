@@ -11,6 +11,9 @@ uselesskey-core = { version = "0.9.1", default-features = false }
 uselesskey-ssh = "0.9.1"
 ```
 
+This example sets `profile.test.opt-level = 2` so RSA OpenSSH fixture
+generation stays practical in standalone test workspaces.
+
 The test crate covers:
 
 - Ed25519 and RSA OpenSSH private-key parsing;
