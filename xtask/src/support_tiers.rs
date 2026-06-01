@@ -34,6 +34,8 @@ struct ClaimEntry {
     #[serde(default)]
     docs: Vec<String>,
     #[serde(default)]
+    artifacts: Vec<String>,
+    #[serde(default)]
     release_lanes: Vec<String>,
 }
 
@@ -171,6 +173,16 @@ fn validate(root: &Path) -> Result<Vec<String>> {
         }
         for doc in &claim.docs {
             validate_existing_path(root, CLAIM_LEDGER_TOML, &claim.id, doc, &mut errors);
+        }
+        let mut seen_artifacts = BTreeSet::new();
+        for artifact in &claim.artifacts {
+            if !seen_artifacts.insert(artifact.as_str()) {
+                errors.push(format!(
+                    "{CLAIM_LEDGER_TOML}: claim `{}` repeats artifact path `{}`",
+                    claim.id, artifact
+                ));
+            }
+            validate_claim_artifact_path(root, &claim.id, artifact, &mut errors);
         }
     }
 
@@ -663,6 +675,60 @@ fn validate_existing_path(
     }
 }
 
+fn validate_claim_artifact_path(
+    root: &Path,
+    claim_id: &str,
+    artifact: &str,
+    errors: &mut Vec<String>,
+) {
+    let trimmed = artifact.trim();
+    if trimmed.is_empty() {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` has an empty artifact path"
+        ));
+        return;
+    }
+    if trimmed != artifact {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{artifact}` has leading or trailing whitespace"
+        ));
+    }
+    if trimmed.contains('\\') {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{trimmed}` must use `/` separators"
+        ));
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{trimmed}` must be relative"
+        ));
+    }
+    if trimmed.split('/').any(|part| part == "..") {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{trimmed}` must not contain `..`"
+        ));
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{trimmed}` has an empty path component"
+        ));
+    }
+
+    if is_repo_path(trimmed) {
+        validate_existing_path(root, CLAIM_LEDGER_TOML, claim_id, trimmed, errors);
+    } else if !is_target_artifact_path(trimmed) {
+        errors.push(format!(
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{trimmed}` must start with `docs/`, `badges/`, `policy/`, `examples/`, or `target/`"
+        ));
+    }
+}
+
+fn is_absolute_or_drive_path(path: &str) -> bool {
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || path.as_bytes().get(1).is_some_and(|byte| *byte == b':')
+}
+
 fn is_repo_path(path: &str) -> bool {
     path.starts_with("docs/")
         || path.starts_with("badges/")
@@ -670,8 +736,12 @@ fn is_repo_path(path: &str) -> bool {
         || path.starts_with("examples/")
 }
 
-fn is_target_receipt_path(path: &str) -> bool {
+fn is_target_artifact_path(path: &str) -> bool {
     path.starts_with("target/")
+}
+
+fn is_target_receipt_path(path: &str) -> bool {
+    is_target_artifact_path(path)
 }
 
 fn strip_inline_code(value: &str) -> String {
@@ -732,6 +802,64 @@ mod tests {
             &valid_claim_with_docs("scanner-safe-fixtures", &["docs/missing.md"]),
         )?;
         assert_error(dir.path(), "references missing path `docs/missing.md`")
+    }
+
+    #[test]
+    fn rejects_claim_artifact_outside_allowed_roots() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_artifacts("scanner-safe-fixtures", &["Cargo.toml"]),
+        )?;
+        assert_error(
+            dir.path(),
+            "artifact path `Cargo.toml` must start with `docs/`, `badges/`, `policy/`, `examples/`, or `target/`",
+        )
+    }
+
+    #[test]
+    fn rejects_missing_claim_repo_artifact_path() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_artifacts("scanner-safe-fixtures", &["docs/missing-artifact.md"]),
+        )?;
+        assert_error(
+            dir.path(),
+            "references missing path `docs/missing-artifact.md`",
+        )
+    }
+
+    #[test]
+    fn rejects_absolute_claim_artifact_path() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_artifacts("scanner-safe-fixtures", &["C:/tmp/proof.json"]),
+        )?;
+        assert_error(
+            dir.path(),
+            "artifact path `C:/tmp/proof.json` must be relative",
+        )
+    }
+
+    #[test]
+    fn rejects_duplicate_claim_artifact_path() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_artifacts(
+                "scanner-safe-fixtures",
+                &[
+                    "target/release-evidence/proof.json",
+                    "target/release-evidence/proof.json",
+                ],
+            ),
+        )?;
+        assert_error(
+            dir.path(),
+            "repeats artifact path `target/release-evidence/proof.json`",
+        )
     }
 
     #[test]
@@ -1238,9 +1366,22 @@ standalone_reason = "test"
     }
 
     fn valid_claim_with_docs(id: &str, docs: &[&str]) -> String {
+        valid_claim_with_docs_and_artifacts(id, docs, &["target/release-evidence/proof.json"])
+    }
+
+    fn valid_claim_with_artifacts(id: &str, artifacts: &[&str]) -> String {
+        valid_claim_with_docs_and_artifacts(id, &["docs/VERIFICATION.md"], artifacts)
+    }
+
+    fn valid_claim_with_docs_and_artifacts(id: &str, docs: &[&str], artifacts: &[&str]) -> String {
         let docs = docs
             .iter()
             .map(|doc| format!("\"{doc}\""))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let artifacts = artifacts
+            .iter()
+            .map(|artifact| format!("\"{artifact}\""))
             .collect::<Vec<_>>()
             .join(", ");
         format!(
@@ -1253,6 +1394,7 @@ spec = "USELESSKEY-SPEC-0002"
 surfaces = ["README"]
 proof_commands = ["cargo xtask no-blob"]
 docs = [{docs}]
+artifacts = [{artifacts}]
 release_lanes = ["pr"]
 "#
         )
