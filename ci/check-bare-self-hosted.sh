@@ -19,7 +19,7 @@ fi
 while IFS=: read -r file line text; do
   echo "$file:$line: mutable action ref is forbidden: $text" >&2
   bad=1
-done < <(rg -n --glob '*.yml' --glob '*.yaml' '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]*[^[:space:]#]+@(main|master)([[:space:]#]|$)' "${workflow_dir}" || true)
+done < <(rg -n --glob '*.yml' --glob '*.yaml' '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]*['"'"'"]?[^'"'"'"[:space:]#]+@(main|master)['"'"'"]?([[:space:]#]|$)' "${workflow_dir}" || true)
 
 while IFS=: read -r file line _; do
   window="$(sed -n "${line},$((line+16))p" "$file")"
