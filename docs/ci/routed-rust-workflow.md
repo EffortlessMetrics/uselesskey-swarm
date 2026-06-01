@@ -36,6 +36,12 @@ in-progress `Uselesskey Main Full Gate`. Treat the cancellation on the older
 commit as superseded proof, not a product failure. The newest main run is the
 authoritative branch proof.
 
+GitHub can still show the older run's normalized `Uselesskey Rust Small Result`
+as failed or canceled when it observes the selected `main-full` job being
+canceled. That stale context belongs to the superseded commit. Do not rerun the
+older SHA just to make historical checks green; inspect the newest main run
+instead.
+
 Normal response:
 
 - inspect the newest main run and confirm it has started or is waiting for
