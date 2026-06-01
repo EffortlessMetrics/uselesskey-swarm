@@ -37,7 +37,7 @@ body:
     attributes:
       label: Active goal
       description: `.uselesskey/goals` goal ID when this slice is tied to the legacy active-goal control plane.
-      placeholder: v0.10.0-release-readiness or none
+      placeholder: none
   - type: textarea
     id: expected_files
     attributes:

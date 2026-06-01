@@ -11,7 +11,7 @@ The router first classifies the change:
 
 | Change class | Target | Notes |
 | --- | --- | --- |
-| Docs, policy, plans, Rails, goal, and selected metadata paths | `docs` | Runs the hosted docs/policy light path. |
+| Docs, policy, plans, Rails, goal, issue-template, and selected metadata paths | `docs` | Runs the hosted docs/policy light path. |
 | Workflow changes | `workflow` | Runs hosted workflow validation and the no-bare-self-hosted guard; it does not run Rust CI. |
 | Rust or mixed implementation changes | self-hosted Rust runner when available | Uses org-level runner discovery and the CX43/CPX42/CX53 capacity contract. |
 | Fork PRs | `github` | Hosted fallback is allowed for fork safety. |
