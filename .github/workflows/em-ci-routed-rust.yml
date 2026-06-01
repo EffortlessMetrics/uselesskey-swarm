@@ -869,7 +869,27 @@ jobs:
           nasm -v
 
       - name: xtask ci
-        run: cargo xtask ci
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          cargo xtask ci &
+          xtask_pid=$!
+
+          while kill -0 "$xtask_pid" 2>/dev/null; do
+            echo "xtask ci still running at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            sleep 60
+          done &
+          heartbeat_pid=$!
+
+          set +e
+          wait "$xtask_pid"
+          status=$?
+          set -e
+
+          kill "$heartbeat_pid" 2>/dev/null || true
+          wait "$heartbeat_pid" 2>/dev/null || true
+          exit "$status"
 
       - name: Upload receipt
         uses: actions/upload-artifact@v7
