@@ -415,11 +415,20 @@ fn validate_workflow_rows(
             );
         }
 
-        if inline_code_values(&row.receipts).is_empty() {
+        let receipt_paths = inline_code_values(&row.receipts);
+        if receipt_paths.is_empty() {
             errors.push(format!(
                 "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` has no receipt paths",
                 row.line, row.workflow
             ));
+        }
+        for path in &receipt_paths {
+            if !is_target_receipt_path(path) {
+                errors.push(format!(
+                    "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` receipt path `{}` must start with `target/`",
+                    row.line, row.workflow, path
+                ));
+            }
         }
         if row.boundary.trim().is_empty() {
             errors.push(format!(
@@ -659,6 +668,10 @@ fn is_repo_path(path: &str) -> bool {
         || path.starts_with("badges/")
         || path.starts_with("policy/")
         || path.starts_with("examples/")
+}
+
+fn is_target_receipt_path(path: &str) -> bool {
+    path.starts_with("target/")
 }
 
 fn strip_inline_code(value: &str) -> String {
@@ -1004,6 +1017,24 @@ release_lanes = ["pr", "minor"]
         assert_error(
             dir.path(),
             "workflow `Scanner-safe bundle handoff` has no receipt paths",
+        )
+    }
+
+    #[test]
+    fn rejects_workflow_non_target_receipt_path() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support_full(
+            dir.path(),
+            "stable bundle workflow",
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+            "`docs/receipt.json`",
+            "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
+        )?;
+        assert_error(
+            dir.path(),
+            "receipt path `docs/receipt.json` must start with `target/`",
         )
     }
 
