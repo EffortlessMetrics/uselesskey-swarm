@@ -18,6 +18,8 @@ For swarm PRs, wait for the normalized `Uselesskey Rust Small Result` check.
 Conditional runner jobs are routing plumbing and should not be treated as
 separate required checks. For routed CI fallback rules, including the
 `allow-github-hosted` label, see `docs/ci/routed-rust-workflow.md`.
+Also inspect `Source of Truth Advisory` when it runs; failures there are
+repo-contract triage signals, not conditional runner jobs.
 
 ## Source-of-truth control plane
 

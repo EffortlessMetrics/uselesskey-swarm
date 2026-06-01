@@ -47,7 +47,10 @@ For each PR:
    one.
 6. Write the PR body from committed repo truth.
 7. Wait for `Uselesskey Rust Small Result` before merge.
-8. After merge, advance the active goal, closeout, or next ready item when that
+8. Inspect `Source of Truth Advisory` when it runs. A failure is a repo-contract
+   triage signal to fix or explain before merge; it is not one of the
+   conditional implementation jobs hidden behind the normalized Rust result.
+9. After merge, advance the active goal, closeout, or next ready item when that
    is part of the slice.
 
 Conditional implementation jobs are routing details. Do not treat them as
