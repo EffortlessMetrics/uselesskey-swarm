@@ -1708,6 +1708,60 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_examples_readme_lists_runnable_examples() {
+        let doc = include_str!("../../examples/external/README.md");
+        let library_proof = "cargo xtask external-adoption-smoke --path . --library-examples";
+
+        for example in LIBRARY_EXAMPLES {
+            let link = format!(
+                "]({}/)",
+                example
+                    .source_dir
+                    .strip_prefix("examples/external/")
+                    .expect("external example source is under examples/external")
+            );
+            let row = doc
+                .lines()
+                .find(|line| line.contains(&link))
+                .unwrap_or_else(|| {
+                    panic!(
+                        "external examples README missing runnable example `{}`",
+                        example.name
+                    )
+                });
+            assert!(
+                row.contains(library_proof),
+                "external examples README row for `{}` should use library-example proof",
+                example.name
+            );
+        }
+
+        let downstream_row = doc
+            .lines()
+            .find(|line| line.contains("](downstream-ci-bundle-audit/)"))
+            .expect("external examples README lists downstream CI bundle audit example");
+        assert!(
+            downstream_row.contains("cargo xtask external-adoption-smoke --path ."),
+            "downstream CI bundle audit row should use the installed CLI path proof"
+        );
+        assert!(
+            !downstream_row.contains("--library-examples"),
+            "downstream CI bundle audit row should not use library-example proof"
+        );
+
+        let ci_recipes_row = doc
+            .lines()
+            .find(|line| line.contains("](ci-recipes/)"))
+            .expect("external examples README lists CI recipes");
+        assert!(
+            ci_recipes_row.contains(
+                "cargo xtask external-adoption-smoke --path . --ci-recipes --format json"
+            ),
+            "CI recipes row should use the CI recipe proof mode"
+        );
+    }
+
+    #[test]
     fn external_adoption_downstream_bundle_audit_workflow_is_current() {
         let example = include_str!(
             "../../examples/external/downstream-ci-bundle-audit/.github/workflows/uselesskey-audit.yml.example"
