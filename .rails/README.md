@@ -7,7 +7,10 @@ where the portable templates live, and which existing repo artifacts still own
 truth while the Rails footprint is introduced.
 
 If `active_lane` is empty, Rails has no current lane and the most recent lane
-closeout is listed as `last_closed_lane`.
+closeout is listed as `last_closed_lane`. Read that closeout and
+`.rails/migration-status.md`, then check `.uselesskey/goals/active.toml`. An
+archived goal means there is no current legacy goal either; inspect open PRs
+before choosing one narrow aligned improvement from committed repo truth.
 
 For current migration state, read `.rails/migration-status.md`.
 
