@@ -2984,7 +2984,7 @@ fn ensure_cargo_fuzz_available() -> Result<()> {
 
 fn pr(with_mutants: bool) -> Result<()> {
     let base_ref = resolve_base_ref();
-    let changed_files = git_changed_files(&base_ref)?;
+    let changed_files = pr_changed_files(&base_ref)?;
     let plan = plan::build_plan(&changed_files);
 
     let mut runner = receipt::Runner::new("target/xtask/receipt.json");
@@ -6189,6 +6189,10 @@ fn git_changed_files(base_ref: &str) -> Result<Vec<String>> {
 }
 
 fn pr_lite_changed_files(base_ref: &str) -> Result<Vec<String>> {
+    pr_changed_files(base_ref)
+}
+
+fn pr_changed_files(base_ref: &str) -> Result<Vec<String>> {
     let committed = git_changed_files(base_ref)?;
     let local = git_local_changed_files()?;
     Ok(merge_changed_paths(committed, local))
@@ -8540,6 +8544,36 @@ expires = "2026-12-01"
 
         let changed = git_changed_files("origin/main").expect("missing refs should not fail");
         assert!(changed.is_empty(), "expected no changes, got {changed:?}");
+    }
+
+    #[test]
+    fn pr_changed_files_include_local_untracked_paths() {
+        let _cwd_lock = CWD_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir().expect("tempdir");
+        let _cwd = CwdGuard::new(dir.path());
+
+        run_git(["init"]);
+        run_git(["config", "user.email", "agent@example.com"]);
+        run_git(["config", "user.name", "Agent"]);
+
+        fs::write("tracked.txt", "base\n").expect("write base");
+        run_git(["add", "tracked.txt"]);
+        run_git(["commit", "-m", "initial"]);
+        run_git(["branch", "-M", "main"]);
+        run_git(["checkout", "-b", "feature"]);
+
+        fs::create_dir_all("xtask/src").expect("create xtask src");
+        fs::write("xtask/src/main.rs", "fn main() {}\n").expect("write xtask change");
+
+        let changed = pr_changed_files("origin/main").expect("local paths should be included");
+        assert!(changed.contains(&"xtask/src/main.rs".to_string()));
+
+        let plan = plan::build_plan(&changed);
+        assert!(plan.run_fmt, "local xtask changes should trigger fmt");
+        assert!(
+            plan.run_xtask_tests,
+            "local xtask changes should trigger xtask tests"
+        );
     }
 
     #[test]
