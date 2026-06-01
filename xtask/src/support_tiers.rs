@@ -3,7 +3,6 @@ use std::fs;
 use std::path::Path;
 
 use anyhow::{Context, Result, bail};
-use clap::Parser;
 use serde::Deserialize;
 
 const CLAIM_LEDGER_TOML: &str = "policy/claim-ledger.toml";
@@ -144,7 +143,14 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                     claim.id
                 ));
             } else {
-                validate_proof_command(root, CLAIM_LEDGER_TOML, &claim.id, command, &mut errors);
+                crate::proof_commands::validate_repo_cargo_command(
+                    root,
+                    CLAIM_LEDGER_TOML,
+                    &claim.id,
+                    command,
+                    "proof",
+                    &mut errors,
+                );
             }
         }
         if claim.release_lanes.is_empty() {
@@ -399,7 +405,14 @@ fn validate_workflow_rows(
         }
         let workflow_source = format!("{WORKFLOW_SUPPORT_MD}:{}", row.line);
         for command in &proof_commands {
-            validate_proof_command(root, &workflow_source, &row.workflow, command, errors);
+            crate::proof_commands::validate_repo_cargo_command(
+                root,
+                &workflow_source,
+                &row.workflow,
+                command,
+                "proof",
+                errors,
+            );
         }
 
         if inline_code_values(&row.receipts).is_empty() {
@@ -639,105 +652,6 @@ fn validate_existing_path(
             "{source}: `{owner}` references missing path `{rel}`"
         ));
     }
-}
-
-fn validate_proof_command(
-    root: &Path,
-    source: &str,
-    owner: &str,
-    command: &str,
-    errors: &mut Vec<String>,
-) {
-    let tokens = command.split_whitespace().collect::<Vec<_>>();
-    if tokens.is_empty() {
-        return;
-    }
-
-    if tokens.first() != Some(&"cargo") {
-        errors.push(format!(
-            "{source}: `{owner}` uses unsupported proof command `{command}`; expected `cargo xtask ...` or `cargo test -p <package> ...`"
-        ));
-        return;
-    }
-
-    match tokens.get(1).copied() {
-        Some("xtask") => validate_xtask_proof_command(source, owner, command, &tokens, errors),
-        Some("test") => validate_cargo_test_proof_command(root, source, owner, command, &tokens, errors),
-        _ => errors.push(format!(
-            "{source}: `{owner}` uses unsupported cargo proof command `{command}`; expected `cargo xtask ...` or `cargo test -p <package> ...`"
-        )),
-    }
-}
-
-fn validate_xtask_proof_command(
-    source: &str,
-    owner: &str,
-    command: &str,
-    tokens: &[&str],
-    errors: &mut Vec<String>,
-) {
-    let xtask_args = std::iter::once("xtask")
-        .chain(tokens.iter().skip(2).copied())
-        .collect::<Vec<_>>();
-    if crate::Cli::try_parse_from(xtask_args).is_err() {
-        errors.push(format!(
-            "{source}: `{owner}` references unknown xtask proof command `{command}`"
-        ));
-    }
-}
-
-fn validate_cargo_test_proof_command(
-    root: &Path,
-    source: &str,
-    owner: &str,
-    command: &str,
-    tokens: &[&str],
-    errors: &mut Vec<String>,
-) {
-    let Some(package) = cargo_test_package(tokens) else {
-        errors.push(format!(
-            "{source}: `{owner}` uses cargo test proof command `{command}` without `-p <package>`"
-        ));
-        return;
-    };
-
-    if !cargo_package_exists(root, package) {
-        errors.push(format!(
-            "{source}: `{owner}` references unknown cargo test package `{package}` in proof command `{command}`"
-        ));
-    }
-}
-
-fn cargo_test_package<'a>(tokens: &'a [&'a str]) -> Option<&'a str> {
-    let mut idx = 2;
-    while idx < tokens.len() {
-        let token = tokens[idx];
-        match token {
-            "-p" | "--package" => return tokens.get(idx + 1).copied(),
-            _ => {
-                if let Some(package) = token.strip_prefix("--package=") {
-                    return Some(package);
-                }
-                if let Some(package) = token
-                    .strip_prefix("-p")
-                    .filter(|package| !package.is_empty())
-                {
-                    return Some(package);
-                }
-            }
-        }
-        idx += 1;
-    }
-    None
-}
-
-fn cargo_package_exists(root: &Path, package: &str) -> bool {
-    [
-        root.join("crates").join(package).join("Cargo.toml"),
-        root.join(package).join("Cargo.toml"),
-    ]
-    .iter()
-    .any(|path| path.exists())
 }
 
 fn is_repo_path(path: &str) -> bool {
