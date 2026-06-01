@@ -475,12 +475,7 @@ fn validate_workflow_rows(
             ));
         }
         for path in &receipt_paths {
-            if !is_target_receipt_path(path) {
-                errors.push(format!(
-                    "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` receipt path `{}` must start with `target/`",
-                    row.line, row.workflow, path
-                ));
-            }
+            validate_workflow_receipt_path(row, path, errors);
         }
         if row.boundary.trim().is_empty() {
             errors.push(format!(
@@ -488,6 +483,40 @@ fn validate_workflow_rows(
                 row.line, row.workflow
             ));
         }
+    }
+}
+
+fn validate_workflow_receipt_path(row: &WorkflowRow, path: &str, errors: &mut Vec<String>) {
+    if !is_target_receipt_path(path) {
+        errors.push(format!(
+            "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` receipt path `{}` must start with `target/`",
+            row.line, row.workflow, path
+        ));
+        return;
+    }
+    if path.contains('\\') {
+        errors.push(format!(
+            "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` receipt path `{}` must use `/` separators",
+            row.line, row.workflow, path
+        ));
+    }
+    if is_absolute_or_drive_path(path) {
+        errors.push(format!(
+            "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` receipt path `{}` must be relative",
+            row.line, row.workflow, path
+        ));
+    }
+    if path.split('/').any(|part| part == "..") {
+        errors.push(format!(
+            "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` receipt path `{}` must not contain `..`",
+            row.line, row.workflow, path
+        ));
+    }
+    if path.split('/').any(str::is_empty) {
+        errors.push(format!(
+            "{WORKFLOW_SUPPORT_MD}:{} workflow `{}` receipt path `{}` has an empty path component",
+            row.line, row.workflow, path
+        ));
     }
 }
 
@@ -1451,6 +1480,60 @@ release_lanes = ["pr", "minor"]
         assert_error(
             dir.path(),
             "receipt path `docs/receipt.json` must start with `target/`",
+        )
+    }
+
+    #[test]
+    fn rejects_workflow_receipt_path_with_parent_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support_full(
+            dir.path(),
+            "stable bundle workflow",
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+            "`target/../receipt.json`",
+            "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
+        )?;
+        assert_error(
+            dir.path(),
+            "receipt path `target/../receipt.json` must not contain `..`",
+        )
+    }
+
+    #[test]
+    fn rejects_workflow_receipt_path_with_backslashes() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support_full(
+            dir.path(),
+            "stable bundle workflow",
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+            r"`target/receipt\\bundle.json`",
+            "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
+        )?;
+        assert_error(
+            dir.path(),
+            r"receipt path `target/receipt\\bundle.json` must use `/` separators",
+        )
+    }
+
+    #[test]
+    fn rejects_workflow_receipt_path_with_empty_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support_full(
+            dir.path(),
+            "stable bundle workflow",
+            "`scanner-safe-fixtures`",
+            "`docs/VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+            "`target//receipt.json`",
+            "| stable bundle workflow | Installed CLI bundle path covered by external adoption smoke and metadata receipts. |",
+        )?;
+        assert_error(
+            dir.path(),
+            "receipt path `target//receipt.json` has an empty path component",
         )
     }
 
