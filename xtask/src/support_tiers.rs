@@ -373,7 +373,14 @@ fn validate(root: &Path) -> Result<Vec<String>> {
             ));
         }
         for doc in row_docs.iter().filter(|path| is_repo_path(path)) {
-            if validate_support_row_doc_path_shape(row, doc, &mut errors) {
+            if validate_markdown_doc_path_shape(
+                SUPPORT_TIERS_MD,
+                row.line,
+                "surface",
+                &row.surface,
+                doc,
+                &mut errors,
+            ) {
                 validate_existing_path(root, SUPPORT_TIERS_MD, &row.surface, doc, &mut errors);
             }
         }
@@ -434,8 +441,17 @@ fn validate_workflow_rows(
                 row.line, row.workflow
             ));
         }
-        for doc in docs.into_iter().filter(|path| is_repo_path(path)) {
-            validate_existing_path(root, WORKFLOW_SUPPORT_MD, &row.workflow, &doc, errors);
+        for doc in docs.iter().filter(|path| is_repo_path(path)) {
+            if validate_markdown_doc_path_shape(
+                WORKFLOW_SUPPORT_MD,
+                row.line,
+                "workflow",
+                &row.workflow,
+                doc,
+                errors,
+            ) {
+                validate_existing_path(root, WORKFLOW_SUPPORT_MD, &row.workflow, doc, errors);
+            }
         }
 
         let proof_commands = inline_code_values(&row.proof_commands);
@@ -767,8 +783,11 @@ fn validate_existing_path(
     }
 }
 
-fn validate_support_row_doc_path_shape(
-    row: &SupportRow,
+fn validate_markdown_doc_path_shape(
+    source: &str,
+    line: usize,
+    owner_kind: &str,
+    owner: &str,
     doc: &str,
     errors: &mut Vec<String>,
 ) -> bool {
@@ -777,36 +796,31 @@ fn validate_support_row_doc_path_shape(
 
     if trimmed.is_empty() {
         errors.push(format!(
-            "{SUPPORT_TIERS_MD}:{} surface `{}` has an empty docs path",
-            row.line, row.surface
+            "{source}:{line} {owner_kind} `{owner}` has an empty docs path"
         ));
         return false;
     }
     if trimmed != doc {
         errors.push(format!(
-            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{doc}` has leading or trailing whitespace",
-            row.line, row.surface
+            "{source}:{line} {owner_kind} `{owner}` docs path `{doc}` has leading or trailing whitespace"
         ));
         valid = false;
     }
     if trimmed.contains('\\') {
         errors.push(format!(
-            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{trimmed}` must use `/` separators",
-            row.line, row.surface
+            "{source}:{line} {owner_kind} `{owner}` docs path `{trimmed}` must use `/` separators"
         ));
         valid = false;
     }
     if is_absolute_or_drive_path(trimmed) {
         errors.push(format!(
-            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{trimmed}` must be relative",
-            row.line, row.surface
+            "{source}:{line} {owner_kind} `{owner}` docs path `{trimmed}` must be relative"
         ));
         valid = false;
     }
     if trimmed.split('/').any(str::is_empty) {
         errors.push(format!(
-            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{trimmed}` has an empty path component",
-            row.line, row.surface
+            "{source}:{line} {owner_kind} `{owner}` docs path `{trimmed}` has an empty path component"
         ));
         valid = false;
     }
@@ -815,8 +829,7 @@ fn validate_support_row_doc_path_shape(
         .any(|component| matches!(component, "." | ".."))
     {
         errors.push(format!(
-            "{SUPPORT_TIERS_MD}:{} surface `{}` docs path `{trimmed}` must not contain `.` or `..` path components",
-            row.line, row.surface
+            "{source}:{line} {owner_kind} `{owner}` docs path `{trimmed}` must not contain `.` or `..` path components"
         ));
         valid = false;
     }
@@ -1521,6 +1534,37 @@ release_lanes = ["pr", "minor"]
             "`cargo xtask no-blob`",
         )?;
         assert_error(dir.path(), "references missing path `docs/missing.md`")
+    }
+
+    #[test]
+    fn rejects_workflow_primary_docs_path_traversal() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(dir.path(), "Cargo.toml", "[workspace]\n")?;
+        write_workflow_support(
+            dir.path(),
+            "`scanner-safe-fixtures`",
+            "`docs/../Cargo.toml`",
+            "`cargo xtask no-blob`",
+        )?;
+        assert_error(
+            dir.path(),
+            "docs path `docs/../Cargo.toml` must not contain `.` or `..` path components",
+        )
+    }
+
+    #[test]
+    fn rejects_workflow_primary_docs_path_empty_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_workflow_support(
+            dir.path(),
+            "`scanner-safe-fixtures`",
+            "`docs//VERIFICATION.md`",
+            "`cargo xtask no-blob`",
+        )?;
+        assert_error(
+            dir.path(),
+            "docs path `docs//VERIFICATION.md` has an empty path component",
+        )
     }
 
     #[test]
