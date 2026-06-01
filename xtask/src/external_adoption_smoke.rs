@@ -968,14 +968,16 @@ fn verify_doctor_json(stdout_path: &Path) -> Result<()> {
     let profiles = doctor["known_profiles"]
         .as_array()
         .context("doctor known_profiles is not an array")?;
-    if !profiles
-        .iter()
-        .any(|profile| profile.as_str() == Some("oidc"))
-    {
-        bail!(
-            "doctor known_profiles missing oidc in {}",
-            stdout_path.display()
-        );
+    for required_profile in CLI_PROFILES {
+        if !profiles
+            .iter()
+            .any(|profile| profile.as_str() == Some(*required_profile))
+        {
+            bail!(
+                "doctor known_profiles missing {required_profile} in {}",
+                stdout_path.display()
+            );
+        }
     }
     Ok(())
 }
@@ -2620,6 +2622,30 @@ uselesskey-test-server = "0.9.1"
             Err(err) => err,
         };
         assert!(err.to_string().contains("doctor status mismatch"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_doctor_json_missing_smoke_profile() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let path = dir.path().join("doctor.json");
+        fs::write(
+            &path,
+            serde_json::to_vec(&serde_json::json!({
+                "status": "pass",
+                "checks": [
+                    {"name": "cli-version", "status": "pass"},
+                    {"name": "known-profiles", "status": "pass"}
+                ],
+                "known_profiles": ["scanner-safe", "oidc", "webhook", "runtime"]
+            }))?,
+        )?;
+
+        let err = match verify_doctor_json(&path) {
+            Ok(()) => bail!("doctor json missing a smoke profile was accepted"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("doctor known_profiles missing tls"));
         Ok(())
     }
 }
