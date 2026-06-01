@@ -87,6 +87,7 @@ cargo xtask claim-report --check-public-claims
 cargo xtask contract-packs --check
 cargo xtask external-adoption-smoke --path . --format json
 cargo xtask external-adoption-smoke --path . --library-examples
+cargo xtask external-adoption-smoke --path . --ci-recipes --format json
 cargo xtask publish-preflight
 cargo xtask publish-check
 cargo xtask no-blob
@@ -97,8 +98,8 @@ git diff --check
 Run the `external-adoption-smoke` variants sequentially. Each variant rewrites
 `target/external-adoption-smoke/report.md` and
 `target/external-adoption-smoke/report.json`; archive or upload the default
-path-mode receipt before running the library-example variant when the handoff
-needs both records.
+path-mode receipt before running the library-example or CI-recipe variant when
+the handoff needs multiple records.
 
 Record:
 
@@ -107,7 +108,7 @@ Record:
 - public-claim docs status;
 - support-tier and claim-ledger status;
 - contract-pack status;
-- external adoption receipt paths;
+- default path, library-example, and CI-recipe external adoption receipt paths;
 - package dry-run status;
 - known local validation gaps;
 - hosted `Uselesskey Rust Small Result` and `Source of Truth Advisory` status
