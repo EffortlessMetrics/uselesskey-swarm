@@ -53,6 +53,8 @@ to `files[]`, `artifacts[].path`, `receipts[].path`, `missing_files[]`, and
 paths, Windows drive-prefixed paths, parent-directory traversals, or strings
 containing control characters. `bundle_path` is a display path for the audited
 directory, and `manifest_path` is currently the constant `manifest.json`.
+Relative content paths also reject empty path components, trailing separators,
+and Windows root paths that begin with a single backslash.
 
 ## Artifact Objects
 
