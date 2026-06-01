@@ -1480,6 +1480,7 @@ fn validate_negative_fixture_entry(
             "owner_crate",
             errors,
         );
+        validate_negative_fixture_owner_crate(entry, errors);
         validate_required_text(
             entry.public_surface.as_deref(),
             &entry.stable_id,
@@ -1501,6 +1502,22 @@ fn validate_negative_fixture_entry(
         }
     } else {
         validate_required_text(entry.reason.as_deref(), &entry.stable_id, "reason", errors);
+    }
+}
+
+fn validate_negative_fixture_owner_crate(entry: &NegativeFixtureEntry, errors: &mut Vec<String>) {
+    let Some(owner_crate) = entry.owner_crate.as_deref().map(str::trim) else {
+        return;
+    };
+    if owner_crate.is_empty() {
+        return;
+    }
+
+    if !crate::proof_commands::cargo_package_exists(&workspace_root_path(), owner_crate) {
+        errors.push(format!(
+            "{NEGATIVE_FIXTURES_TOML}: `{}` owner_crate `{owner_crate}` is not a workspace package",
+            entry.stable_id
+        ));
     }
 }
 
@@ -2815,6 +2832,34 @@ jobs:
             errors
                 .iter()
                 .any(|error| error.contains("unknown cargo test package `missing-crate`")),
+            "errors: {errors:?}"
+        );
+    }
+
+    #[test]
+    fn implemented_negative_fixture_owner_crate_must_be_workspace_package() {
+        let entry = NegativeFixtureEntry {
+            stable_id: "jwt_missing_kid".into(),
+            family: "jwt_token".into(),
+            status: "implemented".into(),
+            owner_crate: Some("missing-crate".into()),
+            public_surface: Some("NegativeToken::MissingKid".into()),
+            docs: vec!["docs/reference/failure-atlas.md".into()],
+            tests: vec!["cargo test -p uselesskey-token --all-features".into()],
+            scanner_safe: Some(true),
+            runtime_material: Some(false),
+            bundle_exposed: Some(false),
+            claim: Some("jwt-token-negative-fixtures".into()),
+            does_not_prove: vec!["provider compatibility".into()],
+            ..NegativeFixtureEntry::default()
+        };
+        let mut errors = Vec::new();
+        let claim_ids = BTreeSet::from(["jwt-token-negative-fixtures"]);
+        validate_negative_fixture_entry(&entry, &claim_ids, &mut errors);
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("owner_crate `missing-crate`") && error.contains("workspace package")
+            }),
             "errors: {errors:?}"
         );
     }
