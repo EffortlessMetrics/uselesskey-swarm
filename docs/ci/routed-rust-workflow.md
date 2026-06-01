@@ -73,7 +73,8 @@ When changing the routed workflow or its policy test, run:
 
 ```bash
 cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract
-ci/check-bare-self-hosted.sh
+cargo test -p xtask workflow_hygiene_guard
+bash ci/check-bare-self-hosted.sh .github/workflows
 git diff --check
 ```
 
