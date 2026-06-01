@@ -129,28 +129,31 @@ fn validate_artifact(
     if !VALID_STATUSES.contains(&artifact.status.as_str()) {
         errors.push(format!("{label} has invalid status `{}`", artifact.status));
     }
-    if !kind_matches_path(&artifact.kind, &artifact.path) {
+    let artifact_path_shape_ok = validate_path_shape(&label, "path", &artifact.path, errors);
+    if artifact_path_shape_ok && !kind_matches_path(&artifact.kind, &artifact.path) {
         errors.push(format!(
             "{label} kind `{}` does not match path `{}`",
             artifact.kind, artifact.path
         ));
     }
 
-    let artifact_path = root.join(artifact.path.replace('/', std::path::MAIN_SEPARATOR_STR));
-    match fs::read_to_string(&artifact_path) {
-        Ok(text) => {
-            if !text.contains(&artifact.id) {
-                errors.push(format!("{label} id does not appear in `{}`", artifact.path));
+    if artifact_path_shape_ok {
+        let artifact_path = root.join(artifact.path.replace('/', std::path::MAIN_SEPARATOR_STR));
+        match fs::read_to_string(&artifact_path) {
+            Ok(text) => {
+                if !text.contains(&artifact.id) {
+                    errors.push(format!("{label} id does not appear in `{}`", artifact.path));
+                }
             }
-        }
-        Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
-            errors.push(format!("{label} file `{}` does not exist", artifact.path));
-        }
-        Err(err) => {
-            errors.push(format!(
-                "{label} file `{}` cannot be read: {err}",
-                artifact.path
-            ));
+            Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                errors.push(format!("{label} file `{}` does not exist", artifact.path));
+            }
+            Err(err) => {
+                errors.push(format!(
+                    "{label} file `{}` cannot be read: {err}",
+                    artifact.path
+                ));
+            }
         }
     }
 
@@ -195,12 +198,68 @@ fn validate_artifact(
     if let Some(replaced_by) = artifact.replaced_by.as_deref() {
         validate_any_link(&label, replaced_by, by_id, errors);
     }
-    if let Some(plan) = artifact.linked_plan.as_deref() {
+    if let Some(plan) = artifact.linked_plan.as_deref()
+        && validate_path_shape(&label, "linked_plan", plan, errors)
+    {
+        if !plan.starts_with("plans/") || !plan.ends_with(".md") {
+            errors.push(format!(
+                "{label} linked_plan `{plan}` must start with `plans/` and end with `.md`"
+            ));
+        }
         let plan_path = root.join(plan.replace('/', std::path::MAIN_SEPARATOR_STR));
         if !plan_path.exists() {
             errors.push(format!("{label} links missing plan `{plan}`"));
         }
     }
+}
+
+fn validate_path_shape(label: &str, field: &str, path: &str, errors: &mut Vec<String>) -> bool {
+    let trimmed = path.trim();
+    let mut valid = true;
+
+    if trimmed.is_empty() {
+        errors.push(format!("{label} {field} is empty"));
+        return false;
+    }
+    if trimmed != path {
+        errors.push(format!(
+            "{label} {field} `{path}` has leading or trailing whitespace"
+        ));
+        valid = false;
+    }
+    if trimmed.contains('\\') {
+        errors.push(format!(
+            "{label} {field} `{trimmed}` must use `/` separators"
+        ));
+        valid = false;
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        errors.push(format!("{label} {field} `{trimmed}` must be relative"));
+        valid = false;
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        errors.push(format!(
+            "{label} {field} `{trimmed}` has an empty path component"
+        ));
+        valid = false;
+    }
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        errors.push(format!(
+            "{label} {field} `{trimmed}` must not contain `.` or `..` path components"
+        ));
+        valid = false;
+    }
+
+    valid
+}
+
+fn is_absolute_or_drive_path(path: &str) -> bool {
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || path.as_bytes().get(1).is_some_and(|byte| *byte == b':')
 }
 
 fn validate_id_link(
@@ -292,6 +351,49 @@ standalone_reason = "test"
     }
 
     #[test]
+    fn rejects_artifact_path_with_parent_component() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_file(dir.path(), "docs/escaped.md", "USELESSKEY-SPEC-0001")?;
+        write_ledger(
+            dir.path(),
+            r#"
+[[artifact]]
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+path = "docs/specs/../escaped.md"
+status = "accepted"
+owner = "repo-infra"
+standalone_reason = "test"
+"#,
+        )?;
+        assert_error(
+            dir.path(),
+            "path `docs/specs/../escaped.md` must not contain `.` or `..` path components",
+        )
+    }
+
+    #[test]
+    fn rejects_artifact_path_with_backslashes() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_ledger(
+            dir.path(),
+            r#"
+[[artifact]]
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+path = "docs\\specs\\a.md"
+status = "accepted"
+owner = "repo-infra"
+standalone_reason = "test"
+"#,
+        )?;
+        assert_error(
+            dir.path(),
+            "path `docs\\specs\\a.md` must use `/` separators",
+        )
+    }
+
+    #[test]
     fn rejects_unknown_status() -> Result<()> {
         let dir = tempfile::tempdir()?;
         write_file(dir.path(), "docs/specs/a.md", "USELESSKEY-SPEC-0001")?;
@@ -344,6 +446,54 @@ linked_plan = "plans/missing/implementation-plan.md"
         assert_error(
             dir.path(),
             "links missing plan `plans/missing/implementation-plan.md`",
+        )
+    }
+
+    #[test]
+    fn rejects_linked_plan_with_parent_component() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_file(dir.path(), "docs/specs/a.md", "USELESSKEY-SPEC-0001")?;
+        write_file(dir.path(), "plans/escaped.md", "# Escaped plan\n")?;
+        write_ledger(
+            dir.path(),
+            r#"
+[[artifact]]
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+path = "docs/specs/a.md"
+status = "accepted"
+owner = "repo-infra"
+standalone_reason = "test"
+linked_plan = "plans/test/../escaped.md"
+"#,
+        )?;
+        assert_error(
+            dir.path(),
+            "linked_plan `plans/test/../escaped.md` must not contain `.` or `..` path components",
+        )
+    }
+
+    #[test]
+    fn rejects_linked_plan_outside_plans_tree() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_file(dir.path(), "docs/specs/a.md", "USELESSKEY-SPEC-0001")?;
+        write_file(dir.path(), "docs/plan.md", "# Plan\n")?;
+        write_ledger(
+            dir.path(),
+            r#"
+[[artifact]]
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+path = "docs/specs/a.md"
+status = "accepted"
+owner = "repo-infra"
+standalone_reason = "test"
+linked_plan = "docs/plan.md"
+"#,
+        )?;
+        assert_error(
+            dir.path(),
+            "linked_plan `docs/plan.md` must start with `plans/` and end with `.md`",
         )
     }
 
