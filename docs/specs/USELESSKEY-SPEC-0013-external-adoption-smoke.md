@@ -338,7 +338,7 @@ External adoption smoke is owned by:
   outputs, logs, and receipts;
 - `CARGO_TARGET_DIR` when set, or `target/external-adoption-smoke/work/cargo-target/`
   otherwise, for dependency build artifacts created by child Cargo commands;
-- `examples/external/` for clean-project examples once added;
+- `examples/external/` for clean-project examples exercised by smoke modes;
 - `crates/uselesskey-cli` for installed-style profile, bundle, verify, and
   inspect commands;
 - `docs/how-to/start-here.md`, `docs/contract-packs/`, and task-first how-tos
