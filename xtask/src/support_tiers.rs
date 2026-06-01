@@ -878,9 +878,12 @@ fn validate_claim_doc_path(root: &Path, claim_id: &str, doc: &str, errors: &mut 
             "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{trimmed}` must be relative"
         ));
     }
-    if trimmed.split('/').any(|part| part == "..") {
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
         errors.push(format!(
-            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{trimmed}` must not contain `..`"
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` docs path `{trimmed}` must not contain `.` or `..` path components"
         ));
     }
     if trimmed.split('/').any(str::is_empty) {
@@ -926,9 +929,12 @@ fn validate_claim_artifact_path(
             "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{trimmed}` must be relative"
         ));
     }
-    if trimmed.split('/').any(|part| part == "..") {
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
         errors.push(format!(
-            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{trimmed}` must not contain `..`"
+            "{CLAIM_LEDGER_TOML}: claim `{claim_id}` artifact path `{trimmed}` must not contain `.` or `..` path components"
         ));
     }
     if trimmed.split('/').any(str::is_empty) {
@@ -1094,6 +1100,19 @@ mod tests {
     }
 
     #[test]
+    fn rejects_claim_doc_path_with_dot_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_docs("scanner-safe-fixtures", &["docs/./VERIFICATION.md"]),
+        )?;
+        assert_error(
+            dir.path(),
+            "docs path `docs/./VERIFICATION.md` must not contain `.` or `..` path components",
+        )
+    }
+
+    #[test]
     fn rejects_missing_claim_surface_path() -> Result<()> {
         let dir = minimal_repo()?;
         write_claim_ledger(
@@ -1178,6 +1197,19 @@ mod tests {
         assert_error(
             dir.path(),
             "references missing path `docs/missing-artifact.md`",
+        )
+    }
+
+    #[test]
+    fn rejects_claim_artifact_path_with_dot_component() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            &valid_claim_with_artifacts("scanner-safe-fixtures", &["target/./proof.json"]),
+        )?;
+        assert_error(
+            dir.path(),
+            "artifact path `target/./proof.json` must not contain `.` or `..` path components",
         )
     }
 
