@@ -1398,6 +1398,9 @@ fn is_safe_bundle_relative_path(path: &str) -> bool {
     if has_windows_absolute_or_drive_prefix(path) {
         return false;
     }
+    if path.split(['/', '\\']).any(str::is_empty) {
+        return false;
+    }
 
     let path = Path::new(path);
     !path.is_absolute()
@@ -2264,6 +2267,20 @@ mod tests {
         assert!(!is_safe_bundle_relative_path("/tmp/secret.pem"));
         assert!(!is_safe_bundle_relative_path(r"\secret.pem"));
         assert!(!is_safe_bundle_relative_path(r"\\server\share\secret.pem"));
+    }
+
+    #[test]
+    fn bundle_relative_path_safety_rejects_empty_components() {
+        assert!(!is_safe_bundle_relative_path(
+            "receipts//audit-surface.json"
+        ));
+        assert!(!is_safe_bundle_relative_path(
+            "receipts/audit-surface.json/"
+        ));
+        assert!(!is_safe_bundle_relative_path(r"receipts\"));
+        assert!(!is_safe_bundle_relative_path(
+            r"receipts\\audit-surface.json"
+        ));
     }
 
     #[test]
