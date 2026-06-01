@@ -462,10 +462,8 @@ fn missing_artifact_links(
                 artifact.id
             ));
         }
-        if let Some(plan) = artifact.linked_plan.as_deref()
-            && !root.join(to_path(plan)).exists()
-        {
-            missing.insert(format!("{} links missing plan `{plan}`", artifact.id));
+        if let Some(plan) = artifact.linked_plan.as_deref() {
+            record_plan_link(root, &mut missing, &artifact.id, plan);
         }
     }
     missing.into_iter().collect()
@@ -494,13 +492,13 @@ fn missing_goal_links(
                 item.id
             ));
         }
-        if let Some(plan) = item.plan.as_deref()
-            && !root.join(to_path(plan)).exists()
-        {
-            missing.insert(format!(
-                "work item `{}` links missing plan `{plan}`",
-                item.id
-            ));
+        if let Some(plan) = item.plan.as_deref() {
+            record_plan_link(
+                root,
+                &mut missing,
+                &format!("work item `{}`", item.id),
+                plan,
+            );
         }
     }
     missing.into_iter().collect()
@@ -520,8 +518,8 @@ fn missing_claim_links(
             ));
         }
         for doc in &claim.docs {
-            if is_repo_path(doc) && !root.join(to_path(doc)).exists() {
-                missing.insert(format!("claim `{}` links missing doc `{doc}`", claim.id));
+            if is_repo_path(doc) {
+                record_doc_link(root, &mut missing, &format!("claim `{}`", claim.id), doc);
             }
         }
     }
@@ -545,12 +543,12 @@ fn missing_support_links(
             .into_iter()
             .filter(|path| is_repo_path(path))
         {
-            if !root.join(to_path(&doc)).exists() {
-                missing.insert(format!(
-                    "support surface `{}` links missing doc `{doc}`",
-                    row.surface
-                ));
-            }
+            record_doc_link(
+                root,
+                &mut missing,
+                &format!("support surface `{}`", row.surface),
+                &doc,
+            );
         }
     }
     missing.into_iter().collect()
@@ -573,15 +571,71 @@ fn missing_workflow_links(
             .into_iter()
             .filter(|path| is_repo_path(path))
         {
-            if !root.join(to_path(&doc)).exists() {
-                missing.insert(format!(
-                    "workflow `{}` links missing doc `{doc}`",
-                    workflow.workflow
-                ));
-            }
+            record_doc_link(
+                root,
+                &mut missing,
+                &format!("workflow `{}`", workflow.workflow),
+                &doc,
+            );
         }
     }
     missing.into_iter().collect()
+}
+
+fn record_plan_link(root: &Path, missing: &mut BTreeSet<String>, owner: &str, plan: &str) {
+    if let Some(reason) = plan_path_error(plan) {
+        missing.insert(format!("{owner} links malformed plan `{plan}`: {reason}"));
+        return;
+    }
+    if !root.join(to_path(plan)).exists() {
+        missing.insert(format!("{owner} links missing plan `{plan}`"));
+    }
+}
+
+fn record_doc_link(root: &Path, missing: &mut BTreeSet<String>, owner: &str, doc: &str) {
+    if let Some(reason) = repo_path_shape_error(doc) {
+        missing.insert(format!("{owner} links malformed doc `{doc}`: {reason}"));
+        return;
+    }
+    if !root.join(to_path(doc)).exists() {
+        missing.insert(format!("{owner} links missing doc `{doc}`"));
+    }
+}
+
+fn plan_path_error(plan: &str) -> Option<String> {
+    repo_path_shape_error(plan).or_else(|| {
+        if !plan.starts_with("plans/") || !plan.ends_with(".md") {
+            Some("must start with `plans/` and end with `.md`".to_string())
+        } else {
+            None
+        }
+    })
+}
+
+fn repo_path_shape_error(path: &str) -> Option<String> {
+    let trimmed = path.trim();
+    if trimmed.is_empty() {
+        return Some("is empty".to_string());
+    }
+    if trimmed != path {
+        return Some("has leading or trailing whitespace".to_string());
+    }
+    if trimmed.contains('\\') {
+        return Some("must use `/` separators".to_string());
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        return Some("must be relative".to_string());
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        return Some("has an empty path component".to_string());
+    }
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        return Some("must not contain `.` or `..` path components".to_string());
+    }
+    None
 }
 
 fn summarize_artifacts(
@@ -884,10 +938,21 @@ fn inline_code_values(value: &str) -> Vec<String> {
 }
 
 fn is_repo_path(path: &str) -> bool {
+    let path = path.trim();
     path.starts_with("docs/")
+        || path.starts_with("docs\\")
         || path.starts_with("badges/")
+        || path.starts_with("badges\\")
         || path.starts_with("policy/")
+        || path.starts_with("policy\\")
         || path.starts_with("examples/")
+        || path.starts_with("examples\\")
+}
+
+fn is_absolute_or_drive_path(path: &str) -> bool {
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || path.as_bytes().get(1).is_some_and(|byte| *byte == b':')
 }
 
 fn escape_md(value: &str) -> String {
@@ -1110,6 +1175,67 @@ commands = ["cargo xtask repo-contract-report"]
                 .missing_links
                 .iter()
                 .any(|link| link.contains("USELESSKEY-SPEC-9999")),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn repo_contract_report_records_malformed_artifact_plan_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        let ledger_path = dir.path().join(to_path(DOC_ARTIFACTS_TOML));
+        let ledger = fs::read_to_string(&ledger_path)?.replace(
+            "linked_proposal = \"USELESSKEY-PROP-0002\"",
+            "linked_proposal = \"USELESSKEY-PROP-0002\"\nlinked_plan = \"plans/source-of-truth-control-plane/../implementation-plan.md\"",
+        );
+        fs::write(&ledger_path, ledger)?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| {
+                link.contains("USELESSKEY-SPEC-0023 links malformed plan")
+                    && link
+                        .contains("plans/source-of-truth-control-plane/../implementation-plan.md")
+                    && link.contains("must not contain `.` or `..`")
+            }),
+            "missing links: {:?}",
+            report.missing_links
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn repo_contract_report_records_malformed_workflow_doc_links() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_file(
+            dir.path(),
+            "docs/status/workflow-support.md",
+            r#"# Workflow Support
+
+## Workflow Matrix
+
+| Workflow | Support tier | Public claim | Primary docs | Proof commands | Receipts | Boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| Installed bundle audit | stabilizing installed CLI workflow | `metadata-only-audit-packets` | `docs/how-to/../audit.md` | `cargo xtask no-blob` | `target/audit/report.json` | Does not prove release readiness. |
+
+## Support Tier Interpretation
+
+| Tier | Meaning |
+| --- | --- |
+| stabilizing installed CLI workflow | Test tier. |
+"#,
+        )?;
+
+        let report = build_report(dir.path())?;
+
+        assert!(
+            report.missing_links.iter().any(|link| {
+                link.contains("workflow `Installed bundle audit` links malformed doc")
+                    && link.contains("docs/how-to/../audit.md")
+                    && link.contains("must not contain `.` or `..`")
+            }),
             "missing links: {:?}",
             report.missing_links
         );
