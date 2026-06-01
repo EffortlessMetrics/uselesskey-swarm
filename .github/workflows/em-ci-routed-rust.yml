@@ -437,6 +437,7 @@ jobs:
               typos --version
               nasm -v
               sccache --version || true
+              git config --global --add safe.directory /workspace
               cargo deny check advisories
               cargo xtask pr
               cargo xtask docs-sync --check
@@ -595,6 +596,7 @@ jobs:
               typos --version
               nasm -v
               sccache --version || true
+              git config --global --add safe.directory /workspace
               cargo deny check advisories
               cargo xtask pr
               cargo xtask docs-sync --check

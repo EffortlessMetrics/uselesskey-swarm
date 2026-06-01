@@ -2546,6 +2546,7 @@ mod tests {
             "labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]",
             "github.event.pull_request.head.repo.full_name == github.repository",
             "toolchain: 1.95.0",
+            "git config --global --add safe.directory /workspace",
             "- uselesskey-rust-small-cpx42",
             "- uselesskey-rust-small-cx43",
             "- uselesskey-rust-small-cx53",
