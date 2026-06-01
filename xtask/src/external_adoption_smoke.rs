@@ -1779,6 +1779,44 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_examples_readme_lists_example_directories() {
+        let root = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .expect("xtask lives under the workspace root");
+        let examples_dir = root.join("examples/external");
+        let example_dirs = fs::read_dir(&examples_dir)
+            .expect("external examples directory should exist")
+            .filter_map(|entry| {
+                let entry = entry.expect("external example entry should be readable");
+                if entry.path().is_dir() {
+                    Some(entry.file_name().to_string_lossy().into_owned())
+                } else {
+                    None
+                }
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+        let doc = include_str!("../../examples/external/README.md");
+        let readme_links = doc
+            .lines()
+            .filter(|line| line.starts_with('|') && line.contains("]("))
+            .filter_map(|line| {
+                let href = line.split("](").nth(1)?.split(')').next()?.trim();
+                let name = href.strip_suffix('/')?;
+                if name.contains('/') {
+                    None
+                } else {
+                    Some(name.to_string())
+                }
+            })
+            .collect::<std::collections::BTreeSet<_>>();
+
+        assert_eq!(
+            readme_links, example_dirs,
+            "external examples README should link every committed example directory and no stale example directories"
+        );
+    }
+
+    #[test]
     fn external_adoption_workflow_support_lists_smoked_examples() {
         let doc = include_str!("../../docs/status/workflow-support.md");
 
