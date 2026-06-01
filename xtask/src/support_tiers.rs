@@ -37,6 +37,8 @@ struct ClaimEntry {
     proof_commands: Vec<String>,
     #[serde(default)]
     docs: Vec<String>,
+    #[serde(default)]
+    release_lanes: Vec<String>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -148,6 +150,22 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                 claim.id
             ));
         }
+        if claim.release_lanes.is_empty() {
+            errors.push(format!(
+                "{CLAIM_LEDGER_TOML}: claim `{}` has no release_lanes",
+                claim.id
+            ));
+        }
+        if claim
+            .release_lanes
+            .iter()
+            .any(|lane| lane.trim().is_empty())
+        {
+            errors.push(format!(
+                "{CLAIM_LEDGER_TOML}: claim `{}` has an empty release lane",
+                claim.id
+            ));
+        }
         for doc in &claim.docs {
             validate_existing_path(root, CLAIM_LEDGER_TOML, &claim.id, doc, &mut errors);
         }
@@ -209,8 +227,14 @@ fn validate(root: &Path) -> Result<Vec<String>> {
         };
 
         let row_proofs = inline_code_values(&row.proof);
+        let row_release_lanes = inline_code_values(&row.release_lane);
         let claim_proofs = claim
             .proof_commands
+            .iter()
+            .map(String::as_str)
+            .collect::<BTreeSet<_>>();
+        let claim_release_lanes = claim
+            .release_lanes
             .iter()
             .map(String::as_str)
             .collect::<BTreeSet<_>>();
@@ -231,6 +255,25 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                 ));
             }
         }
+        for lane in &row_release_lanes {
+            if !claim_release_lanes.contains(lane.as_str()) {
+                errors.push(format!(
+                    "{SUPPORT_TIERS_MD}:{} surface `{}` lists release lane `{}` that is not in claim `{}`",
+                    row.line, row.surface, lane, claim.id
+                ));
+            }
+        }
+        for lane in &claim.release_lanes {
+            if !row_release_lanes
+                .iter()
+                .any(|row_release_lane| row_release_lane == lane)
+            {
+                errors.push(format!(
+                    "{SUPPORT_TIERS_MD}:{} surface `{}` omits claim-ledger release lane `{}` for claim `{}`",
+                    row.line, row.surface, lane, claim.id
+                ));
+            }
+        }
 
         if PROOF_REQUIRED_TIERS.contains(&row.tier.as_str()) {
             if row.proof.trim().is_empty() || row.proof.trim() == "none" {
@@ -245,9 +288,9 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                     claim.id, row.tier
                 ));
             }
-            if row.release_lane.trim().is_empty() || row.release_lane.trim() == "none" {
+            if row_release_lanes.is_empty() {
                 errors.push(format!(
-                    "{SUPPORT_TIERS_MD}:{} `{}` tier requires a release lane",
+                    "{SUPPORT_TIERS_MD}:{} `{}` tier requires visible release lanes",
                     row.line, row.tier
                 ));
             }
@@ -688,9 +731,32 @@ spec = "USELESSKEY-SPEC-9999"
 surfaces = ["README"]
 proof_commands = ["cargo xtask no-blob"]
 docs = ["docs/VERIFICATION.md"]
+release_lanes = ["pr"]
 "#,
         )?;
         assert_error(dir.path(), "references unknown spec `USELESSKEY-SPEC-9999`")
+    }
+
+    #[test]
+    fn rejects_claim_without_release_lanes() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            r#"
+[[claim]]
+id = "scanner-safe-fixtures"
+title = "Scanner-safe fixtures"
+status = "stable"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["README"]
+proof_commands = ["cargo xtask no-blob"]
+docs = ["docs/VERIFICATION.md"]
+"#,
+        )?;
+        assert_error(
+            dir.path(),
+            "claim `scanner-safe-fixtures` has no release_lanes",
+        )
     }
 
     #[test]
@@ -754,6 +820,7 @@ spec = "USELESSKEY-SPEC-0002"
 surfaces = ["README"]
 proof_commands = ["cargo xtask no-blob", "cargo xtask badges --check"]
 docs = ["docs/VERIFICATION.md"]
+release_lanes = ["pr"]
 "#,
         )?;
         write_support_tiers(
@@ -765,6 +832,52 @@ docs = ["docs/VERIFICATION.md"]
         assert_error(
             dir.path(),
             "omits claim-ledger proof command `cargo xtask badges --check` for claim `scanner-safe-fixtures`",
+        )
+    }
+
+    #[test]
+    fn rejects_support_row_unbacked_release_lane() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_support_tiers_with_release_lane(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`",
+            "`docs/VERIFICATION.md`",
+            "`nightly`",
+        )?;
+        assert_error(
+            dir.path(),
+            "lists release lane `nightly` that is not in claim `scanner-safe-fixtures`",
+        )
+    }
+
+    #[test]
+    fn rejects_support_row_missing_claim_release_lane() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            r#"
+[[claim]]
+id = "scanner-safe-fixtures"
+title = "Scanner-safe fixtures"
+status = "stable"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["README"]
+proof_commands = ["cargo xtask no-blob"]
+docs = ["docs/VERIFICATION.md"]
+release_lanes = ["pr", "minor"]
+"#,
+        )?;
+        write_support_tiers(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`",
+        )?;
+        assert_error(
+            dir.path(),
+            "omits claim-ledger release lane `minor` for claim `scanner-safe-fixtures`",
         )
     }
 
@@ -893,6 +1006,7 @@ spec = "USELESSKEY-SPEC-0002"
 surfaces = ["README"]
 proof_commands = ["cargo xtask no-blob", "cargo xtask badges --check"]
 docs = ["docs/VERIFICATION.md"]
+release_lanes = ["pr"]
 "#,
         )?;
         write_support_tiers(
@@ -930,6 +1044,7 @@ spec = "USELESSKEY-SPEC-0002"
 surfaces = ["README"]
 proof_commands = ["cargo xtask no-blob", "cargo xtask badges --check"]
 docs = ["docs/VERIFICATION.md"]
+release_lanes = ["pr"]
 "#,
         )?;
         write_support_tiers(
@@ -1014,6 +1129,7 @@ spec = "USELESSKEY-SPEC-0002"
 surfaces = ["README"]
 proof_commands = ["cargo xtask no-blob"]
 docs = [{docs}]
+release_lanes = ["pr"]
 "#
         )
     }
@@ -1051,6 +1167,17 @@ updated = "2026-05-21"
         proof: &str,
         docs: &str,
     ) -> Result<()> {
+        write_support_tiers_with_release_lane(root, tier, claim, proof, docs, "`pr`")
+    }
+
+    fn write_support_tiers_with_release_lane(
+        root: &Path,
+        tier: &str,
+        claim: &str,
+        proof: &str,
+        docs: &str,
+        release_lane: &str,
+    ) -> Result<()> {
         write_file(
             root,
             SUPPORT_TIERS_MD,
@@ -1061,7 +1188,7 @@ updated = "2026-05-21"
 
 | Surface | Tier | Claim | Proof command | Docs | Boundary | Release lane |
 | --- | --- | --- | --- | --- | --- | --- |
-| Scanner-safe fixtures | {tier} | {claim} | {proof} | {docs} | Boundary. | `pr` |
+| Scanner-safe fixtures | {tier} | {claim} | {proof} | {docs} | Boundary. | {release_lane} |
 
 ## Explicit Non-Support
 "#
