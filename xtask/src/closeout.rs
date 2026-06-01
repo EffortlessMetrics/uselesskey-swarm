@@ -161,7 +161,7 @@ fn write_closeout(root: &Path, goal_id: &str, date: &str) -> Result<CloseoutOutp
         );
     }
 
-    let slug = slugify(goal_id);
+    let slug = closeout_goal_slug(goal_id)?;
     let closeout_rel = format!("{HANDOFF_DIR}/{date}-{slug}-closeout.md");
     let archive_rel = format!("{GOAL_ARCHIVE_DIR}/{date}-{slug}.toml");
     let context = build_context(root, &goal, date, closeout_rel, archive_rel)?;
@@ -704,6 +704,26 @@ fn slugify(value: &str) -> String {
     slug.trim_matches('-').to_string()
 }
 
+fn closeout_goal_slug(goal_id: &str) -> Result<String> {
+    if goal_id.trim().is_empty() {
+        bail!("closeout goal id cannot be empty");
+    }
+    if goal_id.contains('/')
+        || goal_id.contains('\\')
+        || goal_id.contains("..")
+        || goal_id.contains(':')
+    {
+        bail!(
+            "closeout goal id `{goal_id}` must not contain path separators, drive prefixes, or parent-directory segments"
+        );
+    }
+    let slug = slugify(goal_id);
+    if slug.is_empty() {
+        bail!("closeout goal id `{goal_id}` must contain at least one ASCII letter or digit");
+    }
+    Ok(slug)
+}
+
 fn escape_md(value: &str) -> String {
     value.replace('|', "\\|")
 }
@@ -779,11 +799,45 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn closeout_rejects_path_shaped_goal_id() -> Result<()> {
+        let dir = minimal_repo_with_goal("active", "../release")?;
+
+        let err = write_closeout(dir.path(), "../release", "2026-05-21")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains("must not contain path separators"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn closeout_rejects_goal_id_without_slug_content() -> Result<()> {
+        let dir = minimal_repo_with_goal("active", "!!!")?;
+
+        let err = write_closeout(dir.path(), "!!!", "2026-05-21")
+            .unwrap_err()
+            .to_string();
+
+        assert!(
+            err.contains("must contain at least one ASCII letter or digit"),
+            "unexpected error: {err}"
+        );
+        Ok(())
+    }
+
     fn minimal_repo() -> Result<tempfile::TempDir> {
         minimal_repo_with_goal_status("active")
     }
 
     fn minimal_repo_with_goal_status(goal_status: &str) -> Result<tempfile::TempDir> {
+        minimal_repo_with_goal(goal_status, "test-goal")
+    }
+
+    fn minimal_repo_with_goal(goal_status: &str, goal_id: &str) -> Result<tempfile::TempDir> {
         let dir = tempfile::tempdir()?;
         write_file(
             dir.path(),
@@ -846,7 +900,7 @@ proof_commands = ["cargo xtask no-blob"]
         )?;
         let active_goal = format!(
             r#"schema_version = "1.0"
-id = "test-goal"
+id = {}
 title = "Test goal"
 status = "{goal_status}"
 owner = "codex"
@@ -870,6 +924,7 @@ spec = "USELESSKEY-SPEC-0023"
 plan = "plans/source-of-truth-control-plane/implementation-plan.md"
 commands = ["cargo xtask next"]
 "#,
+            toml_quote(goal_id),
         );
         write_file(dir.path(), ACTIVE_GOAL_TOML, &active_goal)?;
         Ok(dir)
