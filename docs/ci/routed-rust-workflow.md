@@ -26,6 +26,24 @@ Pushes to `main` do not use PR runner discovery. They run
 waits for that full gate so the branch state is not marked red merely because no
 self-hosted PR runner is idle.
 
+## Main Branch Queue Behavior
+
+Because main pushes share one routed Rust concurrency group, a newer main push
+can stay `pending` while an older `Uselesskey Main Full Gate` is still running.
+That is expected while the older run is within the workflow timeout. Treat the
+pending newer run as queued, not failed.
+
+Normal response:
+
+- inspect the older run and confirm it is still progressing or still within its
+  timeout;
+- inspect the latest main `Source of Truth` run separately;
+- do not rerun, cancel, or label a main run merely because a newer replacement
+  run is pending.
+
+Escalate only when the active full gate fails, exceeds its timeout, or is
+clearly stuck in the same step beyond the timeout policy.
+
 ## Hosted Fallback
 
 Use the `allow-github-hosted` PR label only when hosted fallback is acceptable
