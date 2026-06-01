@@ -16,6 +16,7 @@ const VALID_TIERS: &[&str] = &[
     "Advisory",
     "Not supported",
 ];
+const VALID_RELEASE_LANES: &[&str] = &["pr", "main", "patch", "minor", "post-release"];
 const PROOF_REQUIRED_TIERS: &[&str] = &["Stable", "Stabilizing"];
 
 #[derive(Debug, Deserialize)]
@@ -163,15 +164,34 @@ fn validate(root: &Path) -> Result<Vec<String>> {
                 claim.id
             ));
         }
-        if claim
-            .release_lanes
-            .iter()
-            .any(|lane| lane.trim().is_empty())
-        {
-            errors.push(format!(
-                "{CLAIM_LEDGER_TOML}: claim `{}` has an empty release lane",
-                claim.id
-            ));
+        let mut seen_release_lanes = BTreeSet::new();
+        for lane in &claim.release_lanes {
+            let trimmed = lane.trim();
+            if trimmed.is_empty() {
+                errors.push(format!(
+                    "{CLAIM_LEDGER_TOML}: claim `{}` has an empty release lane",
+                    claim.id
+                ));
+                continue;
+            }
+            if trimmed != lane {
+                errors.push(format!(
+                    "{CLAIM_LEDGER_TOML}: claim `{}` release lane `{}` has leading or trailing whitespace",
+                    claim.id, lane
+                ));
+            }
+            if !seen_release_lanes.insert(lane.as_str()) {
+                errors.push(format!(
+                    "{CLAIM_LEDGER_TOML}: claim `{}` repeats release lane `{}`",
+                    claim.id, lane
+                ));
+            }
+            if !VALID_RELEASE_LANES.contains(&trimmed) {
+                errors.push(format!(
+                    "{CLAIM_LEDGER_TOML}: claim `{}` has unknown release lane `{}`",
+                    claim.id, trimmed
+                ));
+            }
         }
         let mut seen_docs = BTreeSet::new();
         for doc in &claim.docs {
@@ -1049,6 +1069,77 @@ docs = ["docs/VERIFICATION.md"]
         assert_error(
             dir.path(),
             "claim `scanner-safe-fixtures` has no release_lanes",
+        )
+    }
+
+    #[test]
+    fn rejects_duplicate_claim_release_lane() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            r#"
+[[claim]]
+id = "scanner-safe-fixtures"
+title = "Scanner-safe fixtures"
+status = "stable"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["README"]
+proof_commands = ["cargo xtask no-blob"]
+docs = ["docs/VERIFICATION.md"]
+release_lanes = ["pr", "pr"]
+"#,
+        )?;
+        assert_error(dir.path(), "repeats release lane `pr`")
+    }
+
+    #[test]
+    fn rejects_unknown_claim_release_lane() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            r#"
+[[claim]]
+id = "scanner-safe-fixtures"
+title = "Scanner-safe fixtures"
+status = "stable"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["README"]
+proof_commands = ["cargo xtask no-blob"]
+docs = ["docs/VERIFICATION.md"]
+release_lanes = ["nightly"]
+"#,
+        )?;
+        write_support_tiers_with_release_lane(
+            dir.path(),
+            "Stable",
+            "`scanner-safe-fixtures`",
+            "`cargo xtask no-blob`",
+            "`docs/VERIFICATION.md`",
+            "`nightly`",
+        )?;
+        assert_error(dir.path(), "unknown release lane `nightly`")
+    }
+
+    #[test]
+    fn rejects_claim_release_lane_with_whitespace() -> Result<()> {
+        let dir = minimal_repo()?;
+        write_claim_ledger(
+            dir.path(),
+            r#"
+[[claim]]
+id = "scanner-safe-fixtures"
+title = "Scanner-safe fixtures"
+status = "stable"
+spec = "USELESSKEY-SPEC-0002"
+surfaces = ["README"]
+proof_commands = ["cargo xtask no-blob"]
+docs = ["docs/VERIFICATION.md"]
+release_lanes = [" pr"]
+"#,
+        )?;
+        assert_error(
+            dir.path(),
+            "release lane ` pr` has leading or trailing whitespace",
         )
     }
 
