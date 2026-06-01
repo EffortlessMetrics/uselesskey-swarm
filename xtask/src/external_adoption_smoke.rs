@@ -1742,6 +1742,29 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_workflow_support_lists_smoked_examples() {
+        let doc = include_str!("../../docs/status/workflow-support.md");
+
+        for example in EXTERNAL_EXAMPLES {
+            let readme = format!("`{}/README.md`", example.source_dir);
+            assert!(
+                doc.contains(&readme),
+                "workflow support matrix missing smoked example `{}`",
+                example.name
+            );
+        }
+
+        assert!(
+            doc.contains("`examples/external/ci-recipes/README.md`"),
+            "workflow support matrix should link the downstream CI recipe pack"
+        );
+        assert!(
+            doc.contains("cargo xtask external-adoption-smoke --path . --ci-recipes --format json"),
+            "workflow support matrix should name the CI recipe proof mode"
+        );
+    }
+
+    #[test]
     fn external_adoption_release_facade_record_lists_library_examples() {
         let doc = include_str!("../../docs/release/v0.10.0-facade-release-smoke.md");
 
