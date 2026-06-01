@@ -224,6 +224,7 @@ struct ExternalAdoptionStep {
 }
 
 pub fn run(root: &Path, options: RunOptions) -> Result<()> {
+    validate_run_options(&options)?;
     let source = resolve_source(&options)?;
     let _output_lock = target_output::acquire_lock(root, LOCK_DIR, "external-adoption-smoke")?;
     let out_dir = root.join(OUT_DIR);
@@ -1288,6 +1289,13 @@ fn resolve_source(options: &RunOptions) -> Result<SmokeSource> {
     }
 }
 
+fn validate_run_options(options: &RunOptions) -> Result<()> {
+    if options.ci_recipes && options.library_examples {
+        bail!("external-adoption-smoke: --library-examples and --ci-recipes are mutually exclusive");
+    }
+    Ok(())
+}
+
 fn resolve_existing_path(path: &Path) -> Result<PathBuf> {
     let absolute = if path.is_absolute() {
         path.to_path_buf()
@@ -1643,6 +1651,27 @@ mod tests {
                 "ecdsa-fixture-validation",
                 "ed25519-fixture-validation",
             ]
+        );
+    }
+
+    #[test]
+    fn external_adoption_rejects_conflicting_direct_modes() {
+        let err = run(
+            Path::new("."),
+            RunOptions {
+                path: Some(PathBuf::from(".")),
+                version: None,
+                ci_recipes: true,
+                library_examples: true,
+                format: OutputFormat::Human,
+            },
+        )
+        .expect_err("direct callers must not combine CI recipes with library examples");
+
+        assert!(
+            err.to_string()
+                .contains("--library-examples and --ci-recipes are mutually exclusive"),
+            "unexpected error: {err:#}"
         );
     }
 
