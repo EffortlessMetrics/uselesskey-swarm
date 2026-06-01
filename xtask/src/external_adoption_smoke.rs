@@ -1293,7 +1293,9 @@ fn resolve_source(options: &RunOptions) -> Result<SmokeSource> {
 
 fn validate_run_options(options: &RunOptions) -> Result<()> {
     if options.ci_recipes && options.library_examples {
-        bail!("external-adoption-smoke: --library-examples and --ci-recipes are mutually exclusive");
+        bail!(
+            "external-adoption-smoke: --library-examples and --ci-recipes are mutually exclusive"
+        );
     }
     Ok(())
 }
@@ -2645,7 +2647,10 @@ uselesskey-test-server = "0.9.1"
             Ok(()) => bail!("doctor json missing a smoke profile was accepted"),
             Err(err) => err,
         };
-        assert!(err.to_string().contains("doctor known_profiles missing tls"));
+        assert!(
+            err.to_string()
+                .contains("doctor known_profiles missing tls")
+        );
         Ok(())
     }
 }
