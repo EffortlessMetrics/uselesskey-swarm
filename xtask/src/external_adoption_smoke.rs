@@ -1742,6 +1742,28 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_release_facade_record_lists_library_examples() {
+        let doc = include_str!("../../docs/release/v0.10.0-facade-release-smoke.md");
+
+        for example in LIBRARY_EXAMPLES {
+            assert!(
+                doc.contains(&format!("`{}`", example.source_dir)),
+                "facade release smoke record missing library example `{}`",
+                example.name
+            );
+        }
+
+        assert!(
+            doc.contains("cargo xtask external-adoption-smoke --path . --library-examples"),
+            "facade release smoke record should name the library-example proof command"
+        );
+        assert!(
+            doc.contains("external_adoption_library_examples_are_bounded"),
+            "facade release smoke record should name the regression test that owns the matrix"
+        );
+    }
+
+    #[test]
     fn external_adoption_downstream_bundle_audit_workflow_is_current() {
         let example = include_str!(
             "../../examples/external/downstream-ci-bundle-audit/.github/workflows/uselesskey-audit.yml.example"
