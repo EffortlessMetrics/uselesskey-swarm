@@ -11,7 +11,11 @@ if [ ! -d "${workflow_dir}" ]; then
   exit 1
 fi
 
-if rg -n --glob '*.yml' --glob '*.yaml' 'runs-on:[[:space:]]*\[[^]]*self-hosted[^]]*linux[^]]*x64[^]]*\]' "${workflow_dir}"; then
+workflow_grep() {
+  grep -RInE --include='*.yml' --include='*.yaml' "$1" "${workflow_dir}"
+}
+
+if workflow_grep 'runs-on:[[:space:]]*\[[^]]*self-hosted[^]]*linux[^]]*x64[^]]*\]'; then
   echo "Bare inline self-hosted/linux/x64 runs-on is forbidden." >&2
   bad=1
 fi
@@ -19,18 +23,18 @@ fi
 while IFS=: read -r file line text; do
   echo "$file:$line: mutable action ref is forbidden: $text" >&2
   bad=1
-done < <(rg -n --glob '*.yml' --glob '*.yaml' '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]*['"'"'"]?[^'"'"'"[:space:]#]+@(main|master)['"'"'"]?([[:space:]#]|$)' "${workflow_dir}" || true)
+done < <(workflow_grep '^[[:space:]]*(-[[:space:]]*)?uses:[[:space:]]*['"'"'"]?[^'"'"'"[:space:]#]+@(main|master)['"'"'"]?([[:space:]#]|$)' || true)
 
 while IFS=: read -r file line _; do
   window="$(sed -n "${line},$((line+16))p" "$file")"
 
-  if printf '%s\n' "$window" | rg -q '^[[:space:]]*-[[:space:]]*linux[[:space:]]*$' &&
-     printf '%s\n' "$window" | rg -q '^[[:space:]]*-[[:space:]]*x64[[:space:]]*$' &&
-     ! printf '%s\n' "$window" | rg -q 'group:[[:space:]]*em-ci-' &&
-     ! printf '%s\n' "$window" | rg -q '^[[:space:]]*-[[:space:]]*(em-ci|ci-nano|policy-nano|workflow-nano|rust-tiny|rust-medium|rust-large|rust-16gb|cx23|cx33|cx43|cx53|cpx42)[[:space:]]*$'; then
+  if printf '%s\n' "$window" | grep -Eq '^[[:space:]]*-[[:space:]]*linux[[:space:]]*$' &&
+     printf '%s\n' "$window" | grep -Eq '^[[:space:]]*-[[:space:]]*x64[[:space:]]*$' &&
+     ! printf '%s\n' "$window" | grep -Eq 'group:[[:space:]]*em-ci-' &&
+     ! printf '%s\n' "$window" | grep -Eq '^[[:space:]]*-[[:space:]]*(em-ci|ci-nano|policy-nano|workflow-nano|rust-tiny|rust-medium|rust-large|rust-16gb|cx23|cx33|cx43|cx53|cpx42)[[:space:]]*$'; then
     echo "$file:$line: bare self-hosted block lacks group/capacity labels" >&2
     bad=1
   fi
-done < <(rg -n --glob '*.yml' --glob '*.yaml' '^[[:space:]]*-[[:space:]]*self-hosted[[:space:]]*$' "${workflow_dir}" || true)
+done < <(workflow_grep '^[[:space:]]*-[[:space:]]*self-hosted[[:space:]]*$' || true)
 
 exit "$bad"
