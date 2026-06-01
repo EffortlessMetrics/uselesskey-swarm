@@ -53,6 +53,20 @@ Normal response:
 Escalate only when the newest active full gate fails, exceeds its timeout, or is
 clearly stuck in the same step beyond the timeout policy.
 
+## Main Full Gate Observability
+
+The `Uselesskey Main Full Gate` wraps `cargo xtask ci` with a one-minute
+heartbeat line while the command is still running. A long-running `xtask ci`
+step is expected on `main`; the heartbeat exists so operators can distinguish a
+live full gate from a silent no-output failure.
+
+When the job is still in progress, GitHub may not expose the step log through
+`gh run view --job ... --log` yet. In that state, use the run and job metadata
+to confirm the newest main run is still in the `xtask ci` step, then wait for
+completion or timeout. Do not merge another main-changing PR just to refresh the
+signal unless the newest run has failed, timed out, or produced an actionable
+CI infrastructure error.
+
 ## Hosted Fallback
 
 Use the `allow-github-hosted` PR label only when hosted fallback is acceptable
