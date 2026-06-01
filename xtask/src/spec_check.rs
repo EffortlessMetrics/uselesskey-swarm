@@ -359,12 +359,16 @@ fn validate_artifact(
         validate_link(&path, &artifact.id, "adr", linked_adr, id_to_kind, errors);
     }
     if let Some(linked_plan) = &artifact.linked_plan {
-        let linked_plan_path = root.join(linked_plan.replace('/', std::path::MAIN_SEPARATOR_STR));
-        if !linked_plan_path.exists() {
-            errors.push(format!(
-                "{path}: `{}` links missing plan `{linked_plan}`",
-                artifact.id
-            ));
+        let label = format!("{path}: `{}`", artifact.id);
+        if validate_plan_path_shape(&label, "linked_plan", linked_plan, errors) {
+            let linked_plan_path =
+                root.join(linked_plan.replace('/', std::path::MAIN_SEPARATOR_STR));
+            if !linked_plan_path.exists() {
+                errors.push(format!(
+                    "{path}: `{}` links missing plan `{linked_plan}`",
+                    artifact.id
+                ));
+            }
         }
     }
 
@@ -548,12 +552,15 @@ fn validate_active_goal(
         }
         match item.plan.as_deref() {
             Some(plan) => {
-                let plan_path = root.join(plan.replace('/', std::path::MAIN_SEPARATOR_STR));
-                if !plan_path.exists() {
-                    errors.push(format!(
-                        ".uselesskey/goals/active.toml: work_item `{}` links missing plan `{plan}`",
-                        item.id
-                    ));
+                let label = format!(".uselesskey/goals/active.toml: work_item `{}`", item.id);
+                if validate_plan_path_shape(&label, "plan", plan, errors) {
+                    let plan_path = root.join(plan.replace('/', std::path::MAIN_SEPARATOR_STR));
+                    if !plan_path.exists() {
+                        errors.push(format!(
+                            ".uselesskey/goals/active.toml: work_item `{}` links missing plan `{plan}`",
+                            item.id
+                        ));
+                    }
                 }
             }
             None => errors.push(format!(
@@ -570,6 +577,66 @@ fn validate_active_goal(
     }
 
     Ok(())
+}
+
+fn validate_plan_path_shape(
+    label: &str,
+    field: &str,
+    plan: &str,
+    errors: &mut Vec<String>,
+) -> bool {
+    let trimmed = plan.trim();
+    let mut valid = true;
+
+    if trimmed.is_empty() {
+        errors.push(format!("{label} {field} is empty"));
+        return false;
+    }
+    if trimmed != plan {
+        errors.push(format!(
+            "{label} {field} `{plan}` has leading or trailing whitespace"
+        ));
+        valid = false;
+    }
+    if trimmed.contains('\\') {
+        errors.push(format!(
+            "{label} {field} `{trimmed}` must use `/` separators"
+        ));
+        valid = false;
+    }
+    if is_absolute_or_drive_path(trimmed) {
+        errors.push(format!("{label} {field} `{trimmed}` must be relative"));
+        valid = false;
+    }
+    if trimmed.split('/').any(str::is_empty) {
+        errors.push(format!(
+            "{label} {field} `{trimmed}` has an empty path component"
+        ));
+        valid = false;
+    }
+    if trimmed
+        .split('/')
+        .any(|component| matches!(component, "." | ".."))
+    {
+        errors.push(format!(
+            "{label} {field} `{trimmed}` must not contain `.` or `..` path components"
+        ));
+        valid = false;
+    }
+    if !trimmed.starts_with("plans/") || !trimmed.ends_with(".md") {
+        errors.push(format!(
+            "{label} {field} `{trimmed}` must start with `plans/` and end with `.md`"
+        ));
+        valid = false;
+    }
+
+    valid
+}
+
+fn is_absolute_or_drive_path(path: &str) -> bool {
+    path.starts_with('/')
+        || path.starts_with('\\')
+        || path.as_bytes().get(1).is_some_and(|byte| *byte == b':')
 }
 
 fn print_human_report(report: &SpecCheckReport) {
@@ -664,6 +731,55 @@ mod tests {
         Ok(())
     }
 
+    #[test]
+    fn artifact_linked_plan_rejects_parent_component() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_minimal_repo(dir.path(), full_spec_body())?;
+        write_plan(dir.path(), "plans/escaped.md", "USELESSKEY-PLAN-0002")?;
+        write_spec_with_linked_plan(dir.path(), "plans/example/../escaped.md", full_spec_body())?;
+
+        assert_report_error(
+            dir.path(),
+            "linked_plan `plans/example/../escaped.md` must not contain `.` or `..` path components",
+        )
+    }
+
+    #[test]
+    fn active_goal_plan_rejects_parent_component() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_minimal_repo(dir.path(), full_spec_body())?;
+        write_plan(dir.path(), "plans/escaped.md", "USELESSKEY-PLAN-0002")?;
+        write_active_goal(dir.path(), "plans/example/../escaped.md")?;
+
+        assert_report_error(
+            dir.path(),
+            "plan `plans/example/../escaped.md` must not contain `.` or `..` path components",
+        )
+    }
+
+    #[test]
+    fn active_goal_plan_rejects_outside_plans_tree() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        write_minimal_repo(dir.path(), full_spec_body())?;
+        fs::write(dir.path().join("docs/plan.md"), "# Plan\n")?;
+        write_active_goal(dir.path(), "docs/plan.md")?;
+
+        assert_report_error(
+            dir.path(),
+            "plan `docs/plan.md` must start with `plans/` and end with `.md`",
+        )
+    }
+
+    fn assert_report_error(root: &Path, needle: &str) -> Result<()> {
+        let report = build_report(root, false)?;
+        assert!(
+            report.errors.iter().any(|error| error.contains(needle)),
+            "expected `{needle}` in {:?}",
+            report.errors
+        );
+        Ok(())
+    }
+
     fn write_minimal_repo(root: &Path, spec_body: &str) -> Result<()> {
         fs::create_dir_all(root.join("docs/proposals"))?;
         fs::create_dir_all(root.join("docs/specs"))?;
@@ -688,21 +804,7 @@ linked_plan = "plans/example/implementation-plan.md"
         )?;
         fs::write(
             root.join("docs/specs/USELESSKEY-SPEC-0001-test.md"),
-            format!(
-                r#"+++
-id = "USELESSKEY-SPEC-0001"
-kind = "spec"
-status = "accepted"
-linked_proposal = "USELESSKEY-PROP-0001"
-linked_adrs = ["USELESSKEY-ADR-0001"]
-linked_plan = "plans/example/implementation-plan.md"
-+++
-
-# Spec
-
-{spec_body}
-"#
-            ),
+            spec_doc("plans/example/implementation-plan.md", spec_body),
         )?;
         fs::write(
             root.join("docs/adr/USELESSKEY-ADR-0001-test.md"),
@@ -759,6 +861,81 @@ spec = "USELESSKEY-SPEC-0001"
 proof_commands = ["cargo xtask spec-check"]
 boundary = "Boundary."
 "#,
+        )?;
+        Ok(())
+    }
+
+    fn write_spec_with_linked_plan(root: &Path, linked_plan: &str, spec_body: &str) -> Result<()> {
+        fs::write(
+            root.join("docs/specs/USELESSKEY-SPEC-0001-test.md"),
+            spec_doc(linked_plan, spec_body),
+        )?;
+        Ok(())
+    }
+
+    fn spec_doc(linked_plan: &str, spec_body: &str) -> String {
+        format!(
+            r#"+++
+id = "USELESSKEY-SPEC-0001"
+kind = "spec"
+status = "accepted"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_adrs = ["USELESSKEY-ADR-0001"]
+linked_plan = "{linked_plan}"
++++
+
+# Spec
+
+{spec_body}
+"#
+        )
+    }
+
+    fn write_active_goal(root: &Path, plan: &str) -> Result<()> {
+        fs::write(
+            root.join(".uselesskey/goals/active.toml"),
+            format!(
+                r#"id = "test"
+title = "Test"
+status = "active"
+owner = "EffortlessMetrics"
+created = "2026-05-13"
+objective = "Test."
+end_state = ["done"]
+
+[[work_item]]
+id = "work"
+status = "active"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0001"
+plan = "{plan}"
+commands = ["cargo xtask spec-check"]
+"#
+            ),
+        )?;
+        Ok(())
+    }
+
+    fn write_plan(root: &Path, rel: &str, id: &str) -> Result<()> {
+        let path = root.join(rel.replace('/', std::path::MAIN_SEPARATOR_STR));
+        if let Some(parent) = path.parent() {
+            fs::create_dir_all(parent)?;
+        }
+        fs::write(
+            path,
+            format!(
+                r#"+++
+id = "{id}"
+kind = "plan"
+status = "accepted"
+linked_proposal = "USELESSKEY-PROP-0001"
+linked_specs = ["USELESSKEY-SPEC-0001"]
+linked_adrs = ["USELESSKEY-ADR-0001"]
++++
+
+# Plan
+"#
+            ),
         )?;
         Ok(())
     }
