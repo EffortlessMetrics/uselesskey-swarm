@@ -82,5 +82,5 @@ generated certificate payloads into reviewer packets.
 
 - It proves fixture and adapter construction for test code.
 - It does not prove production PKI, revocation, certificate transparency,
-  mTLS, browser trust-store behavior, production CA custody, or downstream
-  verifier correctness.
+  mTLS, browser trust-store behavior, production CA custody, release readiness,
+  or downstream verifier correctness.

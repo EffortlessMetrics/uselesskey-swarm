@@ -95,5 +95,5 @@ values into reviewer packets.
 - It proves a clean Rust test project can use the facade crate without leaf
   crate imports.
 - It does not prove production key generation, production authorization,
-  provider compatibility, or downstream verifier correctness.
+  provider compatibility, release readiness, or downstream verifier correctness.
 - It does not give permission to commit generated secret-shaped payloads.
