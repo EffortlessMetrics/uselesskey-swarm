@@ -249,6 +249,8 @@ enum Cmd {
         #[arg(long, default_value = "target/bundle-schema-check")]
         out: PathBuf,
     },
+    /// Validate committed bundle-audit failure receipt examples.
+    CheckAuditReceipts,
     /// Verify the committed scanner-safe-bundle reference outputs.
     ScannerSafeReference {
         /// Compare regenerated outputs against the committed reference; do not write.
@@ -735,6 +737,7 @@ fn main() -> Result<()> {
         } => release_evidence(&version, &out, dry_run, summary, patch),
         Cmd::BundleProof { profile, out } => bundle_proof::run(&profile, out.as_deref()),
         Cmd::CheckBundleSchemas { out } => bundle_schema::check(&out),
+        Cmd::CheckAuditReceipts => bundle_schema::check_audit_receipts(),
         Cmd::ScannerSafeReference { check } => {
             if check {
                 scanner_safe_reference_check()

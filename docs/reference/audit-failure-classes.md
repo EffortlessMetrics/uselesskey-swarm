@@ -8,6 +8,14 @@ The class set is schema-backed by
 [`bundle-audit.schema.json`](../schemas/bundle-audit.schema.json) and appears in
 `checks[].failure_class` in the audit receipt.
 
+Committed metadata-only examples live in
+[`examples/audit-receipts/`](../../examples/audit-receipts/). They are validated
+with:
+
+```bash
+cargo xtask check-audit-receipts
+```
+
 ## Upload-Safe Fields
 
 Audit failure receipts are metadata-only. The safe-to-upload decision fields are:
