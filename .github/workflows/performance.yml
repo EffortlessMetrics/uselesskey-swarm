@@ -1,5 +1,11 @@
 name: Performance Evidence
 
+# NOTE: This lane moved from GitHub-hosted ubuntu-latest to the shared
+# self-hosted em-ci-small fleet. Performance numbers are host-sensitive, so the
+# committed baselines in docs/metadata/perf-baselines.json were calibrated on
+# the previous hosted hardware. They MUST be recalibrated on the self-hosted
+# box before any baseline comparison is trusted as a gate; until then only
+# entries with `enforce_in_ci = true` block, and those should be reviewed.
 on:
   schedule:
     - cron: "37 8 * * 1"
@@ -14,27 +20,55 @@ on:
 permissions:
   contents: read
 
+# Performance is a proof/evidence lane: do not cancel an in-progress
+# measurement; only the latest pending run waits.
+concurrency:
+  group: performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
+  # Shared registry/git cache keeps dependency downloads warm. The build target
+  # stays in the workspace so the perf report paths below are unchanged.
+  CARGO_HOME: /mnt/ci-cache/cargo-home
+  TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   perf:
-    runs-on: ubuntu-latest
+    name: perf
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]
     timeout-minutes: 60
     steps:
+      - name: Disk guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 20
+          ci-disk-guard /mnt/ci-cache 10
+
+      - name: Prepare scratch dirs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$TMPDIR" "$CARGO_HOME"
+
       # actions/checkout@v6
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install stable --profile minimal
-
-      - name: Install NASM
-        run: sudo apt-get update && sudo apt-get install -y nasm
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          toolchain: "1.95"
 
       - name: Run performance evidence
         shell: bash
         run: |
+          set -euo pipefail
           compare="${{ inputs.compare }}"
 
           args=()
@@ -48,7 +82,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           import os
           from pathlib import Path
@@ -90,6 +124,7 @@ jobs:
           lines.append("- Performance evidence is host- and runner-sensitive.")
           lines.append("- It guards fixture-generation cost trends, not cryptographic correctness.")
           lines.append("- Baseline comparison only blocks entries with `enforce_in_ci = true`.")
+          lines.append("- Baselines need recalibration after the move to self-hosted hardware.")
 
           text = "\n".join(lines) + "\n"
           markdown_path.write_text(text, encoding="utf-8")
@@ -103,9 +138,17 @@ jobs:
           PY
 
       # actions/upload-artifact@v7
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: performance-evidence
           path: target/xtask/perf
           if-no-files-found: warn
+
+      - name: Cleanup
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          rm -rf target "$TMPDIR"
+          df -h /mnt/ci-scratch /mnt/ci-cache || true

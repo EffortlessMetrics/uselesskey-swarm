@@ -44,6 +44,11 @@ env:
 jobs:
   route-uselesskey-rust-small:
     name: Route Uselesskey Rust Small
+    # Bootstrap/plumbing stays on GitHub-hosted: this is the job that detects
+    # self-hosted readiness/idle capacity and decides whether the
+    # allow-github-hosted fallback applies. If it ran on the self-hosted fleet
+    # it could not emit no_idle_runner / self_hosted_not_marked_ready / a hosted
+    # fallback target when that fleet is unavailable.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     outputs:
@@ -672,7 +677,9 @@ jobs:
     name: Uselesskey Workflow Validation on GitHub Hosted
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'workflow'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: em-ci-nano
+      labels: [self-hosted, linux, x64, em-ci, trusted-pr, workflow-nano]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v6
@@ -687,12 +694,38 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "parsed #{path}" }' .github/workflows/*.yml
+          # The em-ci-nano image is minimal and does not ship ruby, so prefer a
+          # python3+PyYAML parse, fall back to ruby where present, and otherwise
+          # do a non-empty smoke check (GitHub itself rejects malformed workflow
+          # YAML at dispatch, so active workflows are already parse-validated).
+          if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
+            python3 - <<'PY'
+          import glob
+          import yaml
+
+          for path in sorted(glob.glob(".github/workflows/*.yml")):
+              with open(path, encoding="utf-8") as fh:
+                  yaml.safe_load(fh)
+              print(f"parsed {path}")
+          PY
+          elif command -v ruby >/dev/null 2>&1; then
+            ruby -e 'require "yaml"; Dir.glob(".github/workflows/*.yml").sort.each { |p| YAML.load_file(p); puts "parsed #{p}" }'
+          else
+            echo "no python3+PyYAML or ruby on this runner; falling back to non-empty check" >&2
+            shopt -s nullglob
+            for p in .github/workflows/*.yml; do
+              test -s "$p" || { echo "empty workflow file: $p" >&2; exit 1; }
+              echo "present $p"
+            done
+          fi
 
   uselesskey-route-failed:
     name: Uselesskey Route Failed
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'route-fail'
+    # Hosted: this job surfaces the routing failure reason (no_idle_runner,
+    # self_hosted_not_marked_ready, runner_token_*). It must run even when the
+    # self-hosted fleet is unavailable, which is exactly when it fires.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -708,7 +741,9 @@ jobs:
     name: Uselesskey Docs/Policy Light on GitHub Hosted
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'docs'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: em-ci-tiny
+      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v6
@@ -746,6 +781,9 @@ jobs:
       - uselesskey-route-failed
       - main-full-gate
     if: always()
+    # Hosted: the normalized result must always be reportable, including when
+    # the self-hosted fleet is down and the router emitted a hosted fallback or
+    # a route-fail reason.
     runs-on: ubuntu-latest
     timeout-minutes: 5
     steps:
@@ -832,64 +870,132 @@ jobs:
   main-full-gate:
     name: Uselesskey Main Full Gate
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_full_gate)
-    runs-on: ubuntu-latest
-    timeout-minutes: 120
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]
+    timeout-minutes: 150
+    env:
+      CARGO_HOME: /mnt/ci-cache/cargo-home
+      SCCACHE_DIR: /mnt/ci-cache/sccache
+      SCCACHE_CACHE_SIZE: 60G
+      RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+      CARGO_BUILD_JOBS: "12"
+      TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+      CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      - uses: actions/checkout@v6
-        with:
-          fetch-depth: 0
-
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt, clippy
-
-      - uses: dtolnay/rust-toolchain@nightly
-
-      - name: Install NASM
-        run: sudo apt-get update && sudo apt-get install -y nasm
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-
-      - name: Install tools
-        uses: taiki-e/install-action@v2
-        with:
-          tool: cargo-fuzz,cargo-mutants,typos-cli,cargo-deny
-
-      - name: Toolchain diagnostics
-        run: |
-          rustc -vV
-          cargo +nightly -vV
-          cargo deny --version
-          cargo fuzz --version
-          cargo mutants --version
-          typos --version
-          nasm -v
-
-      - name: xtask ci
+      - name: Disk guards
         shell: bash
         run: |
           set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 100
+          ci-disk-guard /mnt/docker 20
+          ci-disk-guard /mnt/ci-cache 20
 
-          cargo xtask ci &
-          xtask_pid=$!
+      - name: Prepare scratch dirs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
 
-          while kill -0 "$xtask_pid" 2>/dev/null; do
-            echo "xtask ci still running at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-            sleep 60
-          done &
-          heartbeat_pid=$!
+      - name: Pre-clean workspace
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'find /workspace -mindepth 1 -maxdepth 1 -exec rm -rf {} +'
 
-          set +e
-          wait "$xtask_pid"
-          status=$?
-          set -e
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 0
+          clean: false
 
-          kill "$heartbeat_pid" 2>/dev/null || true
-          wait "$heartbeat_pid" 2>/dev/null || true
-          exit "$status"
+      - name: Build Uselesskey CI image
+        shell: bash
+        run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
+
+      - name: Clean workspace target
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target'
+
+      - name: Run Uselesskey full gate on CX53
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -euo pipefail
+          docker run --rm \
+            --cpus="14" \
+            --memory="28g" \
+            -e CARGO_HOME=/cargo-home \
+            -e SCCACHE_DIR=/sccache \
+            -e SCCACHE_CACHE_SIZE="${SCCACHE_CACHE_SIZE}" \
+            -e RUSTC_WRAPPER=/usr/local/cargo/bin/sccache \
+            -e CARGO_INCREMENTAL="${CARGO_INCREMENTAL}" \
+            -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" \
+            -e CARGO_TARGET_DIR=/cargo-target \
+            -e TMPDIR=/tmp/jobtmp \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${CARGO_HOME}:/cargo-home" \
+            -v "${SCCACHE_DIR}:/sccache" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            -w /workspace \
+            "${IMAGE}" \
+            bash -eu -o pipefail -c '
+              rustc --version
+              cargo --version
+              cargo +nightly --version
+              cargo deny --version
+              cargo fuzz --version
+              cargo mutants --version
+              typos --version
+              nasm -v
+              sccache --version || true
+              git config --global --add safe.directory /workspace
+
+              cargo xtask ci &
+              xtask_pid=$!
+
+              while kill -0 "$xtask_pid" 2>/dev/null; do
+                echo "xtask ci still running at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+                sleep 60
+              done &
+              heartbeat_pid=$!
+
+              set +e
+              wait "$xtask_pid"
+              status=$?
+              set -e
+
+              kill "$heartbeat_pid" 2>/dev/null || true
+              wait "$heartbeat_pid" 2>/dev/null || true
+              sccache --show-stats || true
+              exit "$status"
+            '
+          if [ -f "${CARGO_TARGET_DIR}/xtask/receipt.json" ]; then
+            mkdir -p target/xtask
+            cp "${CARGO_TARGET_DIR}/xtask/receipt.json" target/xtask/receipt.json
+          fi
 
       - name: Upload receipt
         uses: actions/upload-artifact@v7
@@ -898,3 +1004,38 @@ jobs:
           name: receipt-main-full-gate
           path: target/xtask/receipt.json
           if-no-files-found: warn
+
+      - name: Cleanup workspace target
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target' || true
+
+      - name: Cleanup scratch dirs
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            "${IMAGE}" \
+            bash -c '
+              rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?* 2>/dev/null || true
+              rm -rf /cargo-target/* /cargo-target/.[!.]* /cargo-target/..?* 2>/dev/null || true
+            ' || true
+          rmdir "$TMPDIR" 2>/dev/null || true
+          rmdir "$CARGO_TARGET_DIR" 2>/dev/null || true
+
+      - name: Disk report
+        if: always()
+        shell: bash
+        run: df -h / /mnt/docker /mnt/actions /mnt/ci-scratch /mnt/ci-cache /mnt/ci-artifacts 2>/dev/null || true

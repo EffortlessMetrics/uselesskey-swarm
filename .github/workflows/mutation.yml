@@ -23,52 +23,170 @@ on:
 permissions:
   contents: read
 
+# Mutation is a proof/evidence lane: let an in-progress run finish and only
+# queue the latest pending replacement instead of cancelling mid-flight.
+concurrency:
+  group: mutation-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
 
 jobs:
   mutation:
-    runs-on: ubuntu-latest
+    name: mutation
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]
     timeout-minutes: 360
+    env:
+      CARGO_HOME: /mnt/ci-cache/cargo-home
+      SCCACHE_DIR: /mnt/ci-cache/sccache
+      SCCACHE_CACHE_SIZE: 30G
+      RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
+      CARGO_BUILD_JOBS: "4"
+      TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+      CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}
     steps:
-      # actions/checkout@v6
-      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd
-
-      - name: Install Rust toolchain
-        run: rustup toolchain install stable --profile minimal
-
-      - name: Install NASM
-        run: sudo apt-get update && sudo apt-get install -y nasm
-
-      - name: Install cargo-mutants
-        run: cargo install cargo-mutants --locked
-
-      - name: Nightly mutation evidence
+      - name: Disk guards
         shell: bash
         run: |
-          scope="${{ inputs.scope }}"
-          crate_name="${{ inputs.crate }}"
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 50
+          ci-disk-guard /mnt/docker 10
+          ci-disk-guard /mnt/ci-cache 10
 
-          if [[ -z "$scope" ]]; then
+      - name: Prepare scratch dirs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
+
+      - name: Pre-clean workspace
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'find /workspace -mindepth 1 -maxdepth 1 -exec rm -rf {} +'
+
+      - name: Checkout
+        uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+          fetch-depth: 1
+          clean: false
+
+      - name: Build Uselesskey CI image
+        shell: bash
+        run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
+
+      - name: Run nightly mutation evidence
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+          SCOPE: ${{ inputs.scope }}
+          CRATE_NAME: ${{ inputs.crate }}
+        run: |
+          set -euo pipefail
+
+          scope="${SCOPE:-public}"
+          if [ -z "${scope}" ]; then
             scope="public"
           fi
-
-          args=(--scope "$scope")
-          if [[ "$scope" == "crate" ]]; then
-            if [[ -z "$crate_name" ]]; then
-              echo "::error::workflow_dispatch scope=crate requires the crate input"
-              exit 1
-            fi
-            args+=(--crate "$crate_name")
+          if [ "${scope}" = "crate" ] && [ -z "${CRATE_NAME:-}" ]; then
+            echo "::error::workflow_dispatch scope=crate requires the crate input"
+            exit 1
           fi
 
-          cargo xtask mutants-nightly "${args[@]}"
+          docker run --rm \
+            --cpus="6" \
+            --memory="12g" \
+            -e CARGO_HOME=/cargo-home \
+            -e SCCACHE_DIR=/sccache \
+            -e SCCACHE_CACHE_SIZE="${SCCACHE_CACHE_SIZE}" \
+            -e RUSTC_WRAPPER=/usr/local/cargo/bin/sccache \
+            -e CARGO_INCREMENTAL="${CARGO_INCREMENTAL}" \
+            -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" \
+            -e CARGO_TARGET_DIR=/cargo-target \
+            -e TMPDIR=/tmp/jobtmp \
+            -e SCOPE="${scope}" \
+            -e CRATE_NAME="${CRATE_NAME:-}" \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            -v "${CARGO_HOME}:/cargo-home" \
+            -v "${SCCACHE_DIR}:/sccache" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            -w /workspace \
+            "${IMAGE}" \
+            bash -eu -o pipefail -c '
+              cargo mutants --version
+              sccache --version || true
+              git config --global --add safe.directory /workspace
+              args=(--scope "${SCOPE}")
+              if [ "${SCOPE}" = "crate" ]; then
+                args+=(--crate "${CRATE_NAME}")
+              fi
+              cargo xtask mutants-nightly "${args[@]}"
+              sccache --show-stats || true
+              # Surface mutation evidence at the workspace target/ path the
+              # upload step expects, regardless of whether xtask wrote it under
+              # the workspace or the routed CARGO_TARGET_DIR.
+              mkdir -p /workspace/target
+              if [ -d /cargo-target/mutation ] && [ ! -d /workspace/target/mutation ]; then
+                cp -r /cargo-target/mutation /workspace/target/mutation
+              fi
+            '
 
-      # actions/upload-artifact@v7
-      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: mutation-nightly
           path: target/mutation
           if-no-files-found: warn
+
+      - name: Cleanup workspace target
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${GITHUB_WORKSPACE}:/workspace" \
+            "${IMAGE}" \
+            bash -c 'rm -rf /workspace/target' || true
+
+      - name: Cleanup scratch dirs
+        if: always()
+        shell: bash
+        env:
+          IMAGE: em-ci-rust:1.95
+        run: |
+          set -eu
+          docker run --rm \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            "${IMAGE}" \
+            bash -c '
+              rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?* 2>/dev/null || true
+              rm -rf /cargo-target/* /cargo-target/.[!.]* /cargo-target/..?* 2>/dev/null || true
+            ' || true
+          rmdir "$TMPDIR" 2>/dev/null || true
+          rmdir "$CARGO_TARGET_DIR" 2>/dev/null || true
+
+      - name: Disk report
+        if: always()
+        shell: bash
+        run: df -h / /mnt/docker /mnt/actions /mnt/ci-scratch /mnt/ci-cache 2>/dev/null || true
