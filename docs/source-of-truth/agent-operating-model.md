@@ -73,6 +73,9 @@ For hosted PR checks, `Uselesskey Rust Small Result` is the normalized required
 Rust signal. `Source of Truth Advisory` is the repo-contract signal; inspect it
 when present and treat failures as source-of-truth triage, not as conditional
 runner plumbing.
+Coverage is advisory by default. Inspect it when a PR opts into the coverage
+lane, but do not treat ordinary coverage context as a merge gate unless the PR's
+scope or branch protection explicitly says so.
 
 ## Ledger Updates
 

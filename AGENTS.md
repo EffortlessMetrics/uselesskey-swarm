@@ -20,6 +20,7 @@ separate required checks. For routed CI fallback rules, including the
 `allow-github-hosted` label, see `docs/ci/routed-rust-workflow.md`.
 Also inspect `Source of Truth Advisory` when it runs; failures there are
 repo-contract triage signals, not conditional runner jobs.
+Coverage is advisory unless a PR explicitly opts into the coverage lane.
 
 ## Source-of-truth control plane
 
