@@ -79,4 +79,5 @@ fixture secrets, or signature headers into reviewer packets.
 
 - It proves fixture generation and near-miss wiring for test code.
 - It does not prove provider compatibility, production secret management,
-  replay protection completeness, delivery behavior, or transport security.
+  replay protection completeness, delivery behavior, transport security,
+  release readiness, or downstream verifier correctness.

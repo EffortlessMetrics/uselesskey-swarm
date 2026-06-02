@@ -94,4 +94,5 @@ target/uselesskey-oidc-audit/bundle-audit.md
 - It does not prove production signing-key custody.
 - It does not prove issuer policy.
 - It does not prove provider compatibility.
-- It does not prove production verifier correctness.
+- It does not prove release readiness.
+- It does not prove downstream verifier correctness.
