@@ -33,6 +33,12 @@ metadata-only paths such as issue templates, PR templates, policy ledgers,
 Rails lanes, and goal manifests reviewable without reading the router script.
 Unknown or implementation paths are recorded as Rust proof, not silently skipped.
 
+Workflow PRs may include `xtask/src/policy.rs` because the workflow route runs
+the pinned routed-workflow contract test. Workflow PRs mixed with other Rust or
+unknown implementation paths fail routing with
+`mixed_workflow_and_rust_requires_split` so maintainers split the behavior or
+run a broader, explicit proof path instead of accidentally skipping Rust proof.
+
 The receipt is review evidence only. It does not replace the normalized
 `Uselesskey Rust Small Result`, make coverage blocking, or move release,
 publish, signing, tag, GitHub release, crates.io, or source-sync authority into
