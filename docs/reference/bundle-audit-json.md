@@ -106,21 +106,10 @@ when manifest metadata is unavailable.
 
 ## Failure Classes
 
-The stable failure class set is:
-
-| Failure class | Meaning |
-| --- | --- |
-| `missing_manifest` | `manifest.json` is missing. |
-| `invalid_manifest` | `manifest.json` could not be parsed or did not match the expected shape. |
-| `path_escape` | A manifest path is unsafe: absolute, drive-prefixed, parent-traversing, control-character-bearing, or otherwise not contained by the bundle root. |
-| `missing_artifact` | A manifest-listed file is missing from the bundle. |
-| `unexpected_artifact` | A file exists in the bundle tree but is not listed by the manifest. |
-| `missing_receipt` | A required receipt entry is missing. |
-| `invalid_receipt` | A required receipt exists but could not be parsed or reconciled. |
-| `scanner_safe_mismatch` | Scanner-safe counts differ between manifest metadata and audit-surface receipt metadata. |
-| `runtime_material_mismatch` | Runtime-material counts differ between manifest metadata and audit-surface receipt metadata. |
-| `profile_validation_failed` | Profile-specific deterministic validation failed. |
-| `unsupported_profile` | The bundle profile is not supported by installed bundle audit. |
+The stable failure class registry lives in
+[`audit-failure-classes.md`](audit-failure-classes.md). It defines each class
+ID, meaning, emitted-by surface, safe-to-upload fields, user action, and
+does-not-prove boundary.
 
 ## Stability Contract
 
