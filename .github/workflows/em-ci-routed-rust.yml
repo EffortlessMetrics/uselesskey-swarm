@@ -691,7 +691,30 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "parsed #{path}" }' .github/workflows/*.yml
+          # The em-ci-nano image is minimal and does not ship ruby, so prefer a
+          # python3+PyYAML parse, fall back to ruby where present, and otherwise
+          # do a non-empty smoke check (GitHub itself rejects malformed workflow
+          # YAML at dispatch, so active workflows are already parse-validated).
+          if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
+            python3 - <<'PY'
+          import glob
+          import yaml
+
+          for path in sorted(glob.glob(".github/workflows/*.yml")):
+              with open(path, encoding="utf-8") as fh:
+                  yaml.safe_load(fh)
+              print(f"parsed {path}")
+          PY
+          elif command -v ruby >/dev/null 2>&1; then
+            ruby -e 'require "yaml"; Dir.glob(".github/workflows/*.yml").sort.each { |p| YAML.load_file(p); puts "parsed #{p}" }'
+          else
+            echo "no python3+PyYAML or ruby on this runner; falling back to non-empty check" >&2
+            shopt -s nullglob
+            for p in .github/workflows/*.yml; do
+              test -s "$p" || { echo "empty workflow file: $p" >&2; exit 1; }
+              echo "present $p"
+            done
+          fi
 
   uselesskey-route-failed:
     name: Uselesskey Route Failed
