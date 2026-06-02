@@ -37,12 +37,22 @@ env:
   CARGO_BUILD_JOBS: "4"
   RUST_TEST_THREADS: "2"
   RUSTFLAGS: "-C debuginfo=0"
+  # Shared registry/git cache on the self-hosted fleet keeps dependency
+  # downloads warm across runs. The per-run scratch target dir keeps
+  # concurrent runs isolated. sccache is intentionally not wired in here:
+  # cargo-llvm-cov compiles with `-C instrument-coverage`, which defeats
+  # compilation caching, so the win is not worth the extra moving part.
+  CARGO_HOME: /mnt/ci-cache/cargo-home
+  TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+  CARGO_TARGET_DIR: /mnt/ci-scratch/uselesskey-coverage/${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   coverage:
     name: Codecov Coverage
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]
+    timeout-minutes: 90
 
     if: >-
       github.event_name == 'push' ||
@@ -51,7 +61,22 @@ jobs:
       contains(github.event.pull_request.labels.*.name, 'full-ci')
 
     steps:
+      - name: Disk guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 45
+          ci-disk-guard /mnt/ci-cache 10
+
+      - name: Prepare scratch dirs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME"
+
       - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
@@ -59,23 +84,20 @@ jobs:
           toolchain: "1.95"
           components: llvm-tools-preview
 
-      - name: Install NASM for aws-lc-rs
-        run: sudo apt-get update && sudo apt-get install -y nasm
-
-      - name: Use larger target dir
-        run: echo "CARGO_TARGET_DIR=${RUNNER_TEMP}/target" >> "$GITHUB_ENV"
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-          cache-directories: ${{ runner.temp }}/target
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
       - name: Install cargo-llvm-cov
         uses: taiki-e/install-action@v2
         with:
           tool: cargo-llvm-cov
+
+      - name: Preflight
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h /mnt/ci-scratch /mnt/ci-cache || true
+          rustc --version
+          cargo --version
+          cargo llvm-cov --version
+          nasm -v || true
 
       - name: Generate coverage
         env:
@@ -174,3 +196,11 @@ jobs:
             lcov.info
             target/coverage/coverage-receipt.json
           retention-days: 14
+
+      - name: Cleanup scratch dirs
+        if: always()
+        shell: bash
+        run: |
+          set +e
+          rm -rf "$TMPDIR" "$CARGO_TARGET_DIR"
+          df -h /mnt/ci-scratch /mnt/ci-cache || true

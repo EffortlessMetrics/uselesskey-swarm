@@ -9,18 +9,31 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: source-of-truth-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   source-of-truth:
     name: Source of Truth Advisory
-    runs-on: ubuntu-latest
+    runs-on:
+      group: em-ci-tiny
+      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
     timeout-minutes: 20
     continue-on-error: true
     steps:
       - uses: actions/checkout@v6
         with:
+          persist-credentials: false
           fetch-depth: 0
 
       - uses: dtolnay/rust-toolchain@stable
+
+      # This advisory lane recompiles xtask on every PR; cache it so the
+      # tiny self-hosted box is not cold-compiling each run.
+      - uses: Swatinem/rust-cache@v2
+        with:
+          cache-on-failure: true
 
       - name: Check workflow hygiene guard
         run: ci/check-bare-self-hosted.sh
