@@ -9,7 +9,8 @@ name = "Uselesskey Rust Small Result"
 workflow = "EM CI Routed Rust"
 role = "required"
 scope = "Normalized swarm merge signal for PRs, merge groups, and main pushes."
-operator_action = "Wait for success before merge. Treat conditional runner jobs as route details unless branch protection changes."
+operator_action = "Wait for success before merge. Inspect the proof-route artifact when route reasoning is unclear. Treat conditional runner jobs as route details unless branch protection changes."
+receipt = "target/source-of-truth/proof-route.json"
 local_reproduction = [
   "cargo xtask pr",
   "git diff --check",

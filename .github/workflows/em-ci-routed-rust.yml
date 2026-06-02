@@ -75,12 +75,163 @@ jobs:
         run: |
           set -eu
 
+          changed_files() {
+            case "${EVENT_NAME}" in
+              pull_request)
+                if [ -z "${BASE_SHA}" ] || [ -z "${HEAD_SHA}" ]; then
+                  return 1
+                fi
+                git diff --name-only "${BASE_SHA}...${HEAD_SHA}"
+                ;;
+              push)
+                if [ -z "${BEFORE_SHA}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
+                  return 1
+                fi
+                git diff --name-only "${BEFORE_SHA}" "${HEAD_SHA}"
+                ;;
+              *)
+                return 1
+                ;;
+            esac
+          }
+
+          write_route_receipt() {
+            local target="$1" reason="$2" error="$3" fallback_allowed="$4"
+            local changed_files_path
+            changed_files_path="$(mktemp)"
+            if ! changed_files > "$changed_files_path" 2>/dev/null; then
+              : > "$changed_files_path"
+            fi
+
+            ROUTE_TARGET="$target" \
+              ROUTE_REASON="$reason" \
+              ROUTE_ERROR="$error" \
+              ROUTE_FALLBACK_ALLOWED="$fallback_allowed" \
+              CHANGED_FILES_PATH="$changed_files_path" \
+              python3 <<'PY'
+          import fnmatch
+          import json
+          import os
+          from pathlib import Path
+
+          changed_files = [
+              line.strip()
+              for line in Path(os.environ["CHANGED_FILES_PATH"]).read_text().splitlines()
+              if line.strip()
+          ]
+          target = os.environ["ROUTE_TARGET"]
+          reason = os.environ["ROUTE_REASON"]
+          error = os.environ["ROUTE_ERROR"].lower() == "true"
+          fallback_allowed = os.environ["ROUTE_FALLBACK_ALLOWED"].lower() == "true"
+
+          light_patterns = [
+              "README.md",
+              "CHANGELOG.md",
+              "SECURITY.md",
+              "CONTRIBUTING.md",
+              "LICENSE",
+              "LICENSE-*",
+              "NOTICE",
+              "AGENTS.md",
+              "docs/*",
+              "docs/tracking/*",
+              "badges/*",
+              "policy/*",
+              "plans/*",
+              "ci/hardware/*",
+              ".rails/*",
+              ".uselesskey/*",
+              ".codex/campaigns/*",
+              ".github/CODEOWNERS",
+              ".github/dependabot.yml",
+              ".github/ISSUE_TEMPLATE/*",
+              ".github/pull_request_template.md",
+              ".github/PULL_REQUEST_TEMPLATE.md",
+              ".github/PULL_REQUEST_TEMPLATE/*",
+          ]
+
+          def surface_for(path):
+              if fnmatch.fnmatch(path, ".github/workflows/*"):
+                  return "workflow"
+              if any(fnmatch.fnmatch(path, pattern) for pattern in light_patterns):
+                  return "docs_policy"
+              return "rust"
+
+          changed_surfaces = sorted({surface_for(path) for path in changed_files})
+          if target == "main-full":
+              changed_surfaces = ["main"]
+          elif not changed_surfaces:
+              changed_surfaces = ["unknown"]
+
+          required_checks = ["Uselesskey Rust Small Result"]
+          if target == "main-full":
+              required_checks.append("Uselesskey Main Full Gate")
+
+          skipped_by_policy = {"Coverage": "advisory_by_default"}
+          if target in {"docs", "workflow", "github", "main-full"}:
+              skipped_by_policy["self_hosted_rust_small"] = f"not_selected_for_{target}"
+          elif target in {"cpx42", "cx43", "cx53"}:
+              skipped_by_policy["unselected_conditional_routes"] = f"selected_{target}"
+          if not fallback_allowed:
+              skipped_by_policy["github_hosted_fallback"] = "not_allowed_for_route"
+
+          local_reproduction = {
+              "docs": [
+                  "cargo xtask docs-sync --check",
+                  "cargo xtask typos",
+              ],
+              "workflow": [
+                  "cargo test -p xtask workflow_hygiene_guard",
+                  "bash ci/check-bare-self-hosted.sh .github/workflows",
+              ],
+              "github": [
+                  "cargo check --workspace --locked --all-targets",
+              ],
+              "main-full": [
+                  "cargo xtask ci",
+              ],
+              "route-fail": [
+                  "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
+              ],
+          }.get(target, ["cargo xtask gate --check"])
+          local_reproduction = [*local_reproduction, "git diff --check"]
+
+          receipt = {
+              "schema_version": "1.0",
+              "workflow": "EM CI Routed Rust",
+              "event_name": os.environ.get("EVENT_NAME", ""),
+              "target": target,
+              "reason": reason,
+              "error": error,
+              "fallback_allowed": fallback_allowed,
+              "changed_files": changed_files,
+              "changed_surfaces": changed_surfaces,
+              "required_checks": required_checks,
+              "triage_checks": ["Source of Truth Advisory"],
+              "advisory_checks": ["Coverage"],
+              "skipped_by_policy": skipped_by_policy,
+              "merge_blockers": ["Uselesskey Route Failed"] if error else [],
+              "local_reproduction": local_reproduction,
+              "boundaries": [
+                  "Does not move release, publish, signing, tag, GitHub release, crates.io, or source-sync authority.",
+                  "Conditional runner jobs are route evidence; Uselesskey Rust Small Result is the normalized merge signal.",
+              ],
+          }
+
+          out = Path("target/source-of-truth/proof-route.json")
+          out.parent.mkdir(parents=True, exist_ok=True)
+          out.write_text(json.dumps(receipt, indent=2) + "\n")
+          PY
+            rm -f "$changed_files_path"
+          }
+
           emit() {
             local target="$1" reason="$2" error="$3" fallback_allowed="$4"
             echo "router_target=$target"
             echo "router_reason=$reason"
             echo "router_error=$error"
             echo "router_fallback_allowed=$fallback_allowed"
+            write_route_receipt "$target" "$reason" "$error" "$fallback_allowed"
             {
               echo "target=$target"
               echo "reason=$reason"
@@ -110,26 +261,6 @@ jobs:
             emit "github" "fork_pr" "false" "true"
             exit 0
           fi
-
-          changed_files() {
-            case "${EVENT_NAME}" in
-              pull_request)
-                if [ -z "${BASE_SHA}" ] || [ -z "${HEAD_SHA}" ]; then
-                  return 1
-                fi
-                git diff --name-only "${BASE_SHA}...${HEAD_SHA}"
-                ;;
-              push)
-                if [ -z "${BEFORE_SHA}" ] || [ "${BEFORE_SHA}" = "0000000000000000000000000000000000000000" ]; then
-                  return 1
-                fi
-                git diff --name-only "${BEFORE_SHA}" "${HEAD_SHA}"
-                ;;
-              *)
-                return 1
-                ;;
-            esac
-          }
 
           classify_change() {
             if ! files="$(changed_files 2>/tmp/diff.err)"; then
@@ -277,6 +408,14 @@ jobs:
               emit "route-fail" "no_idle_runner" "true" "false"
             fi
           fi
+
+      - name: Upload proof route receipt
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: proof-route
+          path: target/source-of-truth/proof-route.json
+          if-no-files-found: warn
 
   uselesskey-rust-small-cpx42:
     name: Uselesskey Rust Small on CPX42
