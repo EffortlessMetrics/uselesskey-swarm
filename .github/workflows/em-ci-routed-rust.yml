@@ -1012,10 +1012,15 @@ jobs:
         run: |
           set -euo pipefail
 
+          mkdir -p target/source-of-truth
+          started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          started_epoch="$(date -u +%s)"
+
           cargo xtask ci &
           xtask_pid=$!
 
           while kill -0 "$xtask_pid" 2>/dev/null; do
+            touch target/source-of-truth/main-full-gate-heartbeat.seen
             echo "xtask ci still running at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             sleep 60
           done &
@@ -1028,7 +1033,61 @@ jobs:
 
           kill "$heartbeat_pid" 2>/dev/null || true
           wait "$heartbeat_pid" 2>/dev/null || true
+
+          completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          completed_epoch="$(date -u +%s)"
+          heartbeat_seen=false
+          if [ -f target/source-of-truth/main-full-gate-heartbeat.seen ]; then
+            heartbeat_seen=true
+          fi
+
+          STARTED_AT="$started_at" \
+            COMPLETED_AT="$completed_at" \
+            ELAPSED_SECONDS="$((completed_epoch - started_epoch))" \
+            EXIT_CODE="$status" \
+            HEARTBEAT_SEEN="$heartbeat_seen" \
+            python3 <<'PY'
+          import json
+          import os
+          from pathlib import Path
+
+          exit_code = int(os.environ["EXIT_CODE"])
+          receipt = {
+              "schema_version": "1.0",
+              "workflow": "EM CI Routed Rust",
+              "job": "Uselesskey Main Full Gate",
+              "run_id": os.environ.get("GITHUB_RUN_ID", ""),
+              "run_attempt": os.environ.get("GITHUB_RUN_ATTEMPT", ""),
+              "sha": os.environ.get("GITHUB_SHA", ""),
+              "ref": os.environ.get("GITHUB_REF", ""),
+              "started_at": os.environ["STARTED_AT"],
+              "completed_at": os.environ["COMPLETED_AT"],
+              "elapsed_seconds": int(os.environ["ELAPSED_SECONDS"]),
+              "phase": "xtask ci",
+              "heartbeat_seen": os.environ["HEARTBEAT_SEEN"].lower() == "true",
+              "result": "success" if exit_code == 0 else "failure",
+              "exit_code": exit_code,
+              "receipt_artifacts": ["target/xtask/receipt.json"],
+              "boundaries": [
+                  "This receipt records hosted main full-gate execution metadata only.",
+                  "It does not replace the normalized Uselesskey Rust Small Result merge signal.",
+                  "It does not move release, publish, signing, tag, GitHub release, crates.io, or source-sync authority.",
+              ],
+          }
+
+          out = Path("target/source-of-truth/main-full-gate-receipt.json")
+          out.write_text(json.dumps(receipt, indent=2) + "\n")
+          PY
+
           exit "$status"
+
+      - name: Upload main full gate receipt
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: main-full-gate-receipt
+          path: target/source-of-truth/main-full-gate-receipt.json
+          if-no-files-found: warn
 
       - name: Upload receipt
         uses: actions/upload-artifact@v7

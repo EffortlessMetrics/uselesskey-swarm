@@ -75,6 +75,15 @@ heartbeat line while the command is still running. A long-running `xtask ci`
 step is expected on `main`; the heartbeat exists so operators can distinguish a
 live full gate from a silent no-output failure.
 
+The job also uploads a `main-full-gate-receipt` artifact from
+`target/source-of-truth/main-full-gate-receipt.json`. The receipt records the
+run id, commit, ref, start and completion timestamps, elapsed seconds,
+`xtask ci` exit code, final result, whether the heartbeat loop ran, and the
+existing `target/xtask/receipt.json` artifact relationship. This is hosted
+main-branch execution evidence; it does not replace `Uselesskey Rust Small
+Result` and does not move release, publish, signing, tag, GitHub release,
+crates.io, or source-sync authority.
+
 When the job is still in progress, GitHub may not expose the step log through
 `gh run view --job ... --log` yet. In that state, use the run and job metadata
 to confirm the newest main run is still in the `xtask ci` step, then wait for
