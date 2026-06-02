@@ -223,17 +223,19 @@ spec = "USELESSKEY-SPEC-0014"
 surfaces = [
   "uselesskey audit-bundle --ci",
   "docs/how-to/use-downstream-policy-pack.md",
-  "examples/external/ci-recipes/",
-  "docs/reference/bundle-audit-json.md",
-  "docs/reference/audit-failure-classes.md",
-  "docs/schemas/bundle-audit.schema.json",
+    "examples/external/ci-recipes/",
+    "examples/audit-receipts/",
+    "docs/reference/bundle-audit-json.md",
+    "docs/reference/audit-failure-classes.md",
+    "docs/schemas/bundle-audit.schema.json",
   "docs/status/PUBLIC_CLAIMS.md",
 ]
 proof_commands = [
-  "cargo test -p uselesskey-cli --all-features audit_bundle",
-  "cargo xtask external-adoption-smoke --path . --ci-recipes --format json",
-  "cargo xtask no-blob",
-]
+    "cargo test -p uselesskey-cli --all-features audit_bundle",
+    "cargo xtask external-adoption-smoke --path . --ci-recipes --format json",
+    "cargo xtask check-audit-receipts",
+    "cargo xtask no-blob",
+  ]
 artifacts = [
   "target/uselesskey-audit/bundle-audit.json",
   "target/uselesskey-audit/bundle-audit.md",
@@ -242,9 +244,10 @@ docs = [
   "docs/how-to/share-installed-bundle-audit.md",
   "docs/how-to/use-uselesskey-in-downstream-ci.md",
   "docs/how-to/use-uselesskey-in-github-actions.md",
-  "docs/how-to/use-downstream-policy-pack.md",
-  "examples/external/ci-recipes/README.md",
-  "docs/reference/bundle-audit-json.md",
+    "docs/how-to/use-downstream-policy-pack.md",
+    "examples/external/ci-recipes/README.md",
+    "examples/audit-receipts/README.md",
+    "docs/reference/bundle-audit-json.md",
   "docs/reference/audit-failure-classes.md",
   "docs/specs/USELESSKEY-SPEC-0014-installed-bundle-audit.md",
   "docs/specs/USELESSKEY-SPEC-0020-downstream-policy-pack.md",

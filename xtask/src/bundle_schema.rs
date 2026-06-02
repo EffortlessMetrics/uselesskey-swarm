@@ -12,6 +12,7 @@ use crate::{read_json_file, target_output, write_json_pretty};
 const BUNDLE_MANIFEST_SCHEMA_JSON: &str = "docs/schemas/bundle-manifest.schema.json";
 const NEGATIVE_COVERAGE_SCHEMA_JSON: &str = "docs/schemas/negative-coverage.schema.json";
 const BUNDLE_AUDIT_SCHEMA_JSON: &str = "docs/schemas/bundle-audit.schema.json";
+const AUDIT_RECEIPT_EXAMPLES_DIR: &str = "examples/audit-receipts";
 const NEGATIVE_FIXTURES_TOML: &str = "policy/negative-fixtures.toml";
 const LOCK_DIR: &str = "target/bundle-schema-check.lock";
 const PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook", "runtime"];
@@ -44,6 +45,23 @@ struct BundleSchemaFailureReport {
     scenario: String,
     audit_path: String,
     failure_class: String,
+}
+
+#[derive(Debug, Serialize)]
+struct AuditReceiptExamplesReport {
+    schema_version: u32,
+    examples_checked: usize,
+    schema: String,
+    examples_dir: String,
+    examples: Vec<AuditReceiptExampleReport>,
+    errors: Vec<String>,
+}
+
+#[derive(Debug, Serialize)]
+struct AuditReceiptExampleReport {
+    path: String,
+    failure_class: String,
+    checks: usize,
 }
 
 #[derive(Debug, Deserialize)]
@@ -156,6 +174,95 @@ pub(crate) fn check(out: &Path) -> Result<()> {
         }
         bail!(
             "bundle-schema-check: {} schema contract error(s)",
+            report.errors.len()
+        );
+    }
+    Ok(())
+}
+
+pub(crate) fn check_audit_receipts() -> Result<()> {
+    let audit_schema: Value = read_json_file(Path::new(BUNDLE_AUDIT_SCHEMA_JSON))?;
+    let examples_dir = Path::new(AUDIT_RECEIPT_EXAMPLES_DIR);
+    if !examples_dir.is_dir() {
+        bail!("audit receipt examples directory missing: {AUDIT_RECEIPT_EXAMPLES_DIR}");
+    }
+
+    let mut errors = Vec::new();
+    let schema_classes = bundle_audit_failure_classes(&audit_schema, &mut errors);
+    let mut example_paths = Vec::new();
+    for entry in
+        fs::read_dir(examples_dir).with_context(|| format!("read {}", examples_dir.display()))?
+    {
+        let entry = entry.with_context(|| format!("read entry in {}", examples_dir.display()))?;
+        let path = entry.path();
+        if path.extension().and_then(|ext| ext.to_str()) == Some("json") {
+            example_paths.push(path);
+        }
+    }
+    example_paths.sort();
+
+    let mut examples = Vec::new();
+    let mut example_classes = BTreeSet::new();
+    for path in example_paths {
+        let report_path = normalize_report_path(&path);
+        let Some(failure_class) = path.file_stem().and_then(|stem| stem.to_str()) else {
+            errors.push(format!("{report_path}: file name is not UTF-8"));
+            continue;
+        };
+        if !is_stable_id(failure_class) {
+            errors.push(format!(
+                "{report_path}: file stem `{failure_class}` is not a stable failure class ID"
+            ));
+        }
+        if !example_classes.insert(failure_class.to_string()) {
+            errors.push(format!(
+                "{report_path}: duplicate audit receipt example for `{failure_class}`"
+            ));
+        }
+
+        let audit: Value = match read_json_file(&path) {
+            Ok(audit) => audit,
+            Err(err) => {
+                errors.push(format!("{report_path}: {err:#}"));
+                continue;
+            }
+        };
+        validate_audit_receipt_example(
+            &report_path,
+            failure_class,
+            &audit,
+            &audit_schema,
+            &schema_classes,
+            &mut errors,
+        );
+        examples.push(AuditReceiptExampleReport {
+            path: report_path,
+            failure_class: failure_class.to_string(),
+            checks: array_len(audit.get("checks")),
+        });
+    }
+    validate_audit_receipt_example_coverage(&schema_classes, &example_classes, &mut errors);
+
+    let report = AuditReceiptExamplesReport {
+        schema_version: 1,
+        examples_checked: examples.len(),
+        schema: BUNDLE_AUDIT_SCHEMA_JSON.to_string(),
+        examples_dir: AUDIT_RECEIPT_EXAMPLES_DIR.to_string(),
+        examples,
+        errors,
+    };
+
+    eprintln!(
+        "audit-receipts: {} examples; {} errors",
+        report.examples_checked,
+        report.errors.len()
+    );
+    if !report.errors.is_empty() {
+        for error in report.errors.iter().take(20) {
+            eprintln!("  audit-receipts error: {error}");
+        }
+        bail!(
+            "audit-receipts: {} committed receipt contract error(s)",
             report.errors.len()
         );
     }
@@ -632,33 +739,12 @@ fn validate_failure_class_coverage(
     failure_reports: &[BundleSchemaFailureReport],
     errors: &mut Vec<String>,
 ) {
-    let Some(classes) = audit_schema
-        .pointer("/$defs/failure_class/enum")
-        .and_then(Value::as_array)
-    else {
-        errors.push("bundle-audit schema is missing $defs.failure_class.enum".to_string());
-        return;
-    };
-
-    let mut schema_classes = BTreeSet::new();
-    for (idx, class) in classes.iter().enumerate() {
-        let Some(class) = class.as_str() else {
-            errors.push(format!(
-                "bundle-audit schema failure_class enum[{idx}] is not a string"
-            ));
-            continue;
-        };
-        if !schema_classes.insert(class) {
-            errors.push(format!(
-                "bundle-audit schema failure_class enum duplicates `{class}`"
-            ));
-        }
-    }
+    let schema_classes = bundle_audit_failure_classes(audit_schema, errors);
 
     let mut generated_classes = BTreeSet::new();
     for report in failure_reports {
         let class = report.failure_class.as_str();
-        if !generated_classes.insert(class) {
+        if !generated_classes.insert(class.to_string()) {
             errors.push(format!(
                 "generated CI failure receipts duplicate failure_class `{class}`"
             ));
@@ -675,6 +761,35 @@ fn validate_failure_class_coverage(
             "generated CI failure receipt class `{extra}` is not listed in bundle-audit schema"
         ));
     }
+}
+
+fn bundle_audit_failure_classes(
+    audit_schema: &Value,
+    errors: &mut Vec<String>,
+) -> BTreeSet<String> {
+    let Some(classes) = audit_schema
+        .pointer("/$defs/failure_class/enum")
+        .and_then(Value::as_array)
+    else {
+        errors.push("bundle-audit schema is missing $defs.failure_class.enum".to_string());
+        return BTreeSet::new();
+    };
+
+    let mut schema_classes = BTreeSet::new();
+    for (idx, class) in classes.iter().enumerate() {
+        let Some(class) = class.as_str() else {
+            errors.push(format!(
+                "bundle-audit schema failure_class enum[{idx}] is not a string"
+            ));
+            continue;
+        };
+        if !schema_classes.insert(class.to_string()) {
+            errors.push(format!(
+                "bundle-audit schema failure_class enum duplicates `{class}`"
+            ));
+        }
+    }
+    schema_classes
 }
 
 fn validate_failure_receipt(
@@ -745,6 +860,257 @@ fn validate_failure_receipt(
             "{scenario}: expected failure_class `{expected_failure_class}`, found {failure_class:?}"
         ));
     }
+}
+
+fn validate_audit_receipt_example(
+    report_path: &str,
+    expected_failure_class: &str,
+    audit: &Value,
+    audit_schema: &Value,
+    schema_classes: &BTreeSet<String>,
+    errors: &mut Vec<String>,
+) {
+    let mut local_errors = Vec::new();
+    validate_bundle_audit(audit_schema, audit, &mut local_errors);
+    validate_audit_receipt_allowed_fields(audit, "bundle-audit.json", &mut local_errors);
+    validate_no_audit_receipt_material("bundle-audit.json", audit, &mut local_errors);
+    for error in local_errors {
+        errors.push(format!("{report_path}: {error}"));
+    }
+
+    if !schema_classes.contains(expected_failure_class) {
+        errors.push(format!(
+            "{report_path}: `{expected_failure_class}` is not listed in {BUNDLE_AUDIT_SCHEMA_JSON}"
+        ));
+    }
+    if audit.get("status").and_then(Value::as_str) != Some("fail") {
+        errors.push(format!(
+            "{report_path}: expected status `fail`, found {:?}",
+            audit.get("status")
+        ));
+    }
+    if let Some(bundle_path) = audit.get("bundle_path").and_then(Value::as_str) {
+        if !is_safe_relative_path(bundle_path) {
+            errors.push(format!(
+                "{report_path}: bundle_path is not upload-safe relative metadata `{}`",
+                display_schema_path(bundle_path)
+            ));
+        }
+    }
+
+    let checks = audit
+        .get("checks")
+        .and_then(Value::as_array)
+        .map(Vec::as_slice)
+        .unwrap_or(&[]);
+    if checks.len() != 1 {
+        errors.push(format!(
+            "{report_path}: expected exactly one failure check, found {}",
+            checks.len()
+        ));
+    }
+    let failure_class = checks
+        .first()
+        .and_then(|check| check.get("failure_class"))
+        .and_then(Value::as_str);
+    if failure_class != Some(expected_failure_class) {
+        errors.push(format!(
+            "{report_path}: expected checks[0].failure_class `{expected_failure_class}`, found {failure_class:?}"
+        ));
+    }
+    let check_status = checks
+        .first()
+        .and_then(|check| check.get("status"))
+        .and_then(Value::as_str);
+    if check_status != Some("fail") {
+        errors.push(format!(
+            "{report_path}: expected checks[0].status `fail`, found {check_status:?}"
+        ));
+    }
+}
+
+fn validate_audit_receipt_example_coverage(
+    schema_classes: &BTreeSet<String>,
+    example_classes: &BTreeSet<String>,
+    errors: &mut Vec<String>,
+) {
+    for missing in schema_classes.difference(example_classes) {
+        errors.push(format!(
+            "bundle-audit failure_class `{missing}` has no committed audit receipt example"
+        ));
+    }
+    for extra in example_classes.difference(schema_classes) {
+        errors.push(format!(
+            "committed audit receipt example class `{extra}` is not listed in bundle-audit schema"
+        ));
+    }
+}
+
+fn validate_audit_receipt_allowed_fields(audit: &Value, path: &str, errors: &mut Vec<String>) {
+    validate_allowed_object_keys(
+        audit,
+        path,
+        &[
+            "version",
+            "status",
+            "bundle_path",
+            "profile",
+            "manifest_version",
+            "manifest_path",
+            "artifact_count",
+            "receipt_count",
+            "scanner_safe_count",
+            "runtime_material_count",
+            "files",
+            "artifacts",
+            "receipts",
+            "missing_files",
+            "unexpected_files",
+            "checks",
+            "boundaries",
+            "does_not_prove",
+        ],
+        errors,
+    );
+
+    if let Some(artifacts) = audit.get("artifacts").and_then(Value::as_array) {
+        for (idx, artifact) in artifacts.iter().enumerate() {
+            validate_allowed_object_keys(
+                artifact,
+                &format!("{path}.artifacts[{idx}]"),
+                &[
+                    "path",
+                    "kind",
+                    "format",
+                    "scanner_safe",
+                    "runtime_material",
+                    "description",
+                ],
+                errors,
+            );
+        }
+    }
+    if let Some(receipts) = audit.get("receipts").and_then(Value::as_array) {
+        for (idx, receipt) in receipts.iter().enumerate() {
+            validate_allowed_object_keys(
+                receipt,
+                &format!("{path}.receipts[{idx}]"),
+                &["path", "kind", "profile", "description"],
+                errors,
+            );
+        }
+    }
+    if let Some(checks) = audit.get("checks").and_then(Value::as_array) {
+        for (idx, check) in checks.iter().enumerate() {
+            validate_allowed_object_keys(
+                check,
+                &format!("{path}.checks[{idx}]"),
+                &["name", "status", "failure_class", "detail"],
+                errors,
+            );
+        }
+    }
+}
+
+fn validate_allowed_object_keys(
+    value: &Value,
+    path: &str,
+    allowed: &[&str],
+    errors: &mut Vec<String>,
+) {
+    let Some(object) = value.as_object() else {
+        return;
+    };
+    for key in object.keys() {
+        if !allowed.contains(&key.as_str()) {
+            errors.push(format!("{path}: unsupported field `{key}`"));
+        }
+    }
+}
+
+fn validate_no_audit_receipt_material(path: &str, value: &Value, errors: &mut Vec<String>) {
+    match value {
+        Value::Object(object) => {
+            for (key, value) in object {
+                let child_path = format!("{path}.{key}");
+                if is_forbidden_audit_receipt_key(key) {
+                    errors.push(format!(
+                        "{child_path}: forbidden raw-material field name in audit receipt example"
+                    ));
+                }
+                validate_no_audit_receipt_material(&child_path, value, errors);
+            }
+        }
+        Value::Array(values) => {
+            for (idx, value) in values.iter().enumerate() {
+                validate_no_audit_receipt_material(&format!("{path}[{idx}]"), value, errors);
+            }
+        }
+        Value::String(value) => {
+            for marker in [
+                "-----BEGIN PRIVATE KEY-----",
+                "-----BEGIN RSA PRIVATE KEY-----",
+                "-----BEGIN EC PRIVATE KEY-----",
+                "-----BEGIN OPENSSH PRIVATE KEY-----",
+                "-----BEGIN PGP PRIVATE KEY BLOCK-----",
+            ] {
+                if value.contains(marker) {
+                    errors.push(format!(
+                        "{path}: forbidden payload marker `{marker}` in audit receipt example"
+                    ));
+                }
+            }
+            for snippet in [
+                "\"d\":", "\"p\":", "\"q\":", "\"dp\":", "\"dq\":", "\"qi\":", "\"k\":",
+            ] {
+                if value.contains(snippet) {
+                    errors.push(format!(
+                        "{path}: forbidden private JWK member snippet `{snippet}` in audit receipt example"
+                    ));
+                }
+            }
+            if looks_like_jwt_value(value) {
+                errors.push(format!(
+                    "{path}: forbidden JWT-shaped value in audit receipt example"
+                ));
+            }
+        }
+        _ => {}
+    }
+}
+
+fn is_forbidden_audit_receipt_key(key: &str) -> bool {
+    matches!(
+        key,
+        "d" | "p"
+            | "q"
+            | "dp"
+            | "dq"
+            | "qi"
+            | "oth"
+            | "k"
+            | "key"
+            | "secret"
+            | "hmac_secret"
+            | "request_body"
+            | "body"
+            | "raw_body"
+            | "payload"
+            | "raw_payload"
+            | "webhook_body"
+    )
+}
+
+fn looks_like_jwt_value(value: &str) -> bool {
+    let parts: Vec<_> = value.split('.').collect();
+    parts.len() == 3
+        && value.len() >= 30
+        && parts.iter().all(|part| {
+            part.len() >= 8
+                && part
+                    .chars()
+                    .all(|ch| ch.is_ascii_alphanumeric() || matches!(ch, '-' | '_' | '='))
+        })
 }
 
 fn run_quiet_command(cmd: &mut Command) -> Result<()> {
@@ -2802,6 +3168,111 @@ mod tests {
                 error.contains("expected failure_class `missing_manifest`")
                     && error.contains("unsupported_profile")
             }),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn audit_receipt_example_validator_accepts_minimal_failure_example() {
+        let schema = audit_schema_for_tests();
+        let mut errors = Vec::new();
+        let schema_classes = bundle_audit_failure_classes(&schema, &mut errors);
+        let audit = ci_failure_audit_for_tests("missing_manifest");
+
+        validate_audit_receipt_example(
+            "examples/audit-receipts/missing_manifest.json",
+            "missing_manifest",
+            &audit,
+            &schema,
+            &schema_classes,
+            &mut errors,
+        );
+
+        assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
+    fn audit_receipt_example_coverage_rejects_missing_schema_class() {
+        let schema = audit_schema_for_tests();
+        let mut errors = Vec::new();
+        let schema_classes = bundle_audit_failure_classes(&schema, &mut errors);
+        let example_classes = BTreeSet::from(["missing_manifest".to_string()]);
+
+        validate_audit_receipt_example_coverage(&schema_classes, &example_classes, &mut errors);
+
+        assert!(
+            errors.iter().any(|error| {
+                error.contains("bundle-audit failure_class `invalid_manifest`")
+                    && error.contains("no committed audit receipt example")
+            }),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn audit_receipt_example_validator_rejects_extra_payload_fields() {
+        let schema = audit_schema_for_tests();
+        let mut errors = Vec::new();
+        let schema_classes = bundle_audit_failure_classes(&schema, &mut errors);
+        let mut audit = ci_failure_audit_for_tests("missing_manifest");
+        audit["payload"] = json!("raw webhook request body");
+
+        validate_audit_receipt_example(
+            "examples/audit-receipts/missing_manifest.json",
+            "missing_manifest",
+            &audit,
+            &schema,
+            &schema_classes,
+            &mut errors,
+        );
+
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("unsupported field `payload`")),
+            "{errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("forbidden raw-material field name")),
+            "{errors:?}"
+        );
+    }
+
+    #[test]
+    fn audit_receipt_material_guard_rejects_payload_markers() {
+        let mut errors = Vec::new();
+        validate_no_audit_receipt_material(
+            "bundle-audit.json",
+            &json!({
+                "checks": [{
+                    "detail": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIn0.signature"
+                }],
+                "jwk": {
+                    "k": "raw-symmetric-key"
+                },
+                "private": "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"
+            }),
+            &mut errors,
+        );
+
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("JWT-shaped value")),
+            "{errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("forbidden raw-material field name")),
+            "{errors:?}"
+        );
+        assert!(
+            errors
+                .iter()
+                .any(|error| error.contains("forbidden payload marker")),
             "{errors:?}"
         );
     }

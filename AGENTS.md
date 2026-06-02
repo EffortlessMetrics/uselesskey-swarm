@@ -137,6 +137,7 @@ cargo xtask check-support-tiers       # Validate support tiers against public cl
 cargo xtask check-claim-proof-policy  # Validate claim-proof policy rows without running handlers
 cargo xtask check-negative-fixtures   # Validate negative fixture ledger, matrix, and taxonomy coverage
 cargo xtask check-bundle-schemas      # Validate generated bundle manifests and negative coverage receipts
+cargo xtask check-audit-receipts      # Validate committed bundle-audit failure receipt examples
 cargo xtask claim-report --check-public-claims # Check PUBLIC_CLAIMS.md against policy/claim-ledger.toml
 ```
 
