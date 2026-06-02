@@ -41,6 +41,15 @@ router reason, changed files and surfaces, merge blockers, skipped-by-policy
 notes, and local reproduction commands. The receipt is evidence; it does not
 change branch protection or make advisory checks blocking.
 
+## Main Full Gate Receipt
+
+`Uselesskey Main Full Gate` uploads a `main-full-gate-receipt` artifact
+containing `target/source-of-truth/main-full-gate-receipt.json`. Use it to
+review hosted full-gate start and completion timestamps, elapsed seconds,
+`xtask ci` result, exit code, heartbeat evidence, and the relationship to
+`target/xtask/receipt.json`. The receipt is evidence for the latest `main`
+commit; it does not replace the normalized `Uselesskey Rust Small Result`.
+
 ## Boundary
 
 This policy does not move release, publish, signing, tag, GitHub release,

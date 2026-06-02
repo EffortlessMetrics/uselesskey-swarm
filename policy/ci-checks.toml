@@ -47,6 +47,7 @@ workflow = "EM CI Routed Rust"
 role = "main-branch-proof"
 scope = "Full `cargo xtask ci` proof selected for pushes to main and explicit full-gate dispatches."
 operator_action = "Preserve the newest live main proof; avoid merging another main-changing PR while it is still running unless urgent CI repair is needed."
+receipt = "target/source-of-truth/main-full-gate-receipt.json"
 local_reproduction = [
   "cargo xtask ci",
 ]
