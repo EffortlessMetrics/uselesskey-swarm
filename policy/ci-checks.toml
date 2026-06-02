@@ -1,0 +1,127 @@
+schema_version = "1.0"
+owner = "EffortlessMetrics"
+updated = "2026-06-02"
+
+# Source-of-truth artifact id: USELESSKEY-POLICY-ci-checks
+
+[[check]]
+name = "Uselesskey Rust Small Result"
+workflow = "EM CI Routed Rust"
+role = "required"
+scope = "Normalized swarm merge signal for PRs, merge groups, and main pushes."
+operator_action = "Wait for success before merge. Treat conditional runner jobs as route details unless branch protection changes."
+local_reproduction = [
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[check]]
+name = "Source of Truth Advisory"
+workflow = "Source of Truth"
+role = "triage-required"
+scope = "Repo-contract signal for doc artifacts, goals, claims, support tiers, and negative fixture policy."
+operator_action = "Inspect failures before merge; fix the source-of-truth drift or record why it is not in scope."
+local_reproduction = [
+  "cargo xtask check-doc-artifacts",
+  "cargo xtask check-goals",
+  "cargo xtask check-support-tiers",
+  "cargo xtask check-claim-proof-policy",
+  "cargo xtask claim-report --check-public-claims",
+  "cargo xtask check-negative-fixtures",
+]
+
+[[check]]
+name = "Coverage"
+workflow = "Coverage"
+role = "advisory-by-default"
+scope = "Coverage execution signal for Rust surfaces."
+operator_action = "Inspect when the PR opts into coverage evidence; do not block ordinary green merges on coverage context alone."
+local_reproduction = [
+  "cargo xtask coverage",
+]
+
+[[check]]
+name = "Uselesskey Main Full Gate"
+workflow = "EM CI Routed Rust"
+role = "main-branch-proof"
+scope = "Full `cargo xtask ci` proof selected for pushes to main and explicit full-gate dispatches."
+operator_action = "Preserve the newest live main proof; avoid merging another main-changing PR while it is still running unless urgent CI repair is needed."
+local_reproduction = [
+  "cargo xtask ci",
+]
+
+[[check]]
+name = "Uselesskey Rust Small on CPX42"
+workflow = "EM CI Routed Rust"
+role = "conditional-route"
+scope = "Concrete self-hosted Rust small implementation lane selected by the router."
+operator_action = "Use as route evidence only; the normalized result owns branch-protection meaning."
+local_reproduction = [
+  "cargo xtask gate --check",
+]
+
+[[check]]
+name = "Uselesskey Rust Small on CX43"
+workflow = "EM CI Routed Rust"
+role = "conditional-route"
+scope = "Concrete self-hosted Rust small implementation lane selected by the router."
+operator_action = "Use as route evidence only; the normalized result owns branch-protection meaning."
+local_reproduction = [
+  "cargo xtask pr",
+  "cargo xtask docs-sync --check",
+  "cargo xtask examples-smoke",
+]
+
+[[check]]
+name = "Uselesskey Rust Small on CX53"
+workflow = "EM CI Routed Rust"
+role = "conditional-route"
+scope = "Concrete self-hosted Rust small implementation lane selected by the router."
+operator_action = "Use as route evidence only; the normalized result owns branch-protection meaning."
+local_reproduction = [
+  "cargo xtask pr",
+  "cargo xtask docs-sync --check",
+  "cargo xtask examples-smoke",
+]
+
+[[check]]
+name = "Uselesskey Rust Small on GitHub Hosted"
+workflow = "EM CI Routed Rust"
+role = "conditional-route"
+scope = "Hosted fallback lane for fork PRs or explicitly allowlisted same-repo fallback."
+operator_action = "Require the `allow-github-hosted` policy reason for same-repo fallback; do not treat it as release authority."
+local_reproduction = [
+  "cargo check --workspace --locked --all-targets",
+]
+
+[[check]]
+name = "Uselesskey Docs/Policy Light on GitHub Hosted"
+workflow = "EM CI Routed Rust"
+role = "conditional-route"
+scope = "Light docs, policy, plans, Rails, goal, issue-template, and metadata route."
+operator_action = "Use for route evidence on metadata-only changes; keep product or Rust behavior out of this route."
+local_reproduction = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+]
+
+[[check]]
+name = "Uselesskey Workflow Validation on GitHub Hosted"
+workflow = "EM CI Routed Rust"
+role = "conditional-route"
+scope = "Workflow-change route that validates workflow hygiene and YAML parseability."
+operator_action = "Use for workflow-shape evidence; run broader proof only when the workflow change changes product or Rust behavior."
+local_reproduction = [
+  "cargo test -p xtask workflow_hygiene_guard",
+  "bash ci/check-bare-self-hosted.sh .github/workflows",
+]
+
+[[check]]
+name = "Uselesskey Route Failed"
+workflow = "EM CI Routed Rust"
+role = "merge-blocker"
+scope = "Explicit router failure for unknown route, missing runner policy, or failed runner discovery."
+operator_action = "Fix routing policy or apply a documented fallback label when the PR scope allows hosted fallback."
+local_reproduction = [
+  "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
+]

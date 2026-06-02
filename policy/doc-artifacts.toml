@@ -1,6 +1,6 @@
 schema_version = "1.0"
 owner = "EffortlessMetrics"
-updated = "2026-05-21"
+updated = "2026-06-02"
 
 # Source-of-truth artifact id: USELESSKEY-POLICY-doc-artifacts
 
@@ -482,6 +482,17 @@ linked_specs = [
 ]
 
 [[artifact]]
+id = "USELESSKEY-POLICY-ci-checks"
+kind = "policy"
+path = "policy/ci-checks.toml"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0007",
+  "USELESSKEY-SPEC-0023",
+]
+
+[[artifact]]
 id = "USELESSKEY-STATUS-support-tiers"
 kind = "status"
 path = "docs/status/SUPPORT_TIERS.md"
@@ -522,6 +533,17 @@ status = "accepted"
 owner = "repo-infra"
 linked_specs = [
   "USELESSKEY-SPEC-0019",
+  "USELESSKEY-SPEC-0023",
+]
+
+[[artifact]]
+id = "USELESSKEY-STATUS-ci-check-policy"
+kind = "status"
+path = "docs/status/ci-check-policy.md"
+status = "accepted"
+owner = "repo-infra"
+linked_specs = [
+  "USELESSKEY-SPEC-0007",
   "USELESSKEY-SPEC-0023",
 ]
 

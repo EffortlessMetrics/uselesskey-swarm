@@ -58,6 +58,8 @@ separate merge gates unless branch protection changes explicitly say so.
 Coverage is advisory by default. Inspect it when a PR explicitly requests
 coverage evidence, but do not block an otherwise green merge on ordinary
 coverage context unless branch protection or the linked work item requires it.
+The machine-readable check role map lives in `policy/ci-checks.toml`; update it
+with any durable required, advisory, triage, or route-role change.
 
 ## Command Contract
 
@@ -95,6 +97,7 @@ Update owned truth in only the artifact that owns it:
 - `policy/doc-artifacts.toml` owns proposal, spec, ADR, plan, status, and
   policy artifact inventory.
 - `policy/claim-ledger.toml` owns public claim to proof mapping.
+- `policy/ci-checks.toml` owns CI check roles and merge-signal boundaries.
 - `docs/status/SUPPORT_TIERS.md` owns tier posture and support boundaries.
 - `policy/negative-fixtures.toml` owns stable negative fixture policy state.
 

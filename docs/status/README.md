@@ -24,4 +24,5 @@ check exist.
 - [SUPPORT_TIERS.md](SUPPORT_TIERS.md) - Claim and workflow support-tier map
 - [negative-fixture-matrix.md](negative-fixture-matrix.md) - Negative fixture stable ID implementation state
 - [public-surface-matrix.md](public-surface-matrix.md) - Compact public crate promise matrix
+- [ci-check-policy.md](ci-check-policy.md) - Required, advisory, triage, and route-only CI check roles
 - [workflow-support.md](workflow-support.md) - User workflow to claim, support tier, proof, receipt, and boundary map
