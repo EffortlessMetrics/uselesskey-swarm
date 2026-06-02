@@ -68,6 +68,23 @@ Normal response:
 Escalate only when the newest active full gate fails, exceeds its timeout, or is
 clearly stuck in the same step beyond the timeout policy.
 
+Before merging another PR while a main full gate may be live, run the advisory
+queue check:
+
+```bash
+cargo xtask check-merge-queue
+```
+
+It writes `target/source-of-truth/merge-queue-check.json` with the newest main
+`EM CI Routed Rust` push run, the decision (`pass`, `hold`, `investigate`, or
+`unknown`), merge blockers, and the required action. By default this is
+advisory evidence and exits successfully so it can be used during review
+without becoming a new branch-protection check. Use
+`cargo xtask check-merge-queue --strict` only when an operator or future CI lane
+intentionally wants unresolved main proof to fail the caller. Use
+`--urgent-ci-repair` only for a narrow PR whose purpose is to repair the live
+CI path.
+
 ## Main Full Gate Observability
 
 The `Uselesskey Main Full Gate` wraps `cargo xtask ci` with a one-minute

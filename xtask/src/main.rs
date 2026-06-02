@@ -29,6 +29,7 @@ mod doctor;
 mod economics;
 mod external_adoption_smoke;
 mod goals;
+mod merge_queue;
 mod plan;
 mod policy;
 mod pr_body;
@@ -276,6 +277,27 @@ enum Cmd {
     CheckDocArtifacts,
     /// Validate support-tier rows against public claims, proof commands, docs, and specs.
     CheckSupportTiers,
+    /// Check advisory merge queue posture against the newest main full-gate proof.
+    CheckMergeQueue {
+        /// Explicit repo in `owner/name` form. Defaults to the current gh repo.
+        #[arg(long)]
+        repo: Option<String>,
+        /// Main branch to inspect.
+        #[arg(long, default_value = "main")]
+        main_branch: String,
+        /// Read `gh run list --json ...` output from a fixture file instead of calling gh.
+        #[arg(long)]
+        runs_json: Option<PathBuf>,
+        /// Output path for the advisory queue receipt.
+        #[arg(long, default_value = "target/source-of-truth/merge-queue-check.json")]
+        out: PathBuf,
+        /// Exit nonzero when the decision is hold, investigate, or unknown.
+        #[arg(long)]
+        strict: bool,
+        /// Allow a live main proof only for a narrow CI-repair PR.
+        #[arg(long)]
+        urgent_ci_repair: bool,
+    },
     /// Validate claim-proof policy rows without running proof handlers.
     CheckClaimProofPolicy,
     /// Validate active and archived source-of-truth goal manifests.
@@ -751,6 +773,24 @@ fn main() -> Result<()> {
         }
         Cmd::CheckDocArtifacts => doc_artifacts::run(&workspace_root_path()),
         Cmd::CheckSupportTiers => support_tiers::run(&workspace_root_path()),
+        Cmd::CheckMergeQueue {
+            repo,
+            main_branch,
+            runs_json,
+            out,
+            strict,
+            urgent_ci_repair,
+        } => merge_queue::run(
+            &workspace_root_path(),
+            merge_queue::MergeQueueOptions {
+                repo,
+                main_branch,
+                runs_json,
+                out,
+                strict,
+                urgent_ci_repair,
+            },
+        ),
         Cmd::CheckClaimProofPolicy => claim_proof::check_policy(&workspace_root_path()),
         Cmd::CheckGoals => goals::run(&workspace_root_path()),
         Cmd::RepoContractReport => repo_contract_report::run(&workspace_root_path()),
