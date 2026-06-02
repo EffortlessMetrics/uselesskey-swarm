@@ -889,13 +889,13 @@ fn validate_audit_receipt_example(
             audit.get("status")
         ));
     }
-    if let Some(bundle_path) = audit.get("bundle_path").and_then(Value::as_str) {
-        if !is_safe_relative_path(bundle_path) {
-            errors.push(format!(
-                "{report_path}: bundle_path is not upload-safe relative metadata `{}`",
-                display_schema_path(bundle_path)
-            ));
-        }
+    if let Some(bundle_path) = audit.get("bundle_path").and_then(Value::as_str)
+        && !is_safe_relative_path(bundle_path)
+    {
+        errors.push(format!(
+            "{report_path}: bundle_path is not upload-safe relative metadata `{}`",
+            display_schema_path(bundle_path)
+        ));
     }
 
     let checks = audit
