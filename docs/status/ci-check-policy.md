@@ -41,6 +41,12 @@ router reason, changed files and surfaces, merge blockers, skipped-by-policy
 notes, and local reproduction commands. The receipt is evidence; it does not
 change branch protection or make advisory checks blocking.
 
+The `route_reasons[]` entries explain why each changed path was classified as
+workflow, docs/policy metadata, or Rust proof. Issue templates, PR templates,
+Rails lanes, goal manifests, policy ledgers, and docs should name their light
+metadata reason directly. Unknown or implementation paths must route to Rust
+proof rather than appearing as skipped work.
+
 ## Main Full Gate Receipt
 
 `Uselesskey Main Full Gate` uploads a `main-full-gate-receipt` artifact

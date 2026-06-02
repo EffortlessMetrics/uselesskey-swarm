@@ -27,6 +27,12 @@ changed surfaces, the selected target, the router reason, merge blockers,
 required and advisory checks, skipped-by-policy notes, and local reproduction
 commands.
 
+The receipt also includes `route_reasons[]` entries with the changed path, the
+classified surface, the selected target family, and a short reason. This keeps
+metadata-only paths such as issue templates, PR templates, policy ledgers,
+Rails lanes, and goal manifests reviewable without reading the router script.
+Unknown or implementation paths are recorded as Rust proof, not silently skipped.
+
 The receipt is review evidence only. It does not replace the normalized
 `Uselesskey Rust Small Result`, make coverage blocking, or move release,
 publish, signing, tag, GitHub release, crates.io, or source-sync authority into

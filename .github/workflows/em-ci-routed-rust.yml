@@ -150,14 +150,104 @@ jobs:
               ".github/PULL_REQUEST_TEMPLATE/*",
           ]
 
-          def surface_for(path):
+          def route_reason_for(path):
               if fnmatch.fnmatch(path, ".github/workflows/*"):
-                  return "workflow"
+                  return {
+                      "path": path,
+                      "surface": "workflow",
+                      "target": "workflow",
+                      "reason": "workflow declaration; run hosted workflow validation and YAML hygiene checks",
+                  }
+              if fnmatch.fnmatch(path, ".github/ISSUE_TEMPLATE/*"):
+                  return {
+                      "path": path,
+                      "surface": "github_issue_template",
+                      "target": "docs",
+                      "reason": "process metadata; no Rust or product code changed",
+                  }
+              if (
+                  fnmatch.fnmatch(path, ".github/pull_request_template.md")
+                  or fnmatch.fnmatch(path, ".github/PULL_REQUEST_TEMPLATE.md")
+                  or fnmatch.fnmatch(path, ".github/PULL_REQUEST_TEMPLATE/*")
+              ):
+                  return {
+                      "path": path,
+                      "surface": "github_pr_template",
+                      "target": "docs",
+                      "reason": "process metadata; no Rust or product code changed",
+                  }
+              if fnmatch.fnmatch(path, "policy/*"):
+                  return {
+                      "path": path,
+                      "surface": "policy_ledger",
+                      "target": "docs",
+                      "reason": "policy ledger metadata; validate source-of-truth and docs checks",
+                  }
+              if fnmatch.fnmatch(path, ".rails/*"):
+                  return {
+                      "path": path,
+                      "surface": "rails_control_plane",
+                      "target": "docs",
+                      "reason": "Rails source-of-truth metadata; validate docs/policy light checks",
+                  }
+              if fnmatch.fnmatch(path, ".uselesskey/*"):
+                  return {
+                      "path": path,
+                      "surface": "goal_manifest",
+                      "target": "docs",
+                      "reason": "agent goal metadata; validate source-of-truth checks",
+                  }
+              if fnmatch.fnmatch(path, "plans/*"):
+                  return {
+                      "path": path,
+                      "surface": "implementation_plan",
+                      "target": "docs",
+                      "reason": "implementation plan metadata; no Rust or product code changed",
+                  }
+              if fnmatch.fnmatch(path, "docs/*") or fnmatch.fnmatch(path, "docs/tracking/*"):
+                  return {
+                      "path": path,
+                      "surface": "docs",
+                      "target": "docs",
+                      "reason": "documentation surface; validate docs sync and typos",
+                  }
+              if fnmatch.fnmatch(path, "badges/*"):
+                  return {
+                      "path": path,
+                      "surface": "badge_endpoint",
+                      "target": "docs",
+                      "reason": "generated badge endpoint metadata; validate docs/policy light checks",
+                  }
+              if fnmatch.fnmatch(path, "ci/hardware/*"):
+                  return {
+                      "path": path,
+                      "surface": "ci_hardware_metadata",
+                      "target": "docs",
+                      "reason": "CI hardware metadata; no workflow or Rust code changed",
+                  }
+              if fnmatch.fnmatch(path, ".codex/campaigns/*"):
+                  return {
+                      "path": path,
+                      "surface": "agent_campaign_metadata",
+                      "target": "docs",
+                      "reason": "agent campaign metadata; no Rust or product code changed",
+                  }
               if any(fnmatch.fnmatch(path, pattern) for pattern in light_patterns):
-                  return "docs_policy"
-              return "rust"
+                  return {
+                      "path": path,
+                      "surface": "docs_policy",
+                      "target": "docs",
+                      "reason": "repo metadata or front-matter; validate docs/policy light checks",
+                  }
+              return {
+                  "path": path,
+                  "surface": "rust",
+                  "target": "rust",
+                  "reason": "implementation or unknown surface; route to broad Rust proof",
+              }
 
-          changed_surfaces = sorted({surface_for(path) for path in changed_files})
+          route_reasons = [route_reason_for(path) for path in changed_files]
+          changed_surfaces = sorted({entry["surface"] for entry in route_reasons})
           if target == "main-full":
               changed_surfaces = ["main"]
           elif not changed_surfaces:
@@ -206,6 +296,7 @@ jobs:
               "fallback_allowed": fallback_allowed,
               "changed_files": changed_files,
               "changed_surfaces": changed_surfaces,
+              "route_reasons": route_reasons,
               "required_checks": required_checks,
               "triage_checks": ["Source of Truth Advisory"],
               "advisory_checks": ["Coverage"],
