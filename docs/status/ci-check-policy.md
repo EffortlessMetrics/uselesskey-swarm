@@ -30,7 +30,7 @@ merge gate, a source-of-truth triage signal, an advisory lane, or route evidence
 | `Uselesskey Rust Small on CX53` | `conditional-route` | `EM CI Routed Rust` | Concrete self-hosted implementation route. |
 | `Uselesskey Rust Small on GitHub Hosted` | `conditional-route` | `EM CI Routed Rust` | Hosted fallback route, not release authority. |
 | `Uselesskey Docs/Policy Light on GitHub Hosted` | `conditional-route` | `EM CI Routed Rust` | Metadata-only route; not product behavior proof. |
-| `Uselesskey Workflow Validation on GitHub Hosted` | `conditional-route` | `EM CI Routed Rust` | Workflow-shape evidence. |
+| `Uselesskey Workflow Validation on GitHub Hosted` | `conditional-route` | `EM CI Routed Rust` | Workflow-shape evidence plus the routed-workflow contract test. |
 | `Uselesskey Route Failed` | `merge-blocker` | `EM CI Routed Rust` | Router failure that needs policy or route repair. |
 
 ## Route Receipt
@@ -40,6 +40,12 @@ merge gate, a source-of-truth triage signal, an advisory lane, or route evidence
 router reason, changed files and surfaces, merge blockers, skipped-by-policy
 notes, and local reproduction commands. The receipt is evidence; it does not
 change branch protection or make advisory checks blocking.
+
+The `route_reasons[]` entries explain why each changed path was classified as
+workflow, docs/policy metadata, or Rust proof. Issue templates, PR templates,
+Rails lanes, goal manifests, policy ledgers, and docs should name their light
+metadata reason directly. Unknown or implementation paths must route to Rust
+proof rather than appearing as skipped work.
 
 ## Main Full Gate Receipt
 

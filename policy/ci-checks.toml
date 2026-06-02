@@ -114,6 +114,7 @@ role = "conditional-route"
 scope = "Workflow-change route that validates workflow hygiene and YAML parseability."
 operator_action = "Use for workflow-shape evidence; run broader proof only when the workflow change changes product or Rust behavior."
 local_reproduction = [
+  "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
   "cargo test -p xtask workflow_hygiene_guard",
   "bash ci/check-bare-self-hosted.sh .github/workflows",
 ]
