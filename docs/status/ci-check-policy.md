@@ -50,6 +50,13 @@ review hosted full-gate start and completion timestamps, elapsed seconds,
 `target/xtask/receipt.json`. The receipt is evidence for the latest `main`
 commit; it does not replace the normalized `Uselesskey Rust Small Result`.
 
+`cargo xtask check-merge-queue` is the local advisory companion to this policy.
+It reads the newest main `EM CI Routed Rust` push run, writes
+`target/source-of-truth/merge-queue-check.json`, and reports whether ordinary
+merges should proceed, hold for an unresolved main full gate, or investigate a
+failed or missing main proof. It is not a branch-protection check unless a
+caller deliberately runs it with `--strict`.
+
 ## Boundary
 
 This policy does not move release, publish, signing, tag, GitHub release,
