@@ -1,9 +1,12 @@
 use std::fmt;
 use std::sync::Arc;
 
-use pgp::composed::{EncryptionCaps, KeyType, SecretKeyParamsBuilder, SignedPublicKey};
+use pgp::composed::{
+    EncryptionCaps, KeyType, SecretKeyParamsBuilder, SignedPublicKey, SignedSecretKey,
+};
+use pgp::packet::{SignatureConfig, Subpacket, SubpacketData};
 use pgp::ser::Serialize;
-use pgp::types::KeyDetails;
+use pgp::types::{KeyDetails, Password, Tag, Timestamp};
 use rand_chacha::ChaCha20Rng;
 use rand_core::SeedableRng;
 use uselesskey_core::negative::{
@@ -171,10 +174,12 @@ fn load_inner(factory: &Factory, label: &str, spec: PgpSpec, variant: &str) -> A
     factory.get_or_init(DOMAIN_PGP_KEYPAIR, label, &spec_bytes, variant, |seed| {
         let mut rng = ChaCha20Rng::from_seed(*seed.bytes());
         let user_id = build_user_id(label);
+        let creation_time = deterministic_creation_time(seed.bytes());
 
         let mut key_params = SecretKeyParamsBuilder::default();
         key_params
             .key_type(spec_to_key_type(spec))
+            .created_at(creation_time)
             .can_certify(true)
             .can_sign(true)
             .can_encrypt(EncryptionCaps::None)
@@ -184,9 +189,11 @@ fn load_inner(factory: &Factory, label: &str, spec: PgpSpec, variant: &str) -> A
             .build()
             .expect("failed to build OpenPGP secret key params");
 
-        let secret_key = secret_key_params
+        let mut secret_key = secret_key_params
             .generate(&mut rng)
             .expect("OpenPGP key generation failed");
+        replace_primary_user_signature_time(&mut secret_key, creation_time)
+            .expect("failed to normalize OpenPGP self-signature time");
         let public_key = SignedPublicKey::from(secret_key.clone());
 
         let mut private_binary = Vec::new();
@@ -215,6 +222,73 @@ fn load_inner(factory: &Factory, label: &str, spec: PgpSpec, variant: &str) -> A
             public_armor,
         }
     })
+}
+
+fn deterministic_creation_time(seed: &[u8; 32]) -> Timestamp {
+    const EPOCH_2020_01_01: u32 = 1_577_836_800;
+    const TWENTY_YEARS_IN_SECONDS: u32 = 20 * 365 * 24 * 60 * 60;
+
+    let offset = u32::from_le_bytes(seed[0..4].try_into().expect("seed has four bytes"))
+        % TWENTY_YEARS_IN_SECONDS;
+    Timestamp::from_secs(EPOCH_2020_01_01 + offset)
+}
+
+fn replace_primary_user_signature_time(
+    secret_key: &mut SignedSecretKey,
+    creation_time: Timestamp,
+) -> pgp::errors::Result<()> {
+    let (user_id, mut config) = {
+        let user = secret_key
+            .details
+            .users
+            .first()
+            .expect("OpenPGP fixture has a primary user id");
+        let signature = user
+            .signatures
+            .first()
+            .expect("OpenPGP fixture user id has a self-signature");
+        let config = signature
+            .config()
+            .expect("OpenPGP fixture uses a known signature format")
+            .clone();
+
+        (user.id.clone(), config)
+    };
+
+    replace_signature_creation_time(&mut config, creation_time);
+    let signature = config.sign_certification(
+        &secret_key.primary_key,
+        &secret_key.primary_key.public_key(),
+        &Password::empty(),
+        Tag::UserId,
+        &user_id,
+    )?;
+
+    let user = secret_key
+        .details
+        .users
+        .first_mut()
+        .expect("OpenPGP fixture has a primary user id");
+    user.signatures = vec![signature];
+
+    Ok(())
+}
+
+fn replace_signature_creation_time(config: &mut SignatureConfig, creation_time: Timestamp) {
+    let mut replaced = false;
+    for subpacket in &mut config.hashed_subpackets {
+        if matches!(subpacket.data, SubpacketData::SignatureCreationTime(_)) {
+            *subpacket = Subpacket::regular(SubpacketData::SignatureCreationTime(creation_time))
+                .expect("valid OpenPGP signature creation time subpacket");
+            replaced = true;
+            break;
+        }
+    }
+
+    assert!(
+        replaced,
+        "OpenPGP self-signature must include a signature creation time"
+    );
 }
 
 fn spec_to_key_type(spec: PgpSpec) -> KeyType {
@@ -250,6 +324,8 @@ fn build_user_id(label: &str) -> String {
 #[cfg(test)]
 mod tests {
     use std::io::Cursor;
+    use std::thread;
+    use std::time::Duration;
 
     use pgp::composed::{Deserializable, SignedPublicKey, SignedSecretKey};
     use pgp::types::KeyDetails;
@@ -266,6 +342,24 @@ mod tests {
         assert_eq!(a.private_key_armored(), b.private_key_armored());
         assert_eq!(a.public_key_armored(), b.public_key_armored());
         assert_eq!(a.fingerprint(), b.fingerprint());
+    }
+
+    #[test]
+    fn deterministic_key_is_stable_across_wall_clock_seconds() {
+        let seed = Seed::from_env_value("pgp-det-cross-second").unwrap();
+        let fx1 = Factory::deterministic(seed);
+        let first = fx1.pgp("issuer", PgpSpec::ed25519());
+
+        thread::sleep(Duration::from_secs(2));
+
+        let fx2 = Factory::deterministic(seed);
+        let second = fx2.pgp("issuer", PgpSpec::ed25519());
+
+        assert_eq!(first.private_key_binary(), second.private_key_binary());
+        assert_eq!(first.public_key_binary(), second.public_key_binary());
+        assert_eq!(first.private_key_armored(), second.private_key_armored());
+        assert_eq!(first.public_key_armored(), second.public_key_armored());
+        assert_eq!(first.fingerprint(), second.fingerprint());
     }
 
     #[test]
