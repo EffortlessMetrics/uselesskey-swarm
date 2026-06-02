@@ -33,6 +33,14 @@ merge gate, a source-of-truth triage signal, an advisory lane, or route evidence
 | `Uselesskey Workflow Validation on GitHub Hosted` | `conditional-route` | `EM CI Routed Rust` | Workflow-shape evidence. |
 | `Uselesskey Route Failed` | `merge-blocker` | `EM CI Routed Rust` | Router failure that needs policy or route repair. |
 
+## Route Receipt
+
+`EM CI Routed Rust` uploads a `proof-route` artifact containing
+`target/source-of-truth/proof-route.json`. Use it to review the selected target,
+router reason, changed files and surfaces, merge blockers, skipped-by-policy
+notes, and local reproduction commands. The receipt is evidence; it does not
+change branch protection or make advisory checks blocking.
+
 ## Boundary
 
 This policy does not move release, publish, signing, tag, GitHub release,

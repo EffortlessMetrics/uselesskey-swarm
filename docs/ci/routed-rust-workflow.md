@@ -19,6 +19,19 @@ The router first classifies the change:
 | Fork PRs | `github` | Hosted fallback is allowed for fork safety. |
 | Push to `main`, or `workflow_dispatch` with `run_full_gate=true` | `main-full` | Runs the hosted full gate and makes the normalized result follow that job. |
 
+## Proof Route Receipt
+
+Every routed Rust run uploads a `proof-route` artifact from
+`target/source-of-truth/proof-route.json`. The receipt records changed files,
+changed surfaces, the selected target, the router reason, merge blockers,
+required and advisory checks, skipped-by-policy notes, and local reproduction
+commands.
+
+The receipt is review evidence only. It does not replace the normalized
+`Uselesskey Rust Small Result`, make coverage blocking, or move release,
+publish, signing, tag, GitHub release, crates.io, or source-sync authority into
+the swarm repository.
+
 The workflow cancels in-progress runs only for `push` events. Pull request and
 merge-group runs keep the non-canceling heavy/core behavior, while main pushes
 replace obsolete in-progress full gates so the latest main commit is the branch
