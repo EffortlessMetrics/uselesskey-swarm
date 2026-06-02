@@ -2685,6 +2685,7 @@ jobs:
             "docs/tracking/*",
             "ci/hardware/*",
             ".codex/campaigns/*",
+            ".github/ISSUE_TEMPLATE/*",
             ".github/PULL_REQUEST_TEMPLATE.md",
             "emit \"route-fail\" \"parse_failed\" \"true\" \"false\"",
             "emit \"cx43\" \"cx43_idle\" \"false\"",
