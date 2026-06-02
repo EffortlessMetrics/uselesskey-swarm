@@ -76,6 +76,7 @@ runner plumbing.
 Coverage is advisory by default. Inspect it when a PR opts into the coverage
 lane, but do not treat ordinary coverage context as a merge gate unless the PR's
 scope or branch protection explicitly says so.
+Use `policy/ci-checks.toml` for the machine-readable check role map.
 
 ## Ledger Updates
 
@@ -84,6 +85,7 @@ Update ledgers only when their owned truth changes:
 - `policy/claim-ledger.toml` for public claim or proof mapping changes;
 - `docs/status/SUPPORT_TIERS.md` for tier or boundary changes;
 - `policy/negative-fixtures.toml` for negative fixture contract changes;
+- `policy/ci-checks.toml` for CI check role or merge-signal changes;
 - `policy/doc-artifacts.toml` for source-of-truth artifact inventory changes;
 - `.uselesskey/goals/active.toml` for current work state changes.
 

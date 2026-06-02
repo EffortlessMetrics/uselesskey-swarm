@@ -52,5 +52,7 @@ The `codecov.yml` file configures coverage statuses:
 ## Status
 
 Coverage is currently **advisory**. It does not block merges or CI.
+That role is recorded in `policy/ci-checks.toml` and summarized in
+[`docs/status/ci-check-policy.md`](../status/ci-check-policy.md).
 
 Once baseline data is established, the lane may move to informational or blocking status via `codecov.yml` updates.

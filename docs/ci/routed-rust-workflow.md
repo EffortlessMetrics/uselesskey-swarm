@@ -4,6 +4,8 @@ The swarm repository routes Rust proof through
 `.github/workflows/em-ci-routed-rust.yml`. Branch protection should depend on
 the normalized `Uselesskey Rust Small Result` check, not the conditional runner
 jobs.
+The durable check role map lives in `policy/ci-checks.toml`; the human index is
+[`docs/status/ci-check-policy.md`](../status/ci-check-policy.md).
 
 ## Runner Selection
 

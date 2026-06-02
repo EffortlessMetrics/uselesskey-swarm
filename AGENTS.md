@@ -21,6 +21,7 @@ separate required checks. For routed CI fallback rules, including the
 Also inspect `Source of Truth Advisory` when it runs; failures there are
 repo-contract triage signals, not conditional runner jobs.
 Coverage is advisory unless a PR explicitly opts into the coverage lane.
+The machine-readable check role map lives in `policy/ci-checks.toml`.
 
 ## Source-of-truth control plane
 
