@@ -55,6 +55,9 @@ For each PR:
 
 Conditional implementation jobs are routing details. Do not treat them as
 separate merge gates unless branch protection changes explicitly say so.
+Coverage is advisory by default. Inspect it when a PR explicitly requests
+coverage evidence, but do not block an otherwise green merge on ordinary
+coverage context unless branch protection or the linked work item requires it.
 
 ## Command Contract
 
