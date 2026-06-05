@@ -279,15 +279,23 @@ pub(crate) fn check_audit_receipts() -> Result<()> {
 }
 
 fn write_audit_receipt_examples_report(report: &AuditReceiptExamplesReport) -> Result<()> {
-    let _output_lock = acquire_audit_receipt_output_lock(Path::new("."))?;
-    let out_dir = Path::new(AUDIT_RECEIPT_REPORT_DIR);
-    fs::create_dir_all(out_dir).with_context(|| format!("create {}", out_dir.display()))?;
+    write_audit_receipt_examples_report_at(Path::new("."), report)
+}
+
+fn write_audit_receipt_examples_report_at(
+    root: &Path,
+    report: &AuditReceiptExamplesReport,
+) -> Result<()> {
+    let _output_lock = acquire_audit_receipt_output_lock(root)?;
+    let out_dir = root.join(AUDIT_RECEIPT_REPORT_DIR);
+    fs::create_dir_all(&out_dir).with_context(|| format!("create {}", out_dir.display()))?;
     write_json_pretty(&out_dir.join(AUDIT_RECEIPT_REPORT_JSON), report)?;
+    let markdown_path = out_dir.join(AUDIT_RECEIPT_REPORT_MD);
     fs::write(
-        out_dir.join(AUDIT_RECEIPT_REPORT_MD),
+        &markdown_path,
         render_audit_receipt_examples_markdown(report),
     )
-    .with_context(|| format!("write {}", out_dir.join(AUDIT_RECEIPT_REPORT_MD).display()))?;
+    .with_context(|| format!("write {}", markdown_path.display()))?;
     Ok(())
 }
 
@@ -3280,6 +3288,44 @@ mod tests {
                 "missing `{expected}` in {markdown}"
             );
         }
+    }
+
+    #[test]
+    fn audit_receipt_examples_report_writer_emits_json_and_markdown() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let report = AuditReceiptExamplesReport {
+            schema_version: 1,
+            examples_checked: 1,
+            schema: BUNDLE_AUDIT_SCHEMA_JSON.to_string(),
+            examples_dir: AUDIT_RECEIPT_EXAMPLES_DIR.to_string(),
+            examples: vec![AuditReceiptExampleReport {
+                path: "examples/audit-receipts/missing_manifest.json".to_string(),
+                failure_class: "missing_manifest".to_string(),
+                checks: 1,
+            }],
+            errors: Vec::new(),
+        };
+
+        write_audit_receipt_examples_report_at(dir.path(), &report)?;
+
+        let json_path = dir
+            .path()
+            .join(AUDIT_RECEIPT_REPORT_DIR)
+            .join(AUDIT_RECEIPT_REPORT_JSON);
+        let markdown_path = dir
+            .path()
+            .join(AUDIT_RECEIPT_REPORT_DIR)
+            .join(AUDIT_RECEIPT_REPORT_MD);
+        let json: Value = serde_json::from_str(&fs::read_to_string(&json_path)?)?;
+        let markdown = fs::read_to_string(&markdown_path)?;
+
+        assert_eq!(json["schema_version"], 1);
+        assert_eq!(json["examples_checked"], 1);
+        assert_eq!(json["schema"], BUNDLE_AUDIT_SCHEMA_JSON);
+        assert_eq!(json["examples"][0]["failure_class"], "missing_manifest");
+        assert!(markdown.contains("Examples checked: 1"));
+        assert!(markdown.contains("`missing_manifest`"));
+        Ok(())
     }
 
     #[test]
