@@ -37,6 +37,7 @@ Pick the job first; the repo proof machinery is behind links when you need it.
 | test negative verifier paths | contract packs | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` |
 | review bundle evidence | verify + inspect + audit | `uselesskey inspect-bundle target/uselesskey-webhook` |
 | keep runtime material disposable | `target/` output | `uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` |
+| upload metadata-only receipts | CI artifact step | `uses: actions/upload-artifact@v7` |
 | prove repo public claims from a checkout | repo verification pack | `cargo xtask verification-pack --out target/uselesskey-verification` |
 
 Install the CLI when you want fixture bundles outside this workspace:
@@ -62,6 +63,20 @@ the audit is part of a downstream CI gate:
 
 ```bash
 uselesskey audit-bundle target/uselesskey-webhook --ci --expect-profile webhook --policy strict --out target/uselesskey-webhook-audit
+```
+
+For GitHub Actions, upload only the metadata-only audit receipts:
+
+```yaml
+- name: Upload uselesskey audit receipts
+  uses: actions/upload-artifact@v7
+  if: always()
+  with:
+    name: uselesskey-webhook-audit
+    path: |
+      target/uselesskey-webhook-audit/bundle-audit.json
+      target/uselesskey-webhook-audit/bundle-audit.md
+    if-no-files-found: error
 ```
 
 Rust test authors start with the facade crate:

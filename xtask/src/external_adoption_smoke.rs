@@ -1584,6 +1584,47 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_top_level_docs_include_audit_receipt_upload_step() {
+        let readme = include_str!("../../README.md");
+        let start_here = include_str!("../../docs/how-to/start-here.md");
+        let downstream_ci = include_str!("../../docs/how-to/use-uselesskey-in-downstream-ci.md");
+
+        for (name, doc) in [
+            ("README.md", readme),
+            ("docs/how-to/start-here.md", start_here),
+            (
+                "docs/how-to/use-uselesskey-in-downstream-ci.md",
+                downstream_ci,
+            ),
+        ] {
+            for expected in [
+                "actions/upload-artifact@v7",
+                "if: always()",
+                "target/uselesskey-webhook-audit/bundle-audit.json",
+                "target/uselesskey-webhook-audit/bundle-audit.md",
+                "if-no-files-found: error",
+            ] {
+                assert!(doc.contains(expected), "{name} missing `{expected}`");
+            }
+        }
+
+        assert!(
+            readme.contains("| upload metadata-only receipts |"),
+            "README Start Here table should route users to audit receipt upload"
+        );
+        assert!(
+            start_here.contains(
+                "use-uselesskey-in-github-actions.md#upload-audit-receipts"
+            ),
+            "start-here should link directly to the GitHub Actions upload section"
+        );
+        assert!(
+            downstream_ci.contains("Upload metadata-only audit receipts"),
+            "downstream CI copy block should include an upload step"
+        );
+    }
+
+    #[test]
     fn external_adoption_ci_recipe_profiles_are_supported_cli_profiles() {
         for profile in CI_RECIPE_PROFILES {
             assert!(
