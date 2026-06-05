@@ -33,6 +33,23 @@ target/uselesskey-webhook-audit/bundle-audit.md
 target/uselesskey-webhook-audit/bundle-audit.json
 ```
 
+In GitHub Actions, upload only the metadata-only audit receipts:
+
+```yaml
+      - name: Upload uselesskey audit receipts
+        uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: uselesskey-audit-receipts
+          path: |
+            target/uselesskey-webhook-audit/bundle-audit.json
+            target/uselesskey-webhook-audit/bundle-audit.md
+          if-no-files-found: error
+```
+
+For multi-profile workflows, see
+[use-uselesskey-in-github-actions.md#upload-audit-receipts](use-uselesskey-in-github-actions.md#upload-audit-receipts).
+
 Do not attach generated request payloads, PEM/DER material, token files,
 Kubernetes Secret YAML, Vault JSON, or other raw fixture payloads unless your
 review process explicitly asks for them.
