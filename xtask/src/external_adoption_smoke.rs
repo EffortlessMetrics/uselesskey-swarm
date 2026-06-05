@@ -1623,6 +1623,26 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_downstream_ci_doc_routes_failure_receipt_triage() {
+        let doc = include_str!("../../docs/how-to/use-uselesskey-in-downstream-ci.md");
+
+        for expected in [
+            "Read the uploaded JSON receipt first when CI fails",
+            "target/uselesskey-webhook-audit/bundle-audit.json",
+            "status",
+            "profile",
+            "checks[].failure_class",
+            "Do not branch on `checks[].detail`, Markdown text, or log prose.",
+            "../reference/audit-failure-classes.md",
+        ] {
+            assert!(
+                doc.contains(expected),
+                "downstream CI guide missing failure triage text `{expected}`"
+            );
+        }
+    }
+
+    #[test]
     fn external_adoption_ci_recipe_profiles_are_supported_cli_profiles() {
         for profile in CI_RECIPE_PROFILES {
             assert!(
