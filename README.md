@@ -33,6 +33,10 @@ Pick the job first; the repo proof machinery is behind links when you need it.
 | I need to... | Start with | Copy this |
 | --- | --- | --- |
 | write Rust tests | facade crate | `uselesskey = { version = "0.9.1", features = ["rsa"] }` |
+| test webhook signatures | webhook profile | `uselesskey bundle --profile webhook --out target/uselesskey-webhook` |
+| test TLS chains | TLS profile | `uselesskey bundle --profile tls --out target/uselesskey-tls` |
+| test OIDC/JWT negatives | OIDC profile | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` |
+| test token-only Rust code | facade token feature | `uselesskey = { version = "0.9.1", default-features = false, features = ["token"] }` |
 | install CI fixtures | installed CLI bundle | `uselesskey bundle --profile scanner-safe --out target/uselesskey-bundle` |
 | test negative verifier paths | contract packs | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` |
 | review bundle evidence | verify + inspect + audit | `uselesskey inspect-bundle target/uselesskey-webhook` |
