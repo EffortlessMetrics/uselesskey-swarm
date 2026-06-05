@@ -12,6 +12,11 @@ or cryptographic assurance.
 | I need to... | Copy this | Full workflow |
 | --- | --- | --- |
 | write Rust tests | `uselesskey = { version = "0.9.1", features = ["rsa", "jwk"] }` | [choose-features.md](choose-features.md) |
+| test webhook signatures | `uselesskey bundle --profile webhook --out target/uselesskey-webhook` | [test-webhook-signature-validation.md](test-webhook-signature-validation.md) |
+| test TLS chains | `uselesskey bundle --profile tls --out target/uselesskey-tls` | [test-tls-chain-validation.md](test-tls-chain-validation.md) |
+| test OIDC/JWKS validation | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` | [test-oidc-jwks-validation.md](test-oidc-jwks-validation.md) |
+| test JWT negative validation | `uselesskey = { version = "0.9.1", default-features = false, features = ["token"] }` | [test-jwt-negative-validation.md](test-jwt-negative-validation.md) |
+| test token-only Rust code | `uselesskey = { version = "0.9.1", default-features = false, features = ["token"] }` | [choose-features.md](choose-features.md) |
 | install CI fixtures | `uselesskey bundle --profile scanner-safe --out target/uselesskey-scanner-safe` | [verify-a-fixture-bundle.md](verify-a-fixture-bundle.md) |
 | test negative verifier paths | `uselesskey bundle --profile oidc --out target/uselesskey-oidc` | [test-oidc-jwks-validation.md](test-oidc-jwks-validation.md) |
 | collect review evidence | `uselesskey audit-bundle target/uselesskey-webhook --ci --out target/uselesskey-webhook-audit` | [verify-a-fixture-bundle.md](verify-a-fixture-bundle.md) |

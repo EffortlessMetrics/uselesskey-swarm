@@ -1623,6 +1623,45 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_top_level_docs_route_common_fixture_jobs() {
+        let readme = include_str!("../../README.md");
+        let start_here = include_str!("../../docs/how-to/start-here.md");
+
+        for (name, doc) in [
+            ("README.md", readme),
+            ("docs/how-to/start-here.md", start_here),
+        ] {
+            for expected in [
+                "test webhook signatures",
+                "uselesskey bundle --profile webhook --out target/uselesskey-webhook",
+                "test TLS chains",
+                "uselesskey bundle --profile tls --out target/uselesskey-tls",
+                "uselesskey bundle --profile oidc --out target/uselesskey-oidc",
+                "test token-only Rust code",
+                "features = [\"token\"]",
+            ] {
+                assert!(
+                    doc.contains(expected),
+                    "{name} missing front-door route `{expected}`"
+                );
+            }
+        }
+
+        for expected in [
+            "test-webhook-signature-validation.md",
+            "test-tls-chain-validation.md",
+            "test-oidc-jwks-validation.md",
+            "test-jwt-negative-validation.md",
+            "choose-features.md",
+        ] {
+            assert!(
+                start_here.contains(expected),
+                "start-here missing detailed workflow link `{expected}`"
+            );
+        }
+    }
+
+    #[test]
     fn external_adoption_downstream_ci_doc_routes_failure_receipt_triage() {
         let doc = include_str!("../../docs/how-to/use-uselesskey-in-downstream-ci.md");
 
