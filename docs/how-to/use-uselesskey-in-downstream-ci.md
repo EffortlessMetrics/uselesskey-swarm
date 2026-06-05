@@ -82,6 +82,24 @@ When `--ci` is combined with `--out`, `audit-bundle` writes
 policy failures. Use an always-run upload step if reviewers need the failure
 packet after CI rejects the bundle.
 
+Read the uploaded JSON receipt first when CI fails:
+
+```text
+target/uselesskey-webhook-audit/bundle-audit.json
+```
+
+Branch on these stable fields:
+
+```text
+status
+profile
+checks[].failure_class
+```
+
+Do not branch on `checks[].detail`, Markdown text, or log prose. The stable
+failure class registry is
+[`../reference/audit-failure-classes.md`](../reference/audit-failure-classes.md).
+
 ## Verify
 
 To run the installed CLI path locally:
