@@ -1975,6 +1975,12 @@ mod tests {
             "uselesskey inspect-bundle target/uselesskey-webhook",
             "--expect-profile webhook",
             "--policy strict",
+            "actions/upload-artifact@v7",
+            "if: always()",
+            "target/uselesskey-webhook-audit/bundle-audit.json",
+            "target/uselesskey-webhook-audit/bundle-audit.md",
+            "if-no-files-found: error",
+            "use-uselesskey-in-github-actions.md#upload-audit-receipts",
         ] {
             assert!(
                 doc.contains(expected),
