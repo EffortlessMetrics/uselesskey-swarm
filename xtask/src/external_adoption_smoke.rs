@@ -1838,6 +1838,32 @@ mod tests {
     }
 
     #[test]
+    fn external_adoption_examples_readme_has_copy_first_path() {
+        let doc = include_str!("../../examples/external/README.md");
+
+        for expected in [
+            "## Copy First",
+            "cargo install uselesskey-cli --version 0.9.1 --locked",
+            "uselesskey doctor --format json",
+            "uselesskey bundle --profile webhook --out target/uselesskey-webhook",
+            "uselesskey verify-bundle target/uselesskey-webhook",
+            "uselesskey inspect-bundle target/uselesskey-webhook",
+            "uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci --expect-profile webhook --policy strict",
+            "[dev-dependencies]",
+            "features = [\"rsa\", \"jwk\", \"token\"]",
+            "cargo test",
+            "ci-recipes/github-actions-bundle-verify-audit.yml.example",
+            "target/uselesskey-webhook-audit/bundle-audit.json",
+            "target/uselesskey-webhook-audit/bundle-audit.md",
+        ] {
+            assert!(
+                doc.contains(expected),
+                "external examples README missing copy-first text `{expected}`"
+            );
+        }
+    }
+
+    #[test]
     fn external_adoption_examples_readme_lists_example_directories() {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()

@@ -4,6 +4,39 @@ These examples are shaped like downstream repositories. Use them when you want
 copyable test, CI, and verifier wiring without learning the workspace internals
 first.
 
+## Copy First
+
+For an installed CLI bundle path, start with the webhook profile:
+
+```bash
+cargo install uselesskey-cli --version 0.9.1 --locked
+uselesskey doctor --format json
+uselesskey bundle --profile webhook --out target/uselesskey-webhook
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci --expect-profile webhook --policy strict
+```
+
+For Rust tests, start with the facade crate:
+
+```toml
+[dev-dependencies]
+uselesskey = { version = "0.9.1", default-features = false, features = ["rsa", "jwk", "token"] }
+```
+
+```bash
+cargo test
+```
+
+For GitHub Actions, copy
+`ci-recipes/github-actions-bundle-verify-audit.yml.example` into
+`.github/workflows/` and keep the audit upload step limited to:
+
+```text
+target/uselesskey-webhook-audit/bundle-audit.json
+target/uselesskey-webhook-audit/bundle-audit.md
+```
+
 ## Pick A Job
 
 | Job | Example | Proof path |
