@@ -1613,9 +1613,7 @@ mod tests {
             "README Start Here table should route users to audit receipt upload"
         );
         assert!(
-            start_here.contains(
-                "use-uselesskey-in-github-actions.md#upload-audit-receipts"
-            ),
+            start_here.contains("use-uselesskey-in-github-actions.md#upload-audit-receipts"),
             "start-here should link directly to the GitHub Actions upload section"
         );
         assert!(
