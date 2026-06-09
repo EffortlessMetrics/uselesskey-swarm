@@ -16,7 +16,7 @@ authors.workspace = true
 
 [dependencies]
 axum = { version = "0.8.9", default-features = false, features = ["json", "tokio", "http1"] }
-http = "1.4.1"
+http = "1.4.2"
 jsonwebtoken.workspace = true
 serde.workspace = true
 serde_json.workspace = true
