@@ -1,47 +1,62 @@
 schema_version = "1.0"
 
-id = "v0.10.0-release-readiness"
-title = "v0.10.0 release readiness"
-status = "archived"
+id = "v0.10-release-adoption-closure"
+title = "v0.10 release adoption closure"
+status = "active"
 owner = "codex"
-created = "2026-05-21"
+created = "2026-06-13"
 
 objective = """
-Prove that the v0.10.0 release candidate matches the documented user path
-without publishing, tagging, signing, pushing to crates.io, creating a GitHub
-release, or moving source-sync authority out of EffortlessMetrics/uselesskey.
+Turn the proven adoption docs, examples, downstream CI guidance, and installed
+audit handoff into a release-quality v0.10.0 product path. A cold user should
+be able to install the CLI or add the facade crate, generate job-focused
+fixtures, audit metadata-only receipts, branch on stable failure classes, and
+understand the proof boundary without repo archaeology.
 """
 
 end_state = [
-  "Release-facing user commands and snippets are inventoried with proof owners.",
-  "Version snippets are reconciled for current stable versus release-candidate wording.",
-  "Installed CLI bundle, verify, inspect, and audit paths are proven for the release candidate.",
-  "Facade examples are proven against the release candidate checkout.",
-  "Package contents are dry-run validated without generated payloads or target receipts.",
-  "A release readiness record states proof, hosted CI, non-blockers, rollback, and claim boundaries.",
+  "README and Start Here route cold users to webhook, TLS, OIDC/JWKS, JWT/token, scanner-safe, CLI, and facade paths by job.",
+  "Release-facing commands and snippets are inventoried, version-classified, and proof-owned before the source release candidate.",
+  "Installed CLI and facade adoption smokes prove the release path from a checkout before publish and from crates.io after publish.",
+  "Bundle audit JSON fields, failure classes, schema version, and metadata-only upload boundaries are frozen for release-facing automation.",
+  "Package dry-run evidence proves generated runtime payloads and target receipts are excluded from published crates.",
+  "A source release handoff states swarm commit, proof inventory, command ledger, package proof, non-blockers, deferred PRs, non-claims, and rollback.",
+  "Release execution remains blocked until explicit approval and runs from the source/release boundary, not implicitly from swarm.",
 ]
 
 [[work_item]]
-id = "open-release-readiness-goal"
+id = "open-release-adoption-closure-lane"
 status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
 commands = [
   "cargo xtask check-doc-artifacts",
   "cargo xtask check-goals",
   "cargo xtask docs-sync --check",
   "cargo xtask typos",
-  "cargo xtask pr",
   "git diff --check",
 ]
 
 [[work_item]]
-id = "release-surface-inventory"
-status = "done"
+id = "adoption-proof-inventory"
+status = "ready"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
+commands = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "cargo xtask check-goals",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "command-ledger-freeze"
+status = "planned"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
 commands = [
   "cargo xtask docs-sync --check",
   "cargo xtask typos",
@@ -51,37 +66,34 @@ commands = [
 
 [[work_item]]
 id = "version-snippet-reconciliation"
-status = "done"
+status = "planned"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
 commands = [
+  "rg \"0\\.9\\.1|0\\.10\\.0\" README.md docs examples crates",
   "cargo xtask docs-sync --check",
-  "cargo xtask typos",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "installed-cli-release-smoke"
-status = "done"
+status = "planned"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
 commands = [
-  "cargo test -p xtask external_adoption",
-  "cargo test -p uselesskey-cli --all-features audit_bundle",
-  "cargo xtask external-adoption-smoke --path .",
-  "cargo xtask docs-sync --check",
-  "cargo xtask check-goals",
+  "cargo xtask external-adoption-smoke --path . --ci-recipes --format json",
+  "cargo xtask adoption-regression --external",
   "git diff --check",
 ]
 
 [[work_item]]
-id = "facade-release-smoke"
-status = "done"
+id = "facade-published-version-smoke"
+status = "planned"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
 commands = [
   "cargo xtask external-adoption-smoke --path . --library-examples",
   "cargo xtask docs-sync --check",
@@ -90,34 +102,89 @@ commands = [
 ]
 
 [[work_item]]
-id = "package-dry-run"
-status = "done"
+id = "receipt-contract-freeze"
+status = "planned"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0014"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
+commands = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "cargo xtask check-goals",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "package-contents-proof"
+status = "planned"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
 commands = [
   "cargo xtask publish-preflight",
   "cargo xtask publish-check",
   "cargo xtask no-blob",
-  "cargo test -p uselesskey-rsa --all-features",
-  "cargo test -p uselesskey-ecdsa --all-features",
-  "cargo test -p uselesskey-ed25519 --all-features",
-  "cargo xtask lint-fix --check --no-clippy",
+  "cargo package --workspace --allow-dirty",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "source-release-handoff"
+status = "planned"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
+commands = [
   "cargo xtask docs-sync --check",
   "cargo xtask check-goals",
   "git diff --check",
 ]
 
 [[work_item]]
-id = "release-readiness-record"
-status = "done"
+id = "source-repo-release-candidate"
+status = "planned"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10.0-release-readiness/implementation-plan.md"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
+commands = [
+  "cargo check --workspace --all-targets --all-features --locked",
+  "cargo test --workspace --all-features --locked",
+  "cargo xtask external-adoption-smoke --path . --format json",
+  "cargo xtask adoption-regression --external",
+  "cargo xtask publish-preflight",
+  "cargo xtask publish-check",
+  "cargo xtask no-blob",
+  "cargo xtask docs-sync --check",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "final-release-dry-run-record"
+status = "planned"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
 commands = [
   "cargo xtask docs-sync --check",
   "cargo xtask check-support-tiers",
   "cargo xtask check-doc-artifacts",
   "cargo xtask check-goals",
   "git diff --check",
+]
+
+[[work_item]]
+id = "release-execution"
+status = "blocked"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0024"
+plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
+blocked_by = "Requires explicit release approval and must run from EffortlessMetrics/uselesskey after source candidate and dry-run evidence pass."
+commands = [
+  "cargo publish -p <crates in dependency order>",
+  "cargo publish -p uselesskey",
+  "cargo publish -p uselesskey-cli",
+  "git tag v0.10.0",
+  "git push origin v0.10.0",
+  "cargo install uselesskey-cli --version 0.10.0 --locked",
+  "cargo xtask external-adoption-smoke --published-version 0.10.0 --library-examples",
 ]

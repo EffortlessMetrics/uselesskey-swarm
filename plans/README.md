@@ -24,6 +24,7 @@ Plans do not define product truth. Link to proposals for why and specs for what.
 - [source-of-truth-control-plane](source-of-truth-control-plane/implementation-plan.md) - Repo-native proposal/spec/ADR/plan/goal/claim/policy/proof operating loop
 - [release-handoff](release-handoff/2026-05-21-source-of-truth-control-plane.md) - Source-boundary handoff packet without release authority migration
 - [v0.10.0-release-readiness](v0.10.0-release-readiness/implementation-plan.md) - Release-candidate user-path proof without publishing, tagging, signing, or source sync
+- [v0.10-release-adoption-closure](v0.10-release-adoption-closure/README.md) - Release adoption closure from proven user paths to source handoff and explicit release execution
 
 ## Templates
 
