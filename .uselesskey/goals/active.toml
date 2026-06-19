@@ -2,7 +2,7 @@ schema_version = "1.0"
 
 id = "v0.10-release-adoption-closure"
 title = "v0.10 release adoption closure"
-status = "active"
+status = "archived"
 owner = "codex"
 created = "2026-06-13"
 
@@ -40,7 +40,7 @@ commands = [
 
 [[work_item]]
 id = "adoption-proof-inventory"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
@@ -53,7 +53,7 @@ commands = [
 
 [[work_item]]
 id = "command-ledger-freeze"
-status = "planned"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
@@ -66,7 +66,7 @@ commands = [
 
 [[work_item]]
 id = "version-snippet-reconciliation"
-status = "planned"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
@@ -78,7 +78,7 @@ commands = [
 
 [[work_item]]
 id = "installed-cli-release-smoke"
-status = "planned"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
@@ -90,7 +90,7 @@ commands = [
 
 [[work_item]]
 id = "facade-published-version-smoke"
-status = "planned"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
@@ -103,7 +103,7 @@ commands = [
 
 [[work_item]]
 id = "receipt-contract-freeze"
-status = "planned"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0014"
 plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
@@ -116,7 +116,7 @@ commands = [
 
 [[work_item]]
 id = "package-contents-proof"
-status = "planned"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
@@ -124,13 +124,13 @@ commands = [
   "cargo xtask publish-preflight",
   "cargo xtask publish-check",
   "cargo xtask no-blob",
-  "cargo package --workspace --allow-dirty",
+  "cargo package --workspace --allow-dirty --exclude uselesskey-bdd --exclude uselesskey-bdd-steps --exclude uselesskey-interop-tests --exclude uselesskey-test-support --exclude uselesskey-test-grid --exclude uselesskey-feature-grid --exclude uselesskey-bench --exclude uselesskey-integration-tests --exclude materialize-shape-buildrs-example --exclude materialize-buildrs-example --exclude xtask",
   "git diff --check",
 ]
 
 [[work_item]]
 id = "source-release-handoff"
-status = "planned"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0024"
 plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"

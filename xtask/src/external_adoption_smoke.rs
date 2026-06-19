@@ -1,8 +1,10 @@
 use std::ffi::OsStr;
 use std::fs;
+use std::io::ErrorKind;
 use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
-use std::time::Instant;
+use std::thread;
+use std::time::{Duration, Instant};
 
 use anyhow::{Context, Result, bail};
 use serde_json::Value;
@@ -58,6 +60,9 @@ const HMAC_SIGNATURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "hmac-signature-validation",
     source_dir: "examples/external/hmac-signature-validation",
 };
+
+const OUTPUT_RESET_RETRIES: usize = 120;
+const OUTPUT_RESET_RETRY: Duration = Duration::from_millis(250);
 const JSONWEBTOKEN_ADAPTER_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "jsonwebtoken-adapter-validation",
     source_dir: "examples/external/jsonwebtoken-adapter-validation",
@@ -214,25 +219,30 @@ struct ExternalAdoptionStep {
 }
 
 pub fn run(root: &Path, options: RunOptions) -> Result<()> {
-    validate_run_options(&options)?;
-    let source = resolve_source(&options)?;
-    let _output_lock = target_output::acquire_lock(root, LOCK_DIR, "external-adoption-smoke")?;
     let out_dir = root.join(OUT_DIR);
-    reset_target_output(root, &out_dir)?;
     let work_dir = root.join(WORK_DIR);
     let log_dir = root.join(LOG_DIR);
-    fs::create_dir_all(&work_dir)
-        .with_context(|| format!("failed to create {}", work_dir.display()))?;
-    fs::create_dir_all(&log_dir)
-        .with_context(|| format!("failed to create {}", log_dir.display()))?;
+    fs::create_dir_all(root.join("target"))
+        .with_context(|| format!("failed to create {}", root.join("target").display()))?;
+    fs::create_dir_all(&out_dir)
+        .with_context(|| format!("failed to create {}", out_dir.display()))?;
 
     let mut receipt = ExternalAdoptionSmokeReceipt {
         schema_version: 1,
         status: "running".to_string(),
         generated_at: chrono::Utc::now().to_rfc3339(),
         git_sha: git_head_sha().ok(),
-        mode: source.mode.clone(),
-        source: source.label.clone(),
+        mode: if options.version.is_some() {
+            SmokeMode::Version
+        } else {
+            SmokeMode::Path
+        },
+        source: options
+            .version
+            .as_ref()
+            .cloned()
+            .or_else(|| options.path.as_ref().map(|path| path.display().to_string()))
+            .unwrap_or_else(|| "<missing source>".to_string()),
         work_root: relative_artifact(root, &work_dir),
         ci_recipes: options.ci_recipes,
         library_examples: options.library_examples,
@@ -246,6 +256,96 @@ pub fn run(root: &Path, options: RunOptions) -> Result<()> {
         ],
         boundaries: BOUNDARIES.to_vec(),
     };
+
+    if let Err(err) = validate_run_options(&options) {
+        record_setup_step(
+            &mut receipt,
+            "validate-run-options",
+            vec!["external-adoption-smoke".to_string()],
+            root,
+            Some(err.to_string()),
+        );
+        receipt.status = "failed".to_string();
+        write_receipts(&out_dir, &receipt)?;
+        return Err(err);
+    }
+
+    let source = match resolve_source(&options) {
+        Ok(source) => source,
+        Err(err) => {
+            record_setup_step(
+                &mut receipt,
+                "resolve-source",
+                vec!["external-adoption-smoke".to_string()],
+                root,
+                Some(err.to_string()),
+            );
+            receipt.status = "failed".to_string();
+            write_receipts(&out_dir, &receipt)?;
+            return Err(err);
+        }
+    };
+    receipt.mode = source.mode.clone();
+    receipt.source = source.label.clone();
+
+    let _output_lock = match target_output::acquire_lock(root, LOCK_DIR, "external-adoption-smoke")
+    {
+        Ok(lock) => lock,
+        Err(err) => {
+            record_setup_step(
+                &mut receipt,
+                "acquire-output-lock",
+                vec!["external-adoption-smoke".to_string()],
+                root,
+                Some(err.to_string()),
+            );
+            receipt.status = "failed".to_string();
+            write_receipts(&out_dir, &receipt)?;
+            return Err(err);
+        }
+    };
+
+    if let Err(err) = reset_target_output(root, &out_dir) {
+        record_setup_step(
+            &mut receipt,
+            "reset-output-directory",
+            vec!["reset_target_output".to_string()],
+            &out_dir,
+            Some(err.to_string()),
+        );
+        receipt.status = "failed".to_string();
+        write_receipts(&out_dir, &receipt)?;
+        return Err(err);
+    }
+
+    if let Err(err) = fs::create_dir_all(&work_dir)
+        .with_context(|| format!("failed to create {}", work_dir.display()))
+    {
+        record_setup_step(
+            &mut receipt,
+            "create-work-dir",
+            vec!["mkdir".to_string(), work_dir.display().to_string()],
+            root,
+            Some(err.to_string()),
+        );
+        receipt.status = "failed".to_string();
+        write_receipts(&out_dir, &receipt)?;
+        return Err(err);
+    }
+    if let Err(err) = fs::create_dir_all(&log_dir)
+        .with_context(|| format!("failed to create {}", log_dir.display()))
+    {
+        record_setup_step(
+            &mut receipt,
+            "create-log-dir",
+            vec!["mkdir".to_string(), log_dir.display().to_string()],
+            root,
+            Some(err.to_string()),
+        );
+        receipt.status = "failed".to_string();
+        write_receipts(&out_dir, &receipt)?;
+        return Err(err);
+    }
 
     let result = run_matrix(
         root,
@@ -1282,6 +1382,16 @@ fn resolve_source(options: &RunOptions) -> Result<SmokeSource> {
 }
 
 fn validate_run_options(options: &RunOptions) -> Result<()> {
+    if options.version.is_some() && options.library_examples {
+        bail!(
+            "external-adoption-smoke: --version cannot be combined with --library-examples. Use --path . --library-examples for checkout examples, or use --version alone for published-version smoke."
+        );
+    }
+    if options.version.is_some() && options.ci_recipes {
+        bail!(
+            "external-adoption-smoke: --version cannot be combined with --ci-recipes. Use --path . --ci-recipes for checkout recipes, or use --version alone for published-version smoke."
+        );
+    }
     if options.ci_recipes && options.library_examples {
         bail!(
             "external-adoption-smoke: --library-examples and --ci-recipes are mutually exclusive"
@@ -1317,6 +1427,14 @@ fn run_command_step(
     let command = command_to_vec(&cmd);
     let stdout_path = log_dir.join(format!("{name}.stdout.txt"));
     let stderr_path = log_dir.join(format!("{name}.stderr.txt"));
+    if let Some(stdout_parent) = stdout_path.parent() {
+        fs::create_dir_all(stdout_parent)
+            .with_context(|| format!("failed to create {}", stdout_parent.display()))?;
+    }
+    if let Some(stderr_parent) = stderr_path.parent() {
+        fs::create_dir_all(stderr_parent)
+            .with_context(|| format!("failed to create {}", stderr_parent.display()))?;
+    }
     let start = Instant::now();
     let output = cmd
         .output()
@@ -1368,6 +1486,52 @@ fn run_command_step(
     }
 }
 
+#[cfg(test)]
+mod command_steps {
+    use super::*;
+
+    #[test]
+    fn run_command_step_creates_missing_log_parents() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let log_dir = root.path().join("target/external-adoption-smoke/logs");
+        assert!(!log_dir.exists());
+
+        let mut receipt = ExternalAdoptionSmokeReceipt {
+            schema_version: 1,
+            status: "running".to_string(),
+            generated_at: "2026-06-18T00:00:00Z".to_string(),
+            git_sha: None,
+            mode: SmokeMode::Path,
+            source: "tests".to_string(),
+            work_root: "target/external-adoption-smoke/work".to_string(),
+            ci_recipes: false,
+            library_examples: false,
+            projects: Vec::new(),
+            steps: Vec::new(),
+            artifacts: vec![],
+            boundaries: Vec::new(),
+        };
+
+        let mut command = Command::new("cargo");
+        command.arg("--version");
+        let stdout = run_command_step(
+            &mut receipt,
+            "cargo-version",
+            command,
+            root.path(),
+            &log_dir,
+            &[],
+        )?;
+
+        assert!(stdout.exists());
+        assert_eq!(receipt.steps.len(), 1);
+        assert_eq!(receipt.steps[0].status, "ok");
+        assert!(log_dir.exists());
+
+        Ok(())
+    }
+}
+
 fn command_to_vec(cmd: &Command) -> Vec<String> {
     let mut command = Vec::new();
     command.push(cmd.get_program().to_string_lossy().into_owned());
@@ -1392,10 +1556,100 @@ fn record_project(
 fn reset_target_output(root: &Path, out_root: &Path) -> Result<()> {
     ensure_target_child(root, out_root)?;
     if out_root.exists() {
-        fs::remove_dir_all(out_root)
+        remove_dir_all_with_retries(out_root)
             .with_context(|| format!("failed to remove {}", out_root.display()))?;
     }
     fs::create_dir_all(out_root).with_context(|| format!("failed to create {}", out_root.display()))
+}
+
+fn remove_dir_all_with_retries(path: &Path) -> Result<()> {
+    for attempt in 0..OUTPUT_RESET_RETRIES {
+        let metadata = match fs::symlink_metadata(path) {
+            Ok(metadata) => metadata,
+            Err(err) if err.kind() == ErrorKind::NotFound => return Ok(()),
+            Err(err) => {
+                return Err(err).with_context(|| format!("failed to read {}", path.display()));
+            }
+        };
+
+        let remove_result = if metadata.is_dir() {
+            fs::remove_dir_all(path)
+        } else {
+            fs::remove_file(path)
+        };
+
+        match remove_result {
+            Ok(()) => return Ok(()),
+            Err(err) if err.kind() == ErrorKind::NotFound => return Ok(()),
+            Err(err) => {
+                if let Err(clear_err) = clear_readonly_attributes(path) {
+                    return Err(clear_err).with_context(|| {
+                        format!(
+                            "failed to clear read-only attributes while removing {}",
+                            path.display()
+                        )
+                    })?;
+                }
+                if attempt + 1 >= OUTPUT_RESET_RETRIES {
+                    return Err(err).with_context(|| {
+                        format!("failed to remove stale output path {}", path.display())
+                    });
+                }
+
+                thread::sleep(OUTPUT_RESET_RETRY);
+            }
+        }
+    }
+
+    bail!("failed to remove output directory {}", path.display())
+}
+
+fn clear_readonly_attributes(path: &Path) -> Result<()> {
+    let metadata = match fs::symlink_metadata(path) {
+        Ok(metadata) => metadata,
+        Err(err) if err.kind() == ErrorKind::NotFound => return Ok(()),
+        Err(err) => {
+            return Err(err).with_context(|| format!("failed to read {}", path.display()));
+        }
+    };
+
+    let mut permissions = metadata.permissions();
+    if permissions.readonly() {
+        clear_readonly_flag(&mut permissions)?;
+        fs::set_permissions(path, permissions)
+            .with_context(|| format!("failed to clear read-only on {}", path.display()))?;
+    }
+
+    if metadata.is_dir() {
+        for entry in
+            fs::read_dir(path).with_context(|| format!("failed to read {}", path.display()))?
+        {
+            let entry =
+                entry.with_context(|| format!("failed to read entry under {}", path.display()))?;
+            clear_readonly_attributes(&entry.path())?;
+        }
+    }
+    Ok(())
+}
+
+fn clear_readonly_flag(permissions: &mut std::fs::Permissions) -> Result<()> {
+    if permissions.readonly() {
+        #[cfg(unix)]
+        {
+            use std::os::unix::fs::PermissionsExt;
+            let mode = permissions.mode();
+            permissions.set_mode(mode | 0o200);
+            return Ok(());
+        }
+
+        #[cfg(not(unix))]
+        {
+            permissions.set_readonly(false);
+            return Ok(());
+        }
+    }
+
+    Ok(())
 }
 
 fn ensure_target_child(root: &Path, path: &Path) -> Result<()> {
@@ -1419,13 +1673,63 @@ fn absolute_path(root: &Path, path: &Path) -> PathBuf {
 }
 
 fn write_receipts(out_dir: &Path, receipt: &ExternalAdoptionSmokeReceipt) -> Result<()> {
+    let report_json = out_dir.join("report.json");
+    let report_md = out_dir.join("report.md");
+    let report_json_tmp = out_dir.join("report.json.tmp");
+    let report_md_tmp = out_dir.join("report.md.tmp");
+
     fs::write(
-        out_dir.join("report.json"),
+        &report_json_tmp,
         serde_json::to_string_pretty(receipt).context("failed to serialize adoption smoke")?,
     )
-    .with_context(|| format!("failed to write {}", out_dir.join("report.json").display()))?;
-    fs::write(out_dir.join("report.md"), render_markdown(receipt))
-        .with_context(|| format!("failed to write {}", out_dir.join("report.md").display()))
+    .with_context(|| format!("failed to write {}", report_json_tmp.display()))?;
+    publish_atomic(&report_json_tmp, &report_json)
+        .with_context(|| format!("failed to publish {}", report_json.display()))?;
+
+    fs::write(&report_md_tmp, render_markdown(receipt))
+        .with_context(|| format!("failed to write {}", report_md_tmp.display()))?;
+    publish_atomic(&report_md_tmp, &report_md)
+        .with_context(|| format!("failed to publish {}", report_md.display()))?;
+    Ok(())
+}
+
+fn publish_atomic(source: &Path, destination: &Path) -> Result<()> {
+    if destination.exists() {
+        clear_readonly_attributes(destination)?;
+        fs::remove_file(destination).with_context(|| {
+            format!(
+                "failed to clear existing output at {}",
+                destination.display()
+            )
+        })?;
+    }
+    fs::rename(source, destination).with_context(|| {
+        format!(
+            "failed to move {} to {}",
+            source.display(),
+            destination.display()
+        )
+    })
+}
+
+fn record_setup_step(
+    receipt: &mut ExternalAdoptionSmokeReceipt,
+    name: &str,
+    command: Vec<String>,
+    cwd: &Path,
+    details: Option<String>,
+) {
+    receipt.steps.push(ExternalAdoptionStep {
+        name: name.to_string(),
+        command,
+        cwd: cwd.display().to_string(),
+        status: "failed".to_string(),
+        duration_ms: 0,
+        stdout: String::new(),
+        stderr: String::new(),
+        details,
+        artifacts: Vec::new(),
+    });
 }
 
 fn render_markdown(receipt: &ExternalAdoptionSmokeReceipt) -> String {
@@ -1581,6 +1885,120 @@ mod tests {
             example.contains("uselesskey doctor --format json"),
             "GitHub Actions recipe should run installed CLI doctor before generating fixtures"
         );
+    }
+
+    #[test]
+    fn external_adoption_smoke_writes_receipts_over_existing_files() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let out_dir = root.path().join("target/external-adoption-smoke");
+        fs::create_dir_all(&out_dir)?;
+        let stale_json = out_dir.join("report.json");
+        let stale_md = out_dir.join("report.md");
+        fs::write(&stale_json, "stale")?;
+        fs::write(&stale_md, "stale")?;
+
+        let receipt = ExternalAdoptionSmokeReceipt {
+            schema_version: 1,
+            status: "pass".to_string(),
+            generated_at: "2026-06-18T00:00:00Z".to_string(),
+            git_sha: None,
+            mode: SmokeMode::Path,
+            source: "test".to_string(),
+            work_root: "target/external-adoption-smoke/work".to_string(),
+            ci_recipes: true,
+            library_examples: false,
+            projects: Vec::new(),
+            steps: Vec::new(),
+            artifacts: vec!["target/external-adoption-smoke/report.json".to_string()],
+            boundaries: Vec::new(),
+        };
+
+        write_receipts(&out_dir, &receipt)?;
+        let json = fs::read_to_string(&stale_json)?;
+        let parsed: Value = serde_json::from_str(&json)?;
+        assert_eq!(parsed["status"], "pass");
+        assert!(fs::read_to_string(stale_md)?.contains("External Adoption Smoke Receipt"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_smoke_remove_output_dir_clears_readonly_artifacts() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let out_dir = root.path().join("target/external-adoption-smoke");
+        fs::create_dir_all(&out_dir)?;
+        let readonly_file = out_dir.join("readonly.txt");
+        fs::write(&readonly_file, b"readonly fixture")?;
+        let mut permissions = fs::metadata(&readonly_file)
+            .context("metadata readonly fixture")?
+            .permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&readonly_file, permissions)?;
+        remove_dir_all_with_retries(&out_dir)?;
+
+        assert!(!out_dir.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_smoke_remove_output_dir_removes_files() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let out_dir = root.path().join("target/external-adoption-smoke");
+        fs::create_dir_all(
+            out_dir
+                .parent()
+                .expect("output path must have a parent for test setup"),
+        )?;
+        fs::write(&out_dir, b"stale output file")?;
+        let mut permissions = fs::metadata(&out_dir)?.permissions();
+        permissions.set_readonly(true);
+        fs::set_permissions(&out_dir, permissions)?;
+
+        remove_dir_all_with_retries(&out_dir)?;
+        assert!(!out_dir.exists());
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_smoke_writes_receipts_over_readonly_outputs() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let out_dir = root.path().join("target/external-adoption-smoke");
+        fs::create_dir_all(&out_dir)?;
+
+        let receipt = ExternalAdoptionSmokeReceipt {
+            schema_version: 1,
+            status: "pass".to_string(),
+            generated_at: "2026-06-18T00:00:00Z".to_string(),
+            git_sha: None,
+            mode: SmokeMode::Path,
+            source: "test".to_string(),
+            work_root: "target/external-adoption-smoke/work".to_string(),
+            ci_recipes: true,
+            library_examples: false,
+            projects: Vec::new(),
+            steps: Vec::new(),
+            artifacts: vec!["target/external-adoption-smoke/report.json".to_string()],
+            boundaries: Vec::new(),
+        };
+
+        let stale_json = out_dir.join("report.json");
+        let stale_md = out_dir.join("report.md");
+        fs::write(&stale_json, b"readonly")?;
+        fs::write(&stale_md, b"readonly")?;
+
+        for path in [&stale_json, &stale_md] {
+            let mut permissions = fs::metadata(path)?.permissions();
+            permissions.set_readonly(true);
+            fs::set_permissions(path, permissions)?;
+        }
+
+        write_receipts(&out_dir, &receipt)?;
+
+        let json = fs::read_to_string(&stale_json)?;
+        let parsed: Value = serde_json::from_str(&json)?;
+        assert_eq!(parsed["status"], "pass");
+        assert!(fs::read_to_string(stale_md)?.starts_with("# External Adoption Smoke Receipt"));
+
+        Ok(())
     }
 
     #[test]
@@ -1774,11 +2192,12 @@ mod tests {
     }
 
     #[test]
-    fn external_adoption_rejects_conflicting_direct_modes() {
+    fn external_adoption_rejects_conflicting_direct_modes() -> Result<()> {
+        let root = tempfile::tempdir().expect("temp root for isolated smoke");
         let err = run(
-            Path::new("."),
+            root.path(),
             RunOptions {
-                path: Some(PathBuf::from(".")),
+                path: Some(root.path().to_path_buf()),
                 version: None,
                 ci_recipes: true,
                 library_examples: true,
@@ -1792,6 +2211,129 @@ mod tests {
                 .contains("--library-examples and --ci-recipes are mutually exclusive"),
             "unexpected error: {err:#}"
         );
+        let report_json = root
+            .path()
+            .join("target/external-adoption-smoke")
+            .join("report.json");
+        let receipt: Value = serde_json::from_str(&fs::read_to_string(&report_json)?)?;
+        let steps = receipt
+            .get("steps")
+            .and_then(Value::as_array)
+            .context("missing steps in receipt")?;
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0]["name"], "validate-run-options");
+        assert_eq!(steps[0]["status"], "failed");
+        assert_eq!(receipt["status"], "failed");
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_version_with_ci_recipes() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let err = run(
+            root.path(),
+            RunOptions {
+                path: None,
+                version: Some("0.9.1".to_string()),
+                ci_recipes: true,
+                library_examples: false,
+                format: OutputFormat::Human,
+            },
+        )
+        .expect_err("published-version smoke should not combine with CI recipes");
+
+        assert!(
+            err.to_string().contains(
+                "external-adoption-smoke: --version cannot be combined with --ci-recipes"
+            ),
+            "unexpected error: {err:#}"
+        );
+        let report_json = root
+            .path()
+            .join("target/external-adoption-smoke")
+            .join("report.json");
+        let receipt: Value = serde_json::from_str(&fs::read_to_string(&report_json)?)?;
+        let steps = receipt
+            .get("steps")
+            .and_then(Value::as_array)
+            .context("missing steps in receipt")?;
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0]["name"], "validate-run-options");
+        assert_eq!(steps[0]["status"], "failed");
+        assert_eq!(receipt["status"], "failed");
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_rejects_version_with_library_examples() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let err = run(
+            root.path(),
+            RunOptions {
+                path: None,
+                version: Some("0.9.1".to_string()),
+                ci_recipes: false,
+                library_examples: true,
+                format: OutputFormat::Human,
+            },
+        )
+        .expect_err("published-version smoke should not combine with library examples");
+
+        assert!(
+            err.to_string().contains(
+                "external-adoption-smoke: --version cannot be combined with --library-examples"
+            ),
+            "unexpected error: {err:#}"
+        );
+        let report_json = root
+            .path()
+            .join("target/external-adoption-smoke")
+            .join("report.json");
+        let receipt: Value = serde_json::from_str(&fs::read_to_string(&report_json)?)?;
+        let steps = receipt
+            .get("steps")
+            .and_then(Value::as_array)
+            .context("missing steps in receipt")?;
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0]["name"], "validate-run-options");
+        assert_eq!(steps[0]["status"], "failed");
+        assert_eq!(receipt["status"], "failed");
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_records_failure_step_for_missing_source() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let err = run(
+            root.path(),
+            RunOptions {
+                path: None,
+                version: None,
+                ci_recipes: false,
+                library_examples: false,
+                format: OutputFormat::Human,
+            },
+        )
+        .expect_err("source resolution requires exactly one of --path or --version");
+
+        assert!(
+            err.to_string()
+                .contains("requires exactly one of --path or --version")
+        );
+        let report_json = root
+            .path()
+            .join("target/external-adoption-smoke")
+            .join("report.json");
+        let receipt: Value = serde_json::from_str(&fs::read_to_string(&report_json)?)?;
+        let steps = receipt
+            .get("steps")
+            .and_then(Value::as_array)
+            .context("missing steps in receipt")?;
+        assert_eq!(steps.len(), 1);
+        assert_eq!(steps[0]["name"], "resolve-source");
+        assert_eq!(steps[0]["status"], "failed");
+        assert_eq!(receipt["status"], "failed");
+        Ok(())
     }
 
     #[test]

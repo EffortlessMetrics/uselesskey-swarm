@@ -19,6 +19,7 @@ include:
 
 ## Records
 
+- [2026-06-v0.10-release-adoption-handoff.md](2026-06-v0.10-release-adoption-handoff.md) - release-adoption work stops at the source boundary
 - [2026-05-spec-system.md](2026-05-spec-system.md) - public fixture claims need command-backed source of truth
 - [2026-05-claim-backed-verification.md](2026-05-claim-backed-verification.md) - public claims are useful when users can run the proof
 - [2026-05-pr-lite-evidence.md](2026-05-pr-lite-evidence.md) - local evidence is useful when its boundary is explicit
