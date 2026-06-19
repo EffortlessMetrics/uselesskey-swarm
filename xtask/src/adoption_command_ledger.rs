@@ -474,10 +474,7 @@ fn file_contains_command(target: &Path, command: &str) -> bool {
         .replace("\\\r\n", " ")
         .replace("\\\n", " ")
         .replace("\\\r", " ")
-        .replace('`', " ")
-        .replace('\n', " ")
-        .replace('\r', " ")
-        .replace('\\', " ");
+        .replace(['`', '\n', '\r', '\\'], " ");
     if command_matches(&cleaned_content, &command_text) {
         return true;
     }
