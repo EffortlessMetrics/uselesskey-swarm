@@ -57,6 +57,7 @@ target/uselesskey-webhook-audit/bundle-audit.md
 | Test TLS chain validation | [tls-chain-validation](tls-chain-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test WebAuthn ceremony validation | [webauthn-ceremony-validation](webauthn-ceremony-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test webhook signature validation | [webhook-verifier](webhook-verifier/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
+| Consume `bundle-audit.json` in language-neutral CI | [../ci](../ci/) | `bash examples/ci/consume-bundle-audit.sh target/uselesskey-webhook-audit/bundle-audit.json` |
 
 Run proof modes sequentially in one checkout. The default path smoke,
 library-example smoke, and CI-recipe smoke all write

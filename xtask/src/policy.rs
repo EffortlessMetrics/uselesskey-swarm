@@ -3272,6 +3272,69 @@ const BYTES: &[u8] = b"#[allow(dead_code)]";
     }
 
     #[test]
+    fn audit_receipt_examples_are_covered_by_file_policy() -> Result<()> {
+        let root = workspace_root()?;
+        let config_path = root.join(NON_RUST_TOML);
+        let config: FilePolicyConfig = read_toml(
+            config_path
+                .to_str()
+                .with_context(|| format!("policy path {config_path:?}"))?,
+        )?;
+        let mut unmatched = Vec::new();
+
+        assert!(
+            config
+                .allow
+                .iter()
+                .any(|entry| entry.glob.as_deref() == Some("examples/audit-receipts/**/*.json")),
+            "expected explicit audit-receipt JSON glob in non-rust file policy"
+        );
+
+        fn collect_json_receipts(
+            config: &FilePolicyConfig,
+            root: &Path,
+            current: &Path,
+            unmatched: &mut Vec<String>,
+        ) -> Result<()> {
+            for entry in fs::read_dir(current)
+                .with_context(|| format!("failed to read directory {}", current.display()))?
+            {
+                let entry = entry
+                    .with_context(|| format!("failed to read entry under {}", current.display()))?;
+                let path = entry.path();
+                if path.is_dir() {
+                    collect_json_receipts(config, root, &path, unmatched)?;
+                    continue;
+                }
+                if path.extension().and_then(|ext| ext.to_str()) != Some("json") {
+                    continue;
+                }
+                let rel = path.strip_prefix(root).with_context(|| {
+                    format!("examples/audit-receipts entry {path:?} under {root:?}")
+                })?;
+                let rel = rel.to_string_lossy().replace('\\', "/");
+                if !config
+                    .allow
+                    .iter()
+                    .any(|allow| entry_matches_file(allow, &rel))
+                {
+                    unmatched.push(rel);
+                }
+            }
+            Ok(())
+        }
+
+        let audit_receipts_root = root.join("examples/audit-receipts");
+        collect_json_receipts(&config, &root, &audit_receipts_root, &mut unmatched)?;
+
+        assert!(
+            unmatched.is_empty(),
+            "uncovered audit-receipt example files: {unmatched:?}"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn new_baseline_debt_detects_count_increase() {
         let key = BaselineKey {
             path: "a.rs".into(),
