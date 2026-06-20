@@ -664,6 +664,128 @@ mod tests {
     }
 
     #[test]
+    fn near_miss_signature_perturbs_one_digit_for_all_profiles() {
+        let fx = Factory::deterministic_from_str("webhook-near-miss-signature");
+
+        for profile in [
+            WebhookProfile::GitHub,
+            WebhookProfile::Stripe,
+            WebhookProfile::Slack,
+        ] {
+            let valid = fx.webhook(profile, "svc", WebhookPayloadSpec::Canonical);
+            let near_miss = valid.near_miss_signature();
+
+            assert_eq!(near_miss.scenario, NearMissScenario::NearMissSignature);
+            // Everything except the signature digest matches the valid fixture.
+            assert_eq!(near_miss.profile, valid.profile);
+            assert_eq!(near_miss.secret, valid.secret);
+            assert_eq!(near_miss.payload, valid.payload);
+            assert_eq!(near_miss.timestamp, valid.timestamp);
+            assert_eq!(near_miss.signature_input, valid.signature_input);
+
+            let header_name = match profile {
+                WebhookProfile::GitHub => "X-Hub-Signature-256",
+                WebhookProfile::Stripe => "Stripe-Signature",
+                WebhookProfile::Slack => "X-Slack-Signature",
+            };
+            let valid_sig = valid.headers.get(header_name).cloned().unwrap_or_default();
+            let near_sig = near_miss
+                .headers
+                .get(header_name)
+                .cloned()
+                .unwrap_or_default();
+
+            // Same length and encoding, exactly one character different.
+            assert_eq!(valid_sig.len(), near_sig.len());
+            assert_ne!(valid_sig, near_sig);
+            let diffs = valid_sig
+                .chars()
+                .zip(near_sig.chars())
+                .filter(|(a, b)| a != b)
+                .count();
+            assert_eq!(diffs, 1, "exactly one digit should differ");
+
+            // The near-miss request must fail verification.
+            match profile {
+                WebhookProfile::GitHub => assert!(!verify_github(
+                    &valid.secret,
+                    &valid.payload,
+                    &near_miss.headers
+                )),
+                WebhookProfile::Stripe => assert!(!verify_stripe(
+                    &valid.secret,
+                    &valid.payload,
+                    &near_miss.headers,
+                    valid.timestamp,
+                    300
+                )),
+                WebhookProfile::Slack => assert!(!verify_slack(
+                    &valid.secret,
+                    &valid.payload,
+                    &near_miss.headers,
+                    valid.timestamp,
+                    300
+                )),
+            }
+        }
+    }
+
+    #[test]
+    fn malformed_canonical_payload_fails_json_parse_but_keeps_byte_signature() {
+        let fx = Factory::deterministic_from_str("webhook-malformed-canonical");
+
+        for profile in [
+            WebhookProfile::GitHub,
+            WebhookProfile::Stripe,
+            WebhookProfile::Slack,
+        ] {
+            let valid = fx.webhook(profile, "svc", WebhookPayloadSpec::Canonical);
+            let malformed = valid.near_miss_malformed_canonical_payload();
+
+            assert_eq!(
+                malformed.scenario,
+                NearMissScenario::MalformedCanonicalPayload
+            );
+            assert_eq!(malformed.profile, valid.profile);
+            assert_eq!(malformed.secret, valid.secret);
+            assert_eq!(malformed.timestamp, valid.timestamp);
+            assert_ne!(malformed.payload, valid.payload);
+
+            // The valid payload is canonical JSON; the malformed one is not.
+            assert!(serde_json::from_str::<serde_json::Value>(&valid.payload).is_ok());
+            assert!(
+                serde_json::from_str::<serde_json::Value>(&malformed.payload).is_err(),
+                "malformed payload must not parse as JSON: {}",
+                malformed.payload
+            );
+
+            // The signature is self-consistent over the malformed bytes, so the
+            // rejection comes from canonicalization, not the digest comparison.
+            match profile {
+                WebhookProfile::GitHub => assert!(verify_github(
+                    &malformed.secret,
+                    &malformed.payload,
+                    &malformed.headers
+                )),
+                WebhookProfile::Stripe => assert!(verify_stripe(
+                    &malformed.secret,
+                    &malformed.payload,
+                    &malformed.headers,
+                    malformed.timestamp,
+                    300
+                )),
+                WebhookProfile::Slack => assert!(verify_slack(
+                    &malformed.secret,
+                    &malformed.payload,
+                    &malformed.headers,
+                    malformed.timestamp,
+                    300
+                )),
+            }
+        }
+    }
+
+    #[test]
     fn hmac_sha256_long_key_is_hashed_first() {
         // RFC 4231 test vector 4: 131-byte key (longer than the 64-byte block),
         // exercising the SHA-256 pre-hash branch of hmac_sha256_hex.
@@ -723,6 +845,8 @@ mod tests {
             base.near_miss_stale_timestamp(300),
             base.near_miss_wrong_secret(),
             base.near_miss_tampered_payload(),
+            base.near_miss_signature(),
+            base.near_miss_malformed_canonical_payload(),
         ];
 
         for fixture in scenarios {

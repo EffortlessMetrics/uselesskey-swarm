@@ -61,13 +61,13 @@ has an explicit public-claim or support boundary owner.
 
 | Stable ID | Status | Claim | Public surface | Bundle exposed | Proof |
 | --- | --- | --- | --- | --- | --- |
-| `webhook_near_miss_signature` | `accepted_planned` | `webhook-contract-pack` | none yet | no | taxonomy only |
+| `webhook_near_miss_signature` | `implemented` | `webhook-contract-pack` | `WebhookFixture::near_miss_signature` | no | `cargo test -p uselesskey-webhook --all-features` |
 | `webhook_tampered_body` | `implemented` | `webhook-contract-pack` | `uselesskey bundle --profile webhook` | `webhook` | `cargo test -p uselesskey-cli --all-features webhook` |
 | `webhook_wrong_secret` | `implemented` | `webhook-contract-pack` | `uselesskey bundle --profile webhook` | `webhook` | `cargo test -p uselesskey-cli --all-features webhook` |
 | `webhook_stale_timestamp` | `implemented` | `webhook-contract-pack` | `uselesskey bundle --profile webhook` | `webhook` | `cargo test -p uselesskey-cli --all-features webhook` |
 | `webhook_missing_signature` | `implemented` | `webhook-contract-pack` | `uselesskey bundle --profile webhook` | `webhook` | `cargo test -p uselesskey-cli --all-features webhook` |
 | `webhook_malformed_signature` | `implemented` | `webhook-contract-pack` | `uselesskey bundle --profile webhook` | `webhook` | `cargo test -p uselesskey-cli --all-features webhook` |
-| `webhook_malformed_canonical_payload` | `accepted_planned` | `webhook-contract-pack` | none yet | no | taxonomy only |
+| `webhook_malformed_canonical_payload` | `implemented` | `webhook-contract-pack` | `WebhookFixture::near_miss_malformed_canonical_payload` | no | `cargo test -p uselesskey-webhook --all-features` |
 
 ## X.509 / TLS
 
