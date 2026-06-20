@@ -66,6 +66,7 @@ jobs:
           RUN_FULL_GATE: ${{ inputs.run_full_gate || false }}
           EVENT_NAME: ${{ github.event_name }}
           ALLOW_GITHUB_HOSTED: ${{ github.event_name == 'pull_request' && contains(github.event.pull_request.labels.*.name, 'allow-github-hosted') }}
+          IS_DEPENDABOT: ${{ github.event_name == 'pull_request' && github.event.pull_request.user.login == 'dependabot[bot]' }}
           BASE_SHA: ${{ github.event.pull_request.base.sha || '' }}
           BEFORE_SHA: ${{ github.event.before || '' }}
           HEAD_SHA: ${{ github.sha }}
@@ -361,6 +362,15 @@ jobs:
             exit 0
           fi
 
+          # Dependabot-triggered runs cannot read the org runner-discovery secret
+          # (EM_RUNNER_READ_TOKEN), so self-hosted routing can never succeed for
+          # them. Treat them like fork PRs: allow the GitHub-hosted fallback so the
+          # required check can still report a real proof instead of route-fail.
+          fallback_ok="false"
+          if [ "${ALLOW_GITHUB_HOSTED}" = "true" ] || [ "${IS_DEPENDABOT}" = "true" ]; then
+            fallback_ok="true"
+          fi
+
           classify_change() {
             if ! files="$(changed_files 2>/tmp/diff.err)"; then
               echo "rust"
@@ -437,7 +447,7 @@ jobs:
           esac
 
           if [ "${SELF_HOSTED_READY}" != "true" ]; then
-            if [ "${ALLOW_GITHUB_HOSTED}" = "true" ]; then
+            if [ "${fallback_ok}" = "true" ]; then
               emit "github" "self_hosted_not_marked_ready_allowlisted" "false" "true"
             else
               emit "route-fail" "self_hosted_not_marked_ready" "true" "false"
@@ -446,7 +456,11 @@ jobs:
           fi
 
           if [ -z "${GH_TOKEN:-}" ]; then
-            emit "route-fail" "runner_token_missing" "true" "false"
+            if [ "${fallback_ok}" = "true" ]; then
+              emit "github" "runner_token_missing_fallback" "false" "true"
+            else
+              emit "route-fail" "runner_token_missing" "true" "false"
+            fi
             exit 0
           fi
 
@@ -519,7 +533,7 @@ jobs:
           elif [ "${idle_cx53:-0}" -gt 0 ]; then
             emit "cx53" "cx53_idle" "false" "false"
           else
-            if [ "${ALLOW_GITHUB_HOSTED}" = "true" ]; then
+            if [ "${fallback_ok}" = "true" ]; then
               emit "github" "no_idle_runner_allowlisted" "false" "true"
             else
               emit "route-fail" "no_idle_runner" "true" "false"

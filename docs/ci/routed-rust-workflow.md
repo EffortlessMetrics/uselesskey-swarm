@@ -128,6 +128,14 @@ self-hosted readiness, or no idle self-hosted runner. It does not move the
 release/source boundary and does not authorize release, publish, signing, tag,
 GitHub release, crates.io, or source-sync work.
 
+Dependabot PRs receive this hosted fallback automatically. Dependabot-triggered
+workflow runs cannot read the `EM_RUNNER_READ_TOKEN` runner-discovery secret, so
+self-hosted routing can never succeed for them; routing them to the GitHub-hosted
+fallback (the same trust class as fork PRs) lets the required check report a real
+`cargo check` proof instead of a perpetual `route-fail`. Docs-only and
+workflow-only Dependabot updates still take their light routes; only Dependabot
+changes that would otherwise need a self-hosted runner fall back to hosted.
+
 If the router fails with one of these reasons, inspect the PR scope before
 adding the label:
 
