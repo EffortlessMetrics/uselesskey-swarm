@@ -65,6 +65,39 @@ fn slack_signature(
     (headers, signature_input)
 }
 
+/// Header carrying the HMAC digest for a profile.
+pub(crate) fn signature_header_name(profile: WebhookProfile) -> &'static str {
+    match profile {
+        WebhookProfile::GitHub => "X-Hub-Signature-256",
+        WebhookProfile::Stripe => "Stripe-Signature",
+        WebhookProfile::Slack => "X-Slack-Signature",
+    }
+}
+
+/// Flip the final hex digit of a signature header value.
+///
+/// The digest is always the trailing component of every provider header shape
+/// (`sha256=<hex>`, `t=<ts>,v1=<hex>`, `v0=<hex>`), so perturbing the last hex
+/// character changes exactly one signature byte while keeping the same length
+/// and encoding. Returns the value unchanged when it does not end in a hex
+/// digit, which never happens for generated fixtures.
+pub(crate) fn perturb_last_hex_digit(value: &str) -> String {
+    let mut chars: Vec<char> = value.chars().collect();
+    if let Some(last) = chars.last_mut()
+        && let Some(flipped) = flip_hex_digit(*last)
+    {
+        *last = flipped;
+    }
+    chars.into_iter().collect()
+}
+
+fn flip_hex_digit(c: char) -> Option<char> {
+    let value = c.to_digit(16)?;
+    // XOR the low bit so the digit always changes but stays a hex digit.
+    let flipped = value ^ 1;
+    char::from_digit(flipped, 16)
+}
+
 pub(crate) fn hmac_sha256_hex(secret: &[u8], msg: &[u8]) -> String {
     const SHA256_BLOCK_LEN: usize = 64;
 

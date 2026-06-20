@@ -1,6 +1,6 @@
 schema_version = "1.0"
 owner = "EffortlessMetrics"
-updated = "2026-05-21"
+updated = "2026-06-20"
 
 # Source-of-truth artifact id: USELESSKEY-POLICY-negative-fixtures
 
@@ -361,9 +361,11 @@ does_not_prove = ["scanner evasion", "production token security", "downstream ve
 [[negative]]
 stable_id = "webhook_near_miss_signature"
 family = "webhook"
-status = "accepted_planned"
+status = "implemented"
 owner_crate = "uselesskey-webhook"
-reason = "Accepted taxonomy class; current bundle exposes concrete tampered/wrong-secret/stale/missing/malformed request classes first."
+public_surface = "WebhookFixture::near_miss_signature"
+docs = ["docs/reference/failure-atlas.md"]
+tests = ["cargo test -p uselesskey-webhook --all-features"]
 scanner_safe = false
 runtime_material = true
 bundle_exposed = false
@@ -448,9 +450,11 @@ does_not_prove = ["provider compatibility", "production secret management", "dow
 [[negative]]
 stable_id = "webhook_malformed_canonical_payload"
 family = "webhook"
-status = "accepted_planned"
+status = "implemented"
 owner_crate = "uselesskey-webhook"
-reason = "Accepted taxonomy class; not exposed by the current webhook bundle profile."
+public_surface = "WebhookFixture::near_miss_malformed_canonical_payload"
+docs = ["docs/reference/failure-atlas.md"]
+tests = ["cargo test -p uselesskey-webhook --all-features"]
 scanner_safe = false
 runtime_material = true
 bundle_exposed = false
