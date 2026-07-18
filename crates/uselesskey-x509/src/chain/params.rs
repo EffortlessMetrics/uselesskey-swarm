@@ -107,9 +107,16 @@ fn add_sorted_dns_sans(params: &mut CertificateParams, sans: &[String]) {
     sorted_sans.dedup();
 
     for san in &sorted_sans {
-        params.subject_alt_names.push(rcgen::SanType::DnsName(
-            san.clone().try_into().expect("valid DNS name"),
-        ));
+        // Skip entries that are not valid IA5String DNS names (e.g. non-ASCII
+        // hostnames) instead of panicking, mirroring the self-signed cert path
+        // in `cert/params.rs`. Callers pass arbitrary strings via
+        // `ChainSpec::with_sans` and the `hostname_mismatch` negative fixture,
+        // so a bad SAN must not crash the whole test process.
+        if let Ok(dns_name) = san.clone().try_into() {
+            params
+                .subject_alt_names
+                .push(rcgen::SanType::DnsName(dns_name));
+        }
     }
 }
 
