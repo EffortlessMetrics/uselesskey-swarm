@@ -14,7 +14,11 @@
 //!
 //! # Convert a private key to rustls format
 //!
-//! ```
+//! Requires the `rsa` feature (ignored otherwise so `cargo test --doc` on
+//! default features stays green).
+//!
+#![cfg_attr(feature = "rsa", doc = "```")]
+#![cfg_attr(not(feature = "rsa"), doc = "```ignore")]
 //! use uselesskey_core::Factory;
 //! use uselesskey_rsa::{RsaFactoryExt, RsaSpec};
 //! use uselesskey_rustls::RustlsPrivateKeyExt;
@@ -25,9 +29,19 @@
 //! assert_eq!(key.secret_der(), rsa.private_key_pkcs8_der());
 //! ```
 //!
-//! # Build TLS configs (requires `tls-config` + a crypto provider feature)
+//! # Build TLS configs
 //!
-//! ```no_run
+//! Requires the `server-config` and `client-config` features (ignored
+//! otherwise).
+//!
+#![cfg_attr(
+    all(feature = "server-config", feature = "client-config"),
+    doc = "```no_run"
+)]
+#![cfg_attr(
+    not(all(feature = "server-config", feature = "client-config")),
+    doc = "```ignore"
+)]
 //! use uselesskey_core::Factory;
 //! use uselesskey_x509::{X509FactoryExt, ChainSpec};
 //! use uselesskey_rustls::{RustlsServerConfigExt, RustlsClientConfigExt};
