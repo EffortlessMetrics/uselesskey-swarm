@@ -43,9 +43,33 @@ impl Seed {
 
     /// Derive a seed from a user-provided string.
     ///
-    /// Accepted formats:
-    /// - 64-char hex (with optional `0x` prefix)
-    /// - any other string (hashed with BLAKE3)
+    /// The input is trimmed of surrounding whitespace first, then:
+    /// - If the trimmed value (after stripping an optional `0x`/`0X` prefix) is
+    ///   exactly 64 characters long, it is interpreted as hex and decoded into
+    ///   the 32 seed bytes. In this case invalid hex characters are an **error**
+    ///   — the value is *not* silently hashed as a fallback.
+    /// - Any value of a different length is hashed with BLAKE3 (see
+    ///   [`Seed::from_text`]), which never fails.
+    ///
+    /// # Errors
+    ///
+    /// Returns `Err` when the value looks like a 64-character hex seed (by
+    /// length) but contains a non-hex character, e.g. `"z".repeat(64)`.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// use uselesskey_core::Seed;
+    ///
+    /// // 64-char hex (optionally `0x`-prefixed) is decoded directly.
+    /// assert!(Seed::from_env_value(&"a".repeat(64)).is_ok());
+    ///
+    /// // Any other length is hashed with BLAKE3 and always succeeds.
+    /// assert!(Seed::from_env_value("my-test-seed").is_ok());
+    ///
+    /// // A 64-char value that is not valid hex is an error, not a hash.
+    /// assert!(Seed::from_env_value(&"z".repeat(64)).is_err());
+    /// ```
     pub fn from_env_value(value: &str) -> Result<Self, String> {
         let v = value.trim();
 
