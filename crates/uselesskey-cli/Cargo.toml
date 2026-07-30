@@ -29,6 +29,11 @@ rsa-materialize = ["dep:uselesskey-rsa"]
 [[bin]]
 name = "uselesskey"
 path = "src/main.rs"
+# The binary drives fixture generation across every key type, so it needs the
+# optional generator crates that the `generate` feature pulls in. Gating the
+# bin on that feature lets `--no-default-features` builds succeed by skipping
+# the binary instead of failing to compile it.
+required-features = ["generate"]
 
 [dependencies]
 anyhow.workspace = true

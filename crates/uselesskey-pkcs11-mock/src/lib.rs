@@ -147,6 +147,21 @@ impl MockPkcs11Provider {
         self.inner.keys.get(&handle).map(|key| key.label.as_str())
     }
 
+    /// Look up a key handle by its label.
+    ///
+    /// This is the forward counterpart to [`Self::key_label`], sparing callers
+    /// from manually iterating [`Self::key_handles`] to find a key by name. If
+    /// several keys share a label, the lowest (earliest-assigned) handle is
+    /// returned so the result is stable in deterministic mode.
+    pub fn handle_for_label(&self, label: &str) -> Option<KeyHandle> {
+        self.inner
+            .keys
+            .iter()
+            .filter(|(_, key)| key.label == label)
+            .map(|(handle, _)| *handle)
+            .min_by_key(|handle| handle.0)
+    }
+
     pub fn next_sign_count(&self) -> u64 {
         let mut guard = self.inner.next_sign_count.lock().expect("sign_count mutex");
         *guard += 1;
@@ -312,6 +327,32 @@ mod tests {
         assert_eq!(handles, vec![KeyHandle(1), KeyHandle(2)]);
         assert_eq!(provider.key_label(KeyHandle(1)), Some("signing-key"));
         assert_eq!(provider.key_label(KeyHandle(2)), Some("verification-key"));
+    }
+
+    #[test]
+    fn handle_for_label_round_trips_with_key_label() {
+        let fx = Factory::deterministic(Seed::from_env_value("pkcs11-lookup").unwrap());
+        let mut spec = Pkcs11MockSpec::basic("HSM-LOOKUP");
+        spec.key_labels = vec!["signing-key".to_string(), "verification-key".to_string()];
+
+        let provider = fx.pkcs11_mock("lookup", spec);
+
+        // Forward lookup finds the right handle...
+        let signing = provider
+            .handle_for_label("signing-key")
+            .expect("signing-key handle");
+        let verifying = provider
+            .handle_for_label("verification-key")
+            .expect("verification-key handle");
+        assert_eq!(signing, KeyHandle(1));
+        assert_eq!(verifying, KeyHandle(2));
+
+        // ...and round-trips through the reverse lookup.
+        assert_eq!(provider.key_label(signing), Some("signing-key"));
+        assert_eq!(provider.key_label(verifying), Some("verification-key"));
+
+        // Unknown labels return None.
+        assert_eq!(provider.handle_for_label("no-such-key"), None);
     }
 
     #[test]
