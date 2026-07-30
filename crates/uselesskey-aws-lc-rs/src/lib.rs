@@ -33,12 +33,12 @@
 //!
 //! let fx = Factory::random();
 //! let keypair = fx.rsa("test", RsaSpec::rs256());
-//! let ring_kp = keypair.rsa_key_pair_aws_lc_rs();
+//! let kp = keypair.rsa_key_pair_aws_lc_rs();
 //!
 //! let rng = aws_lc_rs::rand::SystemRandom::new();
 //! let msg = b"hello world";
-//! let mut sig = vec![0u8; ring_kp.public_modulus_len()];
-//! ring_kp.sign(&signature::RSA_PKCS1_SHA256, &rng, msg, &mut sig).unwrap();
+//! let mut sig = vec![0u8; kp.public_modulus_len()];
+//! kp.sign(&signature::RSA_PKCS1_SHA256, &rng, msg, &mut sig).unwrap();
 //! ```
 
 // =========================================================================
