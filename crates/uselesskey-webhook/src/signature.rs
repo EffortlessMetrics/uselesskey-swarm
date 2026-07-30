@@ -78,7 +78,7 @@ pub(crate) fn signature_header_name(profile: WebhookProfile) -> &'static str {
 ///
 /// The digest is always the trailing component of every provider header shape
 /// (`sha256=<hex>`, `t=<ts>,v1=<hex>`, `v0=<hex>`), so perturbing the last hex
-/// character changes exactly one signature byte while keeping the same length
+/// character changes exactly one signature hex digit while keeping the same length
 /// and encoding. Returns the value unchanged when it does not end in a hex
 /// digit, which never happens for generated fixtures.
 pub(crate) fn perturb_last_hex_digit(value: &str) -> String {

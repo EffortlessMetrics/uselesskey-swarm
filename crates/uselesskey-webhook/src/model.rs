@@ -114,11 +114,11 @@ pub enum NearMissScenario {
     WrongSecret,
     /// Payload differs from what was signed.
     TamperedPayload,
-    /// Valid request shape with a single signature byte perturbed.
+    /// Valid request shape with a single signature hex digit perturbed.
     ///
     /// The signature stays the right length and encoding (hex), so the
     /// request only fails the digest comparison itself. This exercises
-    /// verifiers that must reject a one-byte-off signature rather than a
+    /// verifiers that must reject a one-hex-digit-off signature rather than a
     /// structurally malformed one.
     NearMissSignature,
     /// Payload bytes that cannot form the expected canonical input.
