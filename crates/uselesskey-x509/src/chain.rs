@@ -768,6 +768,24 @@ mod tests {
     }
 
     #[test]
+    fn chain_leaf_invalid_dns_san_does_not_panic() {
+        // A non-ASCII SAN cannot be encoded as an IA5String DNS name. It must be
+        // skipped rather than panicking the whole test process, mirroring the
+        // self-signed cert behavior in `cert::tests`.
+        let factory = fx();
+        let spec = ChainSpec::new("test.example.com")
+            .with_sans(vec!["not-ascii-\u{00e9}.example.com".to_string()]);
+        let chain = X509Chain::new(factory, "invalid-san", spec);
+
+        assert!(chain.leaf_cert_der().len() > 1);
+        assert!(
+            chain
+                .leaf_cert_pem()
+                .contains("-----BEGIN CERTIFICATE-----")
+        );
+    }
+
+    #[test]
     fn test_tempfile_outputs() {
         let factory = fx();
         let spec = ChainSpec::new("test.example.com");
