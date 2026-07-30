@@ -50,9 +50,6 @@ pub struct EcdsaKeyPair {
 
 /// Inner storage for computed key material.
 struct Inner {
-    /// Kept for potential use; not currently read outside JWK feature.
-    #[allow(dead_code, reason = "consumed only when the `jwk` feature is enabled")]
-    spec: EcdsaSpec,
     material: Pkcs8SpkiKeyMaterial,
     /// Raw public key bytes (uncompressed point, for JWK).
     #[cfg_attr(not(feature = "jwk"), allow(dead_code))]
@@ -416,13 +413,13 @@ fn load_inner(factory: &Factory, label: &str, spec: EcdsaSpec, variant: &str) ->
     factory.get_or_init(DOMAIN_ECDSA_KEYPAIR, label, &spec_bytes, variant, |seed| {
         let mut rng = ChaCha20Rng::from_seed(*seed.bytes());
         match spec {
-            EcdsaSpec::Es256 => generate_p256(spec, &mut rng),
-            EcdsaSpec::Es384 => generate_p384(spec, &mut rng),
+            EcdsaSpec::Es256 => generate_p256(&mut rng),
+            EcdsaSpec::Es384 => generate_p384(&mut rng),
         }
     })
 }
 
-fn generate_p256(spec: EcdsaSpec, rng: &mut impl rand_core10::CryptoRng) -> Inner {
+fn generate_p256(rng: &mut impl rand_core10::CryptoRng) -> Inner {
     use p256::ecdsa::SigningKey;
 
     let signing_key =
@@ -456,14 +453,13 @@ fn generate_p256(spec: EcdsaSpec, rng: &mut impl rand_core10::CryptoRng) -> Inne
     let material = Pkcs8SpkiKeyMaterial::new(pkcs8_der, pkcs8_pem, spki_der, spki_pem);
 
     Inner {
-        spec,
         material,
         public_key_bytes,
         private_key_bytes,
     }
 }
 
-fn generate_p384(spec: EcdsaSpec, rng: &mut impl rand_core10::CryptoRng) -> Inner {
+fn generate_p384(rng: &mut impl rand_core10::CryptoRng) -> Inner {
     use p384::ecdsa::SigningKey;
 
     let signing_key =
@@ -497,7 +493,6 @@ fn generate_p384(spec: EcdsaSpec, rng: &mut impl rand_core10::CryptoRng) -> Inne
     let material = Pkcs8SpkiKeyMaterial::new(pkcs8_der, pkcs8_pem, spki_der, spki_pem);
 
     Inner {
-        spec,
         material,
         public_key_bytes,
         private_key_bytes,

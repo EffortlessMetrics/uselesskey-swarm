@@ -57,6 +57,96 @@ fn generate_jwk_outputs_json() -> TestResult<()> {
 }
 
 #[test]
+fn generate_ecdsa_pem_is_deterministic_pkcs8() -> TestResult<()> {
+    let args = [
+        "generate", "ecdsa", "--seed", "det-seed", "--label", "svc", "--format", "pem",
+    ];
+    let out1 = run(args)?;
+    let out2 = run(args)?;
+    assert_eq!(out1, out2, "ecdsa pem must be deterministic for a fixed seed");
+    assert!(out1.contains("BEGIN PRIVATE KEY"), "expected PKCS#8 PEM, got: {out1}");
+    Ok(())
+}
+
+#[test]
+fn generate_ecdsa_jwk_has_ec_kty() -> TestResult<()> {
+    let out = run([
+        "generate", "ecdsa", "--seed", "det-seed", "--label", "svc", "--format", "jwk",
+    ])?;
+    let value: Value = serde_json::from_str(&out).test_context("valid json")?;
+    assert_eq!(value["kty"], "EC");
+    Ok(())
+}
+
+#[test]
+fn generate_ed25519_pem_is_deterministic_pkcs8() -> TestResult<()> {
+    let args = [
+        "generate", "ed25519", "--seed", "det-seed", "--label", "svc", "--format", "pem",
+    ];
+    let out1 = run(args)?;
+    let out2 = run(args)?;
+    assert_eq!(out1, out2, "ed25519 pem must be deterministic for a fixed seed");
+    assert!(out1.contains("BEGIN PRIVATE KEY"), "expected PKCS#8 PEM, got: {out1}");
+    Ok(())
+}
+
+#[test]
+fn generate_ed25519_jwk_has_okp_kty() -> TestResult<()> {
+    let out = run([
+        "generate", "ed25519", "--seed", "det-seed", "--label", "svc", "--format", "jwk",
+    ])?;
+    let value: Value = serde_json::from_str(&out).test_context("valid json")?;
+    assert_eq!(value["kty"], "OKP");
+    Ok(())
+}
+
+#[test]
+fn generate_hmac_jwk_has_oct_kty() -> TestResult<()> {
+    let out = run([
+        "generate", "hmac", "--seed", "det-seed", "--label", "svc", "--format", "jwk",
+    ])?;
+    let value: Value = serde_json::from_str(&out).test_context("valid json")?;
+    assert_eq!(value["kty"], "oct");
+    Ok(())
+}
+
+#[test]
+fn generate_token_pem_is_deterministic_nonempty() -> TestResult<()> {
+    let args = [
+        "generate", "token", "--seed", "det-seed", "--label", "svc", "--format", "pem",
+    ];
+    let out1 = run(args)?;
+    let out2 = run(args)?;
+    assert_eq!(out1, out2, "token value must be deterministic for a fixed seed");
+    assert!(!out1.trim().is_empty(), "token value must not be empty");
+    Ok(())
+}
+
+#[test]
+fn generate_x509_pem_emits_certificate() -> TestResult<()> {
+    let out = run([
+        "generate", "x509", "--seed", "det-seed", "--label", "svc.example.com", "--format", "pem",
+    ])?;
+    assert!(
+        out.contains("BEGIN CERTIFICATE"),
+        "expected a certificate PEM, got: {out}"
+    );
+    Ok(())
+}
+
+#[test]
+fn generate_jwks_outputs_keys_array() -> TestResult<()> {
+    let out = run([
+        "generate", "jwks", "--seed", "det-seed", "--label", "issuer", "--format", "jwks",
+    ])?;
+    let value: Value = serde_json::from_str(&out).test_context("valid json")?;
+    let keys = value["keys"].as_array().test_context("keys array")?;
+    assert!(!keys.is_empty(), "jwks must contain at least one key");
+    assert_eq!(keys[0]["kty"], "RSA");
+    Ok(())
+}
+
+#[test]
 fn profiles_command_lists_copyable_contract_pack_paths() -> TestResult<()> {
     let out = run(["profiles"])?;
 
