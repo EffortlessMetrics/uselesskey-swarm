@@ -19,6 +19,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Documented every previously blank CLI flag and positional in `--help`, and
   gave `uselesskey export k8s` and `uselesskey export vault-kv-json` command
   descriptions.
+- Refreshed the resolved versions of the non-cryptographic dependencies in
+  `Cargo.lock`: `regex` to 1.13.1, `http` to 1.5.0, `insta` to 1.48.0, and
+  `chrono` to 0.4.45. No manifest version requirements change. The
+  release-candidate elliptic-curve stack is deliberately left alone.
 
 ### Fixed
 
