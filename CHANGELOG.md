@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- Updated `anyhow` to 1.0.104 and `crossbeam-epoch` to 0.9.20 in `Cargo.lock`,
+  clearing RUSTSEC-2026-0190 (`Error::downcast_mut` unsoundness) and
+  RUSTSEC-2026-0204 (invalid pointer dereference in the `Atomic`/`Shared`
+  `fmt::Pointer` impls). Both advisories were failing
+  `cargo deny check advisories` on every branch.
+- Moved off the yanked `crypto-bigint` 0.7.3 to 0.7.5.
+
 ## [0.9.1] - 2026-05-17
 
 v0.9.1 is an adoption-confidence patch. It publishes the runtime scanner-safe
