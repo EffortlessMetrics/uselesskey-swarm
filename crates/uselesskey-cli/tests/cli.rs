@@ -334,6 +334,47 @@ fn doctor_help_stays_installed_user_scoped() -> TestResult<()> {
 }
 
 #[test]
+fn bundle_without_out_writes_under_target_not_the_current_directory() -> TestResult<()> {
+    for (profile, expected) in [
+        ("webhook", "target/uselesskey-webhook"),
+        ("oidc", "target/uselesskey-oidc"),
+        ("scanner-safe", "target/uselesskey-bundle"),
+    ] {
+        let dir = tempdir().test_context("tempdir")?;
+        let mut cmd = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+        cmd.current_dir(dir.path())
+            .args(["bundle", "--profile", profile]);
+        let output = cmd.assert().success().get_output().stdout.clone();
+        let report: Value = serde_json::from_slice(&output).test_context("bundle json")?;
+
+        assert_eq!(
+            report["bundle_dir"], expected,
+            "`bundle --profile {profile}` without --out must default to the profile output hint"
+        );
+        assert!(
+            dir.path().join(expected).join("manifest.json").exists(),
+            "expected a manifest under {expected}"
+        );
+
+        // Nothing generated may land directly in the working directory: that is
+        // the repo root for an installed user, and the whole point of the tool
+        // is keeping fixture material out of it.
+        let stray = fs::read_dir(dir.path())
+            .test_context("read working dir")?
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name != "target")
+            .collect::<Vec<_>>();
+        assert!(
+            stray.is_empty(),
+            "`bundle --profile {profile}` wrote outside target/: {stray:?}"
+        );
+    }
+
+    Ok(())
+}
+
+#[test]
 fn doctor_text_reports_installed_cli_checks_only() -> TestResult<()> {
     let dir = tempdir().test_context("tempdir")?;
     let mut cmd = Command::cargo_bin("uselesskey").test_context("bin exists")?;

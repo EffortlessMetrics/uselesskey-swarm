@@ -20,6 +20,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   gave `uselesskey export k8s` and `uselesskey export vault-kv-json` command
   descriptions.
 
+### Fixed
+
+- `uselesskey bundle` without `--out` now writes to the selected profile's
+  `target/uselesskey-*` directory instead of `{label}-bundle` in the current
+  working directory. The old fallback dropped generated fixture material into
+  the user's repo root, contradicting the profile output hints, the documented
+  examples, and the `doctor` output-path-safety check.
+
 ### Security
 
 - Updated `anyhow` to 1.0.104 and `crossbeam-epoch` to 0.9.20 in `Cargo.lock`,
