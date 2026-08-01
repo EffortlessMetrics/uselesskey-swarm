@@ -63,8 +63,14 @@ fn generate_ecdsa_pem_is_deterministic_pkcs8() -> TestResult<()> {
     ];
     let out1 = run(args)?;
     let out2 = run(args)?;
-    assert_eq!(out1, out2, "ecdsa pem must be deterministic for a fixed seed");
-    assert!(out1.contains("BEGIN PRIVATE KEY"), "expected PKCS#8 PEM, got: {out1}");
+    assert_eq!(
+        out1, out2,
+        "ecdsa pem must be deterministic for a fixed seed"
+    );
+    assert!(
+        out1.contains("BEGIN PRIVATE KEY"),
+        "expected PKCS#8 PEM, got: {out1}"
+    );
     Ok(())
 }
 
@@ -85,8 +91,14 @@ fn generate_ed25519_pem_is_deterministic_pkcs8() -> TestResult<()> {
     ];
     let out1 = run(args)?;
     let out2 = run(args)?;
-    assert_eq!(out1, out2, "ed25519 pem must be deterministic for a fixed seed");
-    assert!(out1.contains("BEGIN PRIVATE KEY"), "expected PKCS#8 PEM, got: {out1}");
+    assert_eq!(
+        out1, out2,
+        "ed25519 pem must be deterministic for a fixed seed"
+    );
+    assert!(
+        out1.contains("BEGIN PRIVATE KEY"),
+        "expected PKCS#8 PEM, got: {out1}"
+    );
     Ok(())
 }
 
@@ -117,7 +129,10 @@ fn generate_token_pem_is_deterministic_nonempty() -> TestResult<()> {
     ];
     let out1 = run(args)?;
     let out2 = run(args)?;
-    assert_eq!(out1, out2, "token value must be deterministic for a fixed seed");
+    assert_eq!(
+        out1, out2,
+        "token value must be deterministic for a fixed seed"
+    );
     assert!(!out1.trim().is_empty(), "token value must not be empty");
     Ok(())
 }
@@ -125,7 +140,14 @@ fn generate_token_pem_is_deterministic_nonempty() -> TestResult<()> {
 #[test]
 fn generate_x509_pem_emits_certificate() -> TestResult<()> {
     let out = run([
-        "generate", "x509", "--seed", "det-seed", "--label", "svc.example.com", "--format", "pem",
+        "generate",
+        "x509",
+        "--seed",
+        "det-seed",
+        "--label",
+        "svc.example.com",
+        "--format",
+        "pem",
     ])?;
     assert!(
         out.contains("BEGIN CERTIFICATE"),

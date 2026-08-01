@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- Added `uselesskey --version` so installed users can confirm which CLI build
+  they have without running `uselesskey doctor`.
+- Added a guard test that fails when any visible CLI command or argument ships
+  without help text.
+
+### Changed
+
+- Documented every previously blank CLI flag and positional in `--help`, and
+  gave `uselesskey export k8s` and `uselesskey export vault-kv-json` command
+  descriptions.
+
 ### Security
 
 - Updated `anyhow` to 1.0.104 and `crossbeam-epoch` to 0.9.20 in `Cargo.lock`,
