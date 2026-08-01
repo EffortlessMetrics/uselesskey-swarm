@@ -130,7 +130,8 @@ struct BundleArgs {
     /// Bundle profile to generate.
     #[arg(long, default_value = "scanner-safe")]
     profile: BundleProfile,
-    /// Output directory for the generated bundle.
+    /// Output directory for the generated bundle [default: the profile's
+    /// `target/uselesskey-*` path].
     #[arg(long)]
     out: Option<PathBuf>,
     /// Explain the profile, generated files, audit path, and boundary without writing files.
@@ -672,10 +673,13 @@ fn run_bundle(args: BundleArgs) -> Result<()> {
         );
     }
 
+    // Without `--out`, fall back to the profile's own advertised output path.
+    // That keeps generated payloads under `target/`, which is what the profile
+    // hints, the docs, and the `doctor` output-path-safety check all promise.
     let out_dir = args
         .out
         .clone()
-        .unwrap_or_else(|| PathBuf::from(format!("{}-bundle", args.label)));
+        .unwrap_or_else(|| PathBuf::from(args.profile.output_dir_hint()));
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create bundle directory {}", out_dir.display()))?;
 
