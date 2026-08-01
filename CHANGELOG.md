@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `uselesskey-ecdsa` now depends on the released `p256` 0.14, `p384` 0.14, and
+  `elliptic-curve` 0.14 instead of the `0.14.0-rc.*` pre-releases. Generated
+  P-256 and P-384 fixtures are byte-identical, so deterministic identity is
+  unchanged.
+
 ### Added
 
 - Added `uselesskey --version` so installed users can confirm which CLI build
