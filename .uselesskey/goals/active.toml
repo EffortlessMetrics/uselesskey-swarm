@@ -61,13 +61,26 @@ commands = [
 
 [[work_item]]
 id = "ed25519-validation-example-no-panic"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0005"
 plan = "plans/no-panic-burndown/implementation-plan.md"
 commands = [
   "cargo xtask check-no-panic-family",
   "cargo test --manifest-path examples/external/ed25519-fixture-validation/Cargo.toml",
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "oidc-validation-example-no-panic"
+status = "ready"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo test --manifest-path examples/external/oidc-test-server-validation/Cargo.toml",
   "cargo xtask pr",
   "git diff --check",
 ]
