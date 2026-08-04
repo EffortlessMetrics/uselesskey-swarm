@@ -2815,6 +2815,62 @@ mod tests {
     }
 
     #[test]
+    fn performance_workflow_uses_cx43_with_isolated_scratch_and_receipt_contract() -> Result<()> {
+        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/workflows/performance.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        for expected in [
+            "schedule:",
+            "workflow_dispatch:",
+            "compare:",
+            "permissions:\n  contents: read",
+            "group: performance-${{ github.workflow }}-${{ github.ref }}",
+            "cancel-in-progress: false",
+            "group: em-ci-small",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
+            "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
+            "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}",
+            "ci-disk-guard /mnt/ci-scratch 20",
+            "ci-disk-guard /mnt/ci-cache 10",
+            "\"$CARGO_CACHE_HOME/registry\"",
+            "\"$CARGO_CACHE_HOME/git\"",
+            "ln -s \"$CARGO_CACHE_HOME/registry\" \"$CARGO_HOME/registry\"",
+            "ln -s \"$CARGO_CACHE_HOME/git\" \"$CARGO_HOME/git\"",
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "persist-credentials: false",
+            "PERF_COMPARE: ${{ inputs.compare }}",
+            "cargo xtask perf",
+            "name: performance-evidence",
+            "path: target/xtask/perf",
+            "Cleanup performance scratch",
+            "refusing to clean unexpected workspace",
+            "refusing to clean unexpected target",
+            "^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$",
+            "rm -rf -- \"$workspace_target\" \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
+            "Performance evidence is host- and runner-sensitive.",
+        ] {
+            assert!(
+                workflow.contains(expected),
+                "performance workflow missing expected contract: {expected}"
+            );
+        }
+
+        assert!(!workflow.contains("runs-on: ubuntu-latest"));
+        assert!(!workflow.contains("sudo apt-get"));
+        assert!(!workflow.contains("CARGO_HOME: /mnt/ci-cache/cargo-home"));
+        assert!(!workflow.contains("actions/checkout@v7"));
+        assert!(!workflow.contains("dtolnay/rust-toolchain@stable"));
+        assert!(!workflow.contains("actions/upload-artifact@v7"));
+        Ok(())
+    }
+
+    #[test]
     fn workflow_hygiene_guard_rejects_quoted_mutable_action_refs() -> Result<()> {
         let root = workspace_root()?;
         let tmp_root = root.join("target/tmp");
