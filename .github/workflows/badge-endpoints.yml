@@ -13,9 +13,17 @@ concurrency:
 
 jobs:
   refresh:
-    runs-on: ubuntu-latest
+    # Trusted, maintainer-dispatched automation with write permissions. Keep
+    # this runner placement isolated from pull_request workflows that execute
+    # untrusted fork code.
+    runs-on:
+      group: em-ci-tiny
+      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v7
+        with:
+          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@stable
 

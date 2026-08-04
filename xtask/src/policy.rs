@@ -2568,6 +2568,24 @@ mod tests {
     }
 
     #[test]
+    fn badge_endpoint_workflow_stays_dispatch_only_for_self_hosted_write_access() -> Result<()> {
+        let root = workspace_root()?;
+        let workflow_path = root.join(".github/workflows/badge-endpoints.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        assert!(workflow.contains("workflow_dispatch:"));
+        assert!(!workflow.contains("pull_request:"));
+        assert!(!workflow.contains("merge_group:"));
+        assert!(!workflow.contains("\n  push:"));
+        assert!(workflow.contains("contents: write"));
+        assert!(workflow.contains("pull-requests: write"));
+        assert!(workflow.contains("group: em-ci-tiny"));
+        assert!(workflow.contains("persist-credentials: false"));
+        Ok(())
+    }
+
+    #[test]
     fn workflow_hygiene_guard_rejects_quoted_mutable_action_refs() -> Result<()> {
         let root = workspace_root()?;
         let tmp_root = root.join("target/tmp");
