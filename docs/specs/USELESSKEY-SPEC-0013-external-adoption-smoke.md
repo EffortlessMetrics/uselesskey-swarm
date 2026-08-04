@@ -143,6 +143,8 @@ The receipts must summarize:
 - skipped checks and skip reasons;
 - failure command, stdout/stderr pointers, and remediation hints where
   practical.
+- timed-out child commands must be recorded distinctly from ordinary command
+  failures, with the timeout duration and preserved stdout/stderr pointers.
 
 The initial adoption matrix must cover these user jobs:
 
