@@ -2586,6 +2586,22 @@ mod tests {
     }
 
     #[test]
+    fn source_of_truth_workflow_keeps_pr_checks_on_hosted_runner() -> Result<()> {
+        let root = workspace_root()?;
+        let workflow_path = root.join(".github/workflows/source-of-truth.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        assert!(workflow.contains("pull_request:"));
+        assert!(workflow.contains("merge_group:"));
+        assert!(workflow.contains("push:\n    branches: [main]"));
+        assert!(workflow.contains("contents: read"));
+        assert!(workflow.contains("runs-on: ubuntu-latest"));
+        assert!(workflow.contains("persist-credentials: false"));
+        Ok(())
+    }
+
+    #[test]
     fn workflow_hygiene_guard_rejects_quoted_mutable_action_refs() -> Result<()> {
         let root = workspace_root()?;
         let tmp_root = root.join("target/tmp");
