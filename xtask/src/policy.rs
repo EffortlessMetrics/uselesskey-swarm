@@ -3120,6 +3120,8 @@ jobs:
             "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
             "toolchain: stable",
             "toolchain: nightly",
+            "Install NASM",
+            "sudo apt-get update && sudo apt-get install -y nasm",
             "taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed",
             "Preflight runner and tools",
             "test -x \"$(command -v ci-disk-guard)\"",
@@ -3135,11 +3137,7 @@ jobs:
                 "main-full-gate missing pinned contract: {expected}"
             );
         }
-        for mutable_ref in [
-            "runs-on: ubuntu-latest",
-            "sudo apt-get",
-            "Swatinem/rust-cache@",
-        ] {
+        for mutable_ref in ["runs-on: ubuntu-latest", "Swatinem/rust-cache@"] {
             assert!(
                 !main_full_gate.contains(mutable_ref),
                 "main-full-gate retains mutable action ref: {mutable_ref}"

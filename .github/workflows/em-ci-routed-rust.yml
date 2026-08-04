@@ -1212,6 +1212,9 @@ jobs:
         with:
           toolchain: nightly
 
+      - name: Install NASM
+        run: sudo apt-get update && sudo apt-get install -y nasm
+
       - name: Install tools
         uses: taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed
         with:
