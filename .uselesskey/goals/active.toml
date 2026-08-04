@@ -1,190 +1,46 @@
 schema_version = "1.0"
 
-id = "v0.10-release-adoption-closure"
-title = "v0.10 release adoption closure"
-status = "archived"
-owner = "codex"
-created = "2026-06-13"
+id = "no-panic-production-burndown"
+title = "No-panic production debt burndown"
+status = "active"
+owner = "EffortlessMetrics"
+created = "2026-08-04"
 
 objective = """
-Turn the proven adoption docs, examples, downstream CI guidance, and installed
-audit handoff into a release-quality v0.10.0 product path. A cold user should
-be able to install the CLI or add the facade crate, generate job-focused
-fixtures, audit metadata-only receipts, branch on stable failure classes, and
-understand the proof boundary without repo archaeology.
+Burn down production-path panic-family debt in bounded, review-forward PRs
+without resetting the baseline or weakening the no-new-debt policy. Each slice
+must preserve the fixture library's deterministic, usable public behavior while
+making failure behavior explicit at the narrowest responsible boundary.
 """
 
 end_state = [
-  "README and Start Here route cold users to webhook, TLS, OIDC/JWKS, JWT/token, scanner-safe, CLI, and facade paths by job.",
-  "Release-facing commands and snippets are inventoried, version-classified, and proof-owned before the source release candidate.",
-  "Installed CLI and facade adoption smokes prove the release path from a checkout before publish and from crates.io after publish.",
-  "Bundle audit JSON fields, failure classes, schema version, and metadata-only upload boundaries are frozen for release-facing automation.",
-  "Package dry-run evidence proves generated runtime payloads and target receipts are excluded from published crates.",
-  "A source release handoff states swarm commit, proof inventory, command ledger, package proof, non-blockers, deferred PRs, non-claims, and rollback.",
-  "Release execution remains blocked until explicit approval and runs from the source/release boundary, not implicitly from swarm.",
+  "The no-panic checker reports no unreceipted new production debt.",
+  "Each repaired production seam has focused regression proof and a bounded claim boundary.",
+  "Historical baseline debt remains visible and is not silently absorbed into a reset.",
+  "Remaining compatibility, release, and provider claims stay outside this lane unless separately specified.",
 ]
 
 [[work_item]]
-id = "open-release-adoption-closure-lane"
-status = "done"
+id = "pgp-production-no-panic"
+status = "ready"
 proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
 commands = [
-  "cargo xtask check-doc-artifacts",
-  "cargo xtask check-goals",
-  "cargo xtask docs-sync --check",
-  "cargo xtask typos",
+  "cargo xtask check-no-panic-family",
+  "cargo test -p uselesskey-pgp",
+  "cargo xtask pr",
   "git diff --check",
 ]
 
 [[work_item]]
-id = "adoption-proof-inventory"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "cargo xtask docs-sync --check",
-  "cargo xtask typos",
-  "cargo xtask check-goals",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "command-ledger-freeze"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "cargo xtask docs-sync --check",
-  "cargo xtask typos",
-  "cargo xtask check-goals",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "version-snippet-reconciliation"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "rg \"0\\.9\\.1|0\\.10\\.0\" README.md docs examples crates",
-  "cargo xtask docs-sync --check",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "installed-cli-release-smoke"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "cargo xtask external-adoption-smoke --path . --ci-recipes --format json",
-  "cargo xtask adoption-regression --external",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "facade-published-version-smoke"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "cargo xtask external-adoption-smoke --path . --library-examples",
-  "cargo xtask docs-sync --check",
-  "cargo xtask check-goals",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "receipt-contract-freeze"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0014"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "cargo xtask docs-sync --check",
-  "cargo xtask typos",
-  "cargo xtask check-goals",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "package-contents-proof"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "cargo xtask publish-preflight",
-  "cargo xtask publish-check",
-  "cargo xtask no-blob",
-  "cargo package --workspace --allow-dirty --exclude uselesskey-bdd --exclude uselesskey-bdd-steps --exclude uselesskey-interop-tests --exclude uselesskey-test-support --exclude uselesskey-test-grid --exclude uselesskey-feature-grid --exclude uselesskey-bench --exclude uselesskey-integration-tests --exclude materialize-shape-buildrs-example --exclude materialize-buildrs-example --exclude xtask",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "source-release-handoff"
-status = "done"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "cargo xtask docs-sync --check",
-  "cargo xtask check-goals",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "source-repo-release-candidate"
+id = "next-production-no-panic-slice"
 status = "planned"
 proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
 commands = [
-  "cargo check --workspace --all-targets --all-features --locked",
-  "cargo test --workspace --all-features --locked",
-  "cargo xtask external-adoption-smoke --path . --format json",
-  "cargo xtask adoption-regression --external",
-  "cargo xtask publish-preflight",
-  "cargo xtask publish-check",
-  "cargo xtask no-blob",
-  "cargo xtask docs-sync --check",
+  "cargo xtask check-no-panic-family",
+  "cargo xtask pr",
   "git diff --check",
-]
-
-[[work_item]]
-id = "final-release-dry-run-record"
-status = "planned"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-commands = [
-  "cargo xtask docs-sync --check",
-  "cargo xtask check-support-tiers",
-  "cargo xtask check-doc-artifacts",
-  "cargo xtask check-goals",
-  "git diff --check",
-]
-
-[[work_item]]
-id = "release-execution"
-status = "blocked"
-proposal = "USELESSKEY-PROP-0001"
-spec = "USELESSKEY-SPEC-0024"
-plan = "plans/v0.10-release-adoption-closure/implementation-plan.md"
-blocked_by = "Requires explicit release approval and must run from EffortlessMetrics/uselesskey after source candidate and dry-run evidence pass."
-commands = [
-  "cargo publish -p <crates in dependency order>",
-  "cargo publish -p uselesskey",
-  "cargo publish -p uselesskey-cli",
-  "git tag v0.10.0",
-  "git push origin v0.10.0",
-  "cargo install uselesskey-cli --version 0.10.0 --locked",
-  "cargo xtask external-adoption-smoke --published-version 0.10.0 --library-examples",
 ]
