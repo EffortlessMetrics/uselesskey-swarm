@@ -10891,7 +10891,7 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
                 library_examples,
                 format,
             } => {
-                let root = tempfile::tempdir().expect("temporary workspace root");
+                let root = tempfile::tempdir().context("create temporary workspace root")?;
                 assert!(path.is_none(), "path should default to None");
                 assert!(version.is_none(), "version should default to None");
                 assert!(!ci_recipes, "ci_recipes should default to false");
