@@ -2696,6 +2696,44 @@ mod tests {
     }
 
     #[test]
+    fn coverage_workflow_uses_cpx42_with_fork_guard_and_isolated_scratch() -> Result<()> {
+        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/workflows/coverage.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        for expected in [
+            "workflow_dispatch:",
+            "contains(github.event.pull_request.labels.*.name, 'coverage')",
+            "contains(github.event.pull_request.labels.*.name, 'full-ci')",
+            "github.event_name != 'pull_request'",
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            "group: em-ci-small",
+            "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
+            "CARGO_HOME: /mnt/ci-cache/cargo-home",
+            "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_TARGET_DIR: /mnt/ci-scratch/uselesskey-coverage/${{ github.run_id }}-${{ github.run_attempt }}",
+            "ci-disk-guard /mnt/ci-scratch 45",
+            "persist-credentials: false",
+            "cargo llvm-cov --version",
+            "nasm -v",
+            "Cleanup coverage scratch",
+            "rm -rf \"$TMPDIR\" \"$CARGO_TARGET_DIR\"",
+        ] {
+            assert!(
+                workflow.contains(expected),
+                "coverage workflow missing runner or isolation contract: {expected}"
+            );
+        }
+        assert!(workflow.contains(
+            "if: >-\n      (\n        github.event_name == 'push'"
+        ));
+        assert!(!workflow.contains("runs-on: ubuntu-latest"));
+        assert!(!workflow.contains("sudo apt-get"));
+        Ok(())
+    }
+
+    #[test]
     fn workflow_hygiene_guard_rejects_quoted_mutable_action_refs() -> Result<()> {
         let root = workspace_root()?;
         let tmp_root = root.join("target/tmp");
