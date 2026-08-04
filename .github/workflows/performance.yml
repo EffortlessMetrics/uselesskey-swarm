@@ -50,8 +50,23 @@ jobs:
             "$CARGO_HOME" \
             "$CARGO_CACHE_HOME/registry" \
             "$CARGO_CACHE_HOME/git"
-          ln -s "$CARGO_CACHE_HOME/registry" "$CARGO_HOME/registry"
-          ln -s "$CARGO_CACHE_HOME/git" "$CARGO_HOME/git"
+          shared_cache_unreadable=""
+          for cache_root in "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; do
+            if ! unreadable_entry="$(find "$cache_root" -type f ! -readable -print -quit 2>/dev/null)"; then
+              shared_cache_unreadable="$cache_root (scan failed)"
+              break
+            fi
+            if [[ -n "$unreadable_entry" ]]; then
+              shared_cache_unreadable="$unreadable_entry"
+              break
+            fi
+          done
+          if [[ -n "$shared_cache_unreadable" ]]; then
+            echo "::warning::shared Cargo cache is not readable at ${shared_cache_unreadable}; using isolated per-run Cargo cache"
+          else
+            ln -s "$CARGO_CACHE_HOME/registry" "$CARGO_HOME/registry"
+            ln -s "$CARGO_CACHE_HOME/git" "$CARGO_HOME/git"
+          fi
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
