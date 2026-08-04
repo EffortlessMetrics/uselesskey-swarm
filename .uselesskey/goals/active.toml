@@ -283,7 +283,7 @@ commands = [
 
 [[work_item]]
 id = "merge-queue-main-proof-test-no-panic"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0005"
 plan = "plans/no-panic-burndown/implementation-plan.md"
@@ -292,5 +292,18 @@ commands = [
   "cargo test -p xtask merge_queue",
   "cargo clippy -p xtask --all-targets -- -D warnings",
   "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "stale-x509-san-panic-allowlist"
+status = "ready"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo test -p uselesskey-x509",
+  "cargo clippy -p uselesskey-x509 --all-targets -- -D warnings",
   "git diff --check",
 ]
