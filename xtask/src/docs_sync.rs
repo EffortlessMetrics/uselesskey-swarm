@@ -1034,6 +1034,7 @@ fn indent_lines(text: &str, indent: &str) -> String {
 
 #[cfg(test)]
 mod tests {
+    use anyhow::{Context, Result, ensure};
     use std::fs;
 
     use super::{
@@ -1123,27 +1124,28 @@ mod tests {
     }
 
     #[test]
-    fn jsonwebtoken_adapter_snippet_enables_adapter_features() {
+    fn jsonwebtoken_adapter_snippet_enables_adapter_features() -> Result<()> {
         let raw = include_str!("../../docs/metadata/workspace-docs.json");
-        let metadata: DocsMetadata = serde_json::from_str(raw).expect("metadata parses");
+        let metadata: DocsMetadata = serde_json::from_str(raw).context("metadata parses")?;
         let snippet = metadata
             .dependency_snippets
             .iter()
             .find(|snippet| snippet.name == "jsonwebtoken adapter")
-            .expect("jsonwebtoken adapter snippet exists");
+            .context("jsonwebtoken adapter snippet exists")?;
         let adapter_dep = snippet
             .dependencies
             .iter()
             .find(|dependency| dependency.crate_name == "uselesskey-jsonwebtoken")
-            .expect("jsonwebtoken adapter dependency exists");
+            .context("jsonwebtoken adapter dependency exists")?;
 
-        assert_eq!(adapter_dep.features, vec!["all".to_string()]);
+        ensure!(adapter_dep.features == vec!["all".to_string()]);
         let rendered = render_single_dependency_snippet(snippet, &metadata.release_version);
         let expected = format!(
             "uselesskey-jsonwebtoken = {{ version = \"{}\", features = [\"all\"] }}",
             metadata.release_version
         );
-        assert!(rendered.contains(&expected), "{rendered}");
+        ensure!(rendered.contains(&expected), "{rendered}");
+        Ok(())
     }
 
     #[test]
