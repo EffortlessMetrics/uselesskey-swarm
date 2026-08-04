@@ -941,8 +941,15 @@ jobs:
   uselesskey-workflow-validation:
     name: Uselesskey Workflow Validation on GitHub Hosted
     needs: route-uselesskey-rust-small
-    if: needs.route-uselesskey-rust-small.outputs.target == 'workflow'
-    runs-on: ubuntu-latest
+    if: >-
+      needs.route-uselesskey-rust-small.outputs.target == 'workflow' &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    # This lane compiles xtask and therefore needs the Rust-capable tiny tier.
+    # Fork PRs are routed to the hosted fallback and are also excluded here as
+    # defense in depth for the trusted self-hosted runner.
+    runs-on:
+      group: em-ci-tiny
+      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7

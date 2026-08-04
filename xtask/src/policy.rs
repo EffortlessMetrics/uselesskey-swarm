@@ -2645,7 +2645,6 @@ mod tests {
             .ok_or_else(|| anyhow::anyhow!("workflow validation job boundary missing"))?;
 
         for expected in [
-            "runs-on: ubuntu-latest",
             "command -v python3",
             "python3 -c 'import yaml'",
             "import yaml",
@@ -2660,6 +2659,39 @@ mod tests {
             );
         }
         assert!(!job.contains("non-empty"));
+        Ok(())
+    }
+
+    #[test]
+    fn routed_workflow_validation_job_uses_tiny_runner_with_fork_guard() -> Result<()> {
+        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/workflows/em-ci-routed-rust.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+        let job = workflow
+            .split("  uselesskey-workflow-validation:\n")
+            .nth(1)
+            .ok_or_else(|| anyhow::anyhow!("workflow validation job missing"))?
+            .split("\n  uselesskey-route-failed:")
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("workflow validation job boundary missing"))?;
+
+        for expected in [
+            "name: Uselesskey Workflow Validation on GitHub Hosted",
+            "target == 'workflow'",
+            "github.event_name != 'pull_request'",
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            "group: em-ci-tiny",
+            "labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]",
+            "persist-credentials: false",
+            "workflow YAML validation requires Python 3 with PyYAML or Ruby YAML",
+        ] {
+            assert!(
+                job.contains(expected),
+                "workflow validation job missing runner or trust contract: {expected}"
+            );
+        }
+        assert!(!job.contains("runs-on: ubuntu-latest"));
         Ok(())
     }
 
