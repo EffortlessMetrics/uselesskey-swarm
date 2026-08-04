@@ -326,3 +326,21 @@ surface = "examples"
 classification = "test"
 reason = "Scanner-safe bundle reference outputs (manifest, payload shapes, receipts) used by examples/scanner-safe-bundle/README.md to demonstrate deterministic generator stability. Shape-only — never real secret material."
 covered_by = ["examples/scanner-safe-bundle/README.md", "manual review"]
+
+[[allow]]
+glob = "examples/audit-receipts/**/*.json"
+kind = "audit_receipt_example"
+owner = "cli"
+surface = "examples"
+classification = "test"
+reason = "Committed metadata-only bundle-audit failure receipt examples used by downstream onboarding docs and test coverage."
+covered_by = ["cargo xtask check-audit-receipts", "cargo xtask check-file-policy", "manual review"]
+
+[[allow]]
+glob = "examples/ci/consume-bundle-audit.sh"
+kind = "portable_receipt_consumer"
+owner = "cli"
+surface = "examples"
+classification = "tooling"
+reason = "Language-neutral CI helper script that consumes only metadata-only `bundle-audit.json` receipts."
+covered_by = ["examples/ci/README.md", "manual review"]

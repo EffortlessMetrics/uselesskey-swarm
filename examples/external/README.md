@@ -4,6 +4,39 @@ These examples are shaped like downstream repositories. Use them when you want
 copyable test, CI, and verifier wiring without learning the workspace internals
 first.
 
+## Copy First
+
+For an installed CLI bundle path, start with the webhook profile:
+
+```bash
+cargo install uselesskey-cli --version 0.9.1 --locked
+uselesskey doctor --format json
+uselesskey bundle --profile webhook --out target/uselesskey-webhook
+uselesskey verify-bundle target/uselesskey-webhook
+uselesskey inspect-bundle target/uselesskey-webhook
+uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci --expect-profile webhook --policy strict
+```
+
+For Rust tests, start with the facade crate:
+
+```toml
+[dev-dependencies]
+uselesskey = { version = "0.9.1", default-features = false, features = ["rsa", "jwk", "token"] }
+```
+
+```bash
+cargo test
+```
+
+For GitHub Actions, copy
+`ci-recipes/github-actions-bundle-verify-audit.yml.example` into
+`.github/workflows/` and keep the audit upload step limited to:
+
+```text
+target/uselesskey-webhook-audit/bundle-audit.json
+target/uselesskey-webhook-audit/bundle-audit.md
+```
+
 ## Pick A Job
 
 | Job | Example | Proof path |
@@ -24,6 +57,7 @@ first.
 | Test TLS chain validation | [tls-chain-validation](tls-chain-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test WebAuthn ceremony validation | [webauthn-ceremony-validation](webauthn-ceremony-validation/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
 | Test webhook signature validation | [webhook-verifier](webhook-verifier/) | `cargo xtask external-adoption-smoke --path . --library-examples` |
+| Consume `bundle-audit.json` in language-neutral CI | [../ci](../ci/) | `bash examples/ci/consume-bundle-audit.sh target/uselesskey-webhook-audit/bundle-audit.json` |
 
 Run proof modes sequentially in one checkout. The default path smoke,
 library-example smoke, and CI-recipe smoke all write

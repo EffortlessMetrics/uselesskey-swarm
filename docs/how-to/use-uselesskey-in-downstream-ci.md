@@ -18,6 +18,15 @@ steps:
   - run: uselesskey verify-bundle target/uselesskey-webhook
   - run: uselesskey inspect-bundle target/uselesskey-webhook
   - run: uselesskey audit-bundle target/uselesskey-webhook --out target/uselesskey-webhook-audit --ci --expect-profile webhook --policy strict
+  - name: Upload metadata-only audit receipts
+    uses: actions/upload-artifact@v7
+    if: always()
+    with:
+      name: uselesskey-webhook-audit
+      path: |
+        target/uselesskey-webhook-audit/bundle-audit.json
+        target/uselesskey-webhook-audit/bundle-audit.md
+      if-no-files-found: error
 ```
 
 Switch `webhook` to `tls`, `oidc`, or `scanner-safe` when that is the bundle
@@ -26,7 +35,8 @@ profile the job owns. Keep one output directory per profile.
 ## What you get
 
 CI generates a deterministic bundle under `target/`, verifies the manifest and
-profile layout, prints a quick inspect summary, then writes audit receipts:
+profile layout, prints a quick inspect summary, writes audit receipts, then
+uploads those metadata-only receipts for review:
 
 ```text
 target/uselesskey-webhook-audit/bundle-audit.md
@@ -71,6 +81,24 @@ When `--ci` is combined with `--out`, `audit-bundle` writes
 `bundle-audit.json` and `bundle-audit.md` for both passing audits and stable
 policy failures. Use an always-run upload step if reviewers need the failure
 packet after CI rejects the bundle.
+
+Read the uploaded JSON receipt first when CI fails:
+
+```text
+target/uselesskey-webhook-audit/bundle-audit.json
+```
+
+Branch on these stable fields:
+
+```text
+status
+profile
+checks[].failure_class
+```
+
+Do not branch on `checks[].detail`, Markdown text, or log prose. The stable
+failure class registry is
+[`../reference/audit-failure-classes.md`](../reference/audit-failure-classes.md).
 
 ## Verify
 

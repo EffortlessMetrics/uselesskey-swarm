@@ -7,6 +7,47 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- `uselesskey-ecdsa` now depends on the released `p256` 0.14, `p384` 0.14, and
+  `elliptic-curve` 0.14 instead of the `0.14.0-rc.*` pre-releases. Generated
+  P-256 and P-384 fixtures are byte-identical, so deterministic identity is
+  unchanged.
+
+### Added
+
+- Added `uselesskey --version` so installed users can confirm which CLI build
+  they have without running `uselesskey doctor`.
+- Added a guard test that fails when any visible CLI command or argument ships
+  without help text.
+
+### Changed
+
+- Documented every previously blank CLI flag and positional in `--help`, and
+  gave `uselesskey export k8s` and `uselesskey export vault-kv-json` command
+  descriptions.
+- Refreshed the resolved versions of the non-cryptographic dependencies in
+  `Cargo.lock`: `regex` to 1.13.1, `http` to 1.5.0, `insta` to 1.48.0, and
+  `chrono` to 0.4.45. No manifest version requirements change. The
+  release-candidate elliptic-curve stack is deliberately left alone.
+
+### Fixed
+
+- `uselesskey bundle` without `--out` now writes to the selected profile's
+  `target/uselesskey-*` directory instead of `{label}-bundle` in the current
+  working directory. The old fallback dropped generated fixture material into
+  the user's repo root, contradicting the profile output hints, the documented
+  examples, and the `doctor` output-path-safety check.
+
+### Security
+
+- Updated `anyhow` to 1.0.104 and `crossbeam-epoch` to 0.9.20 in `Cargo.lock`,
+  clearing RUSTSEC-2026-0190 (`Error::downcast_mut` unsoundness) and
+  RUSTSEC-2026-0204 (invalid pointer dereference in the `Atomic`/`Shared`
+  `fmt::Pointer` impls). Both advisories were failing
+  `cargo deny check advisories` on every branch.
+- Moved off the yanked `crypto-bigint` 0.7.3 to 0.7.5.
+
 ## [0.9.1] - 2026-05-17
 
 v0.9.1 is an adoption-confidence patch. It publishes the runtime scanner-safe

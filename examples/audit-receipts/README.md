@@ -14,3 +14,9 @@ Validate the examples with:
 cargo xtask check-audit-receipts
 ```
 
+The command writes metadata-only review evidence to:
+
+```text
+target/source-of-truth/audit-receipts-check.json
+target/source-of-truth/audit-receipts-check.md
+```

@@ -16,6 +16,10 @@ with:
 cargo xtask check-audit-receipts
 ```
 
+The check writes a metadata-only report to
+`target/source-of-truth/audit-receipts-check.json` and
+`target/source-of-truth/audit-receipts-check.md`.
+
 ## Upload-Safe Fields
 
 Audit failure receipts are metadata-only. The safe-to-upload decision fields are:

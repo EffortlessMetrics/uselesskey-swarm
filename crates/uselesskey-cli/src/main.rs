@@ -28,6 +28,7 @@ use uselesskey_x509::{ChainNegative, ChainSpec, X509Chain, X509FactoryExt, X509S
 #[derive(Parser, Debug)]
 #[command(
     name = "uselesskey",
+    version,
     about = "Generate deterministic test fixtures with metadata-only audit receipts",
     after_help = "Start here:
   uselesskey doctor
@@ -74,26 +75,34 @@ enum Commands {
 
 #[derive(clap::Args, Debug)]
 struct ProfilesArgs {
+    /// Also print the generated files and proof boundary for every profile.
     #[arg(long)]
     explain: bool,
 }
 
 #[derive(clap::Args, Debug)]
 struct ProfileArgs {
+    /// Bundle profile to explain.
     profile: BundleProfile,
+    /// Also print the generated files, boundaries, and copyable commands.
     #[arg(long)]
     explain: bool,
 }
 
 #[derive(clap::Args, Debug)]
 struct GenerateArgs {
+    /// Fixture kind to generate.
     kind: Kind,
+    /// Deterministic seed for this artifact. This is test input, not a secret.
     #[arg(long)]
     seed: String,
+    /// Stable label used in deterministic artifact identity.
     #[arg(long)]
     label: String,
+    /// Output encoding for the generated artifact.
     #[arg(long)]
     format: Format,
+    /// Write the artifact to this path instead of stdout.
     #[arg(long)]
     out: Option<PathBuf>,
 }
@@ -121,7 +130,8 @@ struct BundleArgs {
     /// Bundle profile to generate.
     #[arg(long, default_value = "scanner-safe")]
     profile: BundleProfile,
-    /// Output directory for the generated bundle.
+    /// Output directory for the generated bundle [default: the profile's
+    /// `target/uselesskey-*` path].
     #[arg(long)]
     out: Option<PathBuf>,
     /// Explain the profile, generated files, audit path, and boundary without writing files.
@@ -234,6 +244,60 @@ impl AuditBundleArgs {
             .as_deref()
             .or(self.path.as_deref())
             .context("clap requires a bundle directory")
+    }
+}
+
+#[cfg(test)]
+mod cli_self_description_tests {
+    use clap::CommandFactory;
+
+    use super::*;
+
+    /// Walk every visible command and argument so a new flag cannot ship with a
+    /// blank `--help` entry.
+    fn walk(command: &clap::Command, path: &str, gaps: &mut Vec<String>) {
+        for arg in command.get_arguments() {
+            if arg.is_hide_set() {
+                continue;
+            }
+            if arg.get_help().is_none() && arg.get_long_help().is_none() {
+                gaps.push(format!("{path} argument `{}` has no help", arg.get_id()));
+            }
+        }
+
+        for sub in command.get_subcommands() {
+            if sub.is_hide_set() || sub.get_name() == "help" {
+                continue;
+            }
+            let sub_path = format!("{path} {}", sub.get_name());
+            if sub.get_about().is_none() && sub.get_long_about().is_none() {
+                gaps.push(format!("{sub_path} has no about"));
+            }
+            walk(sub, &sub_path, gaps);
+        }
+    }
+
+    #[test]
+    fn every_visible_command_and_argument_documents_itself() {
+        let command = Cli::command();
+        let mut gaps = Vec::new();
+        walk(&command, "uselesskey", &mut gaps);
+
+        assert!(
+            gaps.is_empty(),
+            "undocumented CLI surface:\n{}",
+            gaps.join("\n")
+        );
+    }
+
+    #[test]
+    fn version_flag_reports_the_installed_cli_version() {
+        let rendered = Cli::command().render_version();
+
+        assert!(
+            rendered.contains(env!("CARGO_PKG_VERSION")),
+            "`--version` should report the installed CLI version, got: {rendered}"
+        );
     }
 }
 
@@ -386,46 +450,60 @@ struct ExportArgs {
 
 #[derive(Subcommand, Debug)]
 enum ExportTarget {
+    #[command(about = "Render bundle fixtures as a Kubernetes Secret manifest")]
     K8s(ExportK8sArgs),
+    #[command(about = "Render bundle fixtures as a Vault KV v2 JSON payload")]
     VaultKvJson(ExportVaultKvJsonArgs),
 }
 
 #[derive(clap::Args, Debug)]
 struct ExportK8sArgs {
+    /// Bundle directory produced by `uselesskey bundle`.
     #[arg(long = "bundle-dir", alias = "path")]
     bundle_dir: PathBuf,
+    /// Name to set on the rendered Secret.
     #[arg(long)]
     name: String,
+    /// Namespace to set on the rendered Secret. Omit to leave it unset.
     #[arg(long)]
     namespace: Option<String>,
+    /// Write the rendered manifest to this path instead of stdout.
     #[arg(long)]
     out: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
 struct ExportVaultKvJsonArgs {
+    /// Bundle directory produced by `uselesskey bundle`.
     #[arg(long = "bundle-dir", alias = "path")]
     bundle_dir: PathBuf,
+    /// Write the rendered payload to this path instead of stdout.
     #[arg(long)]
     out: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
 struct InspectArgs {
+    /// Format to report for the inspected input.
     #[arg(long)]
     format: Format,
+    /// Read the input from this path instead of stdin.
     #[arg(long)]
     input: Option<PathBuf>,
+    /// Write the JSON report to this path instead of stdout.
     #[arg(long)]
     out: Option<PathBuf>,
 }
 
 #[derive(clap::Args, Debug)]
 struct MaterializeArgs {
+    /// Reviewed materialization manifest to materialize.
     #[arg(long)]
     manifest: PathBuf,
+    /// Directory to write fixtures into [default: target/uselesskey-fixtures].
     #[arg(long = "out-dir", alias = "out")]
     out_dir: Option<PathBuf>,
+    /// Also emit a Rust module of `include_bytes!` entries at this path.
     #[arg(long)]
     emit_rs: Option<PathBuf>,
     #[arg(long, hide = true)]
@@ -434,8 +512,10 @@ struct MaterializeArgs {
 
 #[derive(clap::Args, Debug)]
 struct VerifyArgs {
+    /// Materialization manifest to verify.
     #[arg(long)]
     manifest: PathBuf,
+    /// Directory the manifest is verified against [default: target/uselesskey-fixtures].
     #[arg(long = "out-dir", alias = "out")]
     out_dir: Option<PathBuf>,
 }
@@ -593,10 +673,13 @@ fn run_bundle(args: BundleArgs) -> Result<()> {
         );
     }
 
+    // Without `--out`, fall back to the profile's own advertised output path.
+    // That keeps generated payloads under `target/`, which is what the profile
+    // hints, the docs, and the `doctor` output-path-safety check all promise.
     let out_dir = args
         .out
         .clone()
-        .unwrap_or_else(|| PathBuf::from(format!("{}-bundle", args.label)));
+        .unwrap_or_else(|| PathBuf::from(args.profile.output_dir_hint()));
     fs::create_dir_all(&out_dir)
         .with_context(|| format!("failed to create bundle directory {}", out_dir.display()))?;
 

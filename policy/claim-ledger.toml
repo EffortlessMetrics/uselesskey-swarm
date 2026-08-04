@@ -239,6 +239,8 @@ proof_commands = [
 artifacts = [
   "target/uselesskey-audit/bundle-audit.json",
   "target/uselesskey-audit/bundle-audit.md",
+  "target/source-of-truth/audit-receipts-check.json",
+  "target/source-of-truth/audit-receipts-check.md",
 ]
 docs = [
   "docs/how-to/share-installed-bundle-audit.md",

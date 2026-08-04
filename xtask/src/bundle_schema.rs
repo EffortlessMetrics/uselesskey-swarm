@@ -13,8 +13,12 @@ const BUNDLE_MANIFEST_SCHEMA_JSON: &str = "docs/schemas/bundle-manifest.schema.j
 const NEGATIVE_COVERAGE_SCHEMA_JSON: &str = "docs/schemas/negative-coverage.schema.json";
 const BUNDLE_AUDIT_SCHEMA_JSON: &str = "docs/schemas/bundle-audit.schema.json";
 const AUDIT_RECEIPT_EXAMPLES_DIR: &str = "examples/audit-receipts";
+const AUDIT_RECEIPT_REPORT_DIR: &str = "target/source-of-truth";
+const AUDIT_RECEIPT_REPORT_JSON: &str = "audit-receipts-check.json";
+const AUDIT_RECEIPT_REPORT_MD: &str = "audit-receipts-check.md";
 const NEGATIVE_FIXTURES_TOML: &str = "policy/negative-fixtures.toml";
 const LOCK_DIR: &str = "target/bundle-schema-check.lock";
+const AUDIT_RECEIPT_LOCK_DIR: &str = "target/audit-receipts-check.lock";
 const PROFILES: &[&str] = &["scanner-safe", "tls", "oidc", "webhook", "runtime"];
 
 #[derive(Debug, Serialize)]
@@ -252,10 +256,15 @@ pub(crate) fn check_audit_receipts() -> Result<()> {
         errors,
     };
 
+    write_audit_receipt_examples_report(&report)?;
     eprintln!(
-        "audit-receipts: {} examples; {} errors",
+        "audit-receipts: {} examples; {} errors; wrote {}/{} and {}/{}",
         report.examples_checked,
-        report.errors.len()
+        report.errors.len(),
+        AUDIT_RECEIPT_REPORT_DIR,
+        AUDIT_RECEIPT_REPORT_JSON,
+        AUDIT_RECEIPT_REPORT_DIR,
+        AUDIT_RECEIPT_REPORT_MD
     );
     if !report.errors.is_empty() {
         for error in report.errors.iter().take(20) {
@@ -269,8 +278,33 @@ pub(crate) fn check_audit_receipts() -> Result<()> {
     Ok(())
 }
 
+fn write_audit_receipt_examples_report(report: &AuditReceiptExamplesReport) -> Result<()> {
+    write_audit_receipt_examples_report_at(Path::new("."), report)
+}
+
+fn write_audit_receipt_examples_report_at(
+    root: &Path,
+    report: &AuditReceiptExamplesReport,
+) -> Result<()> {
+    let _output_lock = acquire_audit_receipt_output_lock(root)?;
+    let out_dir = root.join(AUDIT_RECEIPT_REPORT_DIR);
+    fs::create_dir_all(&out_dir).with_context(|| format!("create {}", out_dir.display()))?;
+    write_json_pretty(&out_dir.join(AUDIT_RECEIPT_REPORT_JSON), report)?;
+    let markdown_path = out_dir.join(AUDIT_RECEIPT_REPORT_MD);
+    fs::write(
+        &markdown_path,
+        render_audit_receipt_examples_markdown(report),
+    )
+    .with_context(|| format!("write {}", markdown_path.display()))?;
+    Ok(())
+}
+
 fn acquire_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
     target_output::acquire_lock(root, LOCK_DIR, "check-bundle-schemas")
+}
+
+fn acquire_audit_receipt_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
+    target_output::acquire_lock(root, AUDIT_RECEIPT_LOCK_DIR, "check-audit-receipts")
 }
 
 fn prepare_output_dir(out: &Path) -> Result<()> {
@@ -2273,6 +2307,39 @@ fn render_bundle_schema_check_markdown(report: &BundleSchemaCheckReport) -> Stri
     out
 }
 
+fn render_audit_receipt_examples_markdown(report: &AuditReceiptExamplesReport) -> String {
+    let mut out = String::new();
+    out.push_str("# Audit receipt examples check\n\n");
+    out.push_str(&format!(
+        "- Examples checked: {}\n",
+        report.examples_checked
+    ));
+    out.push_str(&format!("- Schema: `{}`\n", report.schema));
+    out.push_str(&format!(
+        "- Examples directory: `{}`\n",
+        report.examples_dir
+    ));
+    out.push_str(&format!("- Errors: {}\n\n", report.errors.len()));
+
+    out.push_str("## Examples\n\n");
+    out.push_str("| Failure class | Checks | Example |\n");
+    out.push_str("| --- | ---: | --- |\n");
+    for example in &report.examples {
+        out.push_str(&format!(
+            "| `{}` | {} | `{}` |\n",
+            example.failure_class, example.checks, example.path
+        ));
+    }
+
+    if !report.errors.is_empty() {
+        out.push_str("\n## Errors\n\n");
+        for error in &report.errors {
+            out.push_str(&format!("- {error}\n"));
+        }
+    }
+    out
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -3189,6 +3256,76 @@ mod tests {
         );
 
         assert!(errors.is_empty(), "{errors:?}");
+    }
+
+    #[test]
+    fn audit_receipt_examples_markdown_names_examples_and_errors() {
+        let report = AuditReceiptExamplesReport {
+            schema_version: 1,
+            examples_checked: 1,
+            schema: BUNDLE_AUDIT_SCHEMA_JSON.to_string(),
+            examples_dir: AUDIT_RECEIPT_EXAMPLES_DIR.to_string(),
+            examples: vec![AuditReceiptExampleReport {
+                path: "examples/audit-receipts/missing_manifest.json".to_string(),
+                failure_class: "missing_manifest".to_string(),
+                checks: 1,
+            }],
+            errors: vec!["example error".to_string()],
+        };
+
+        let markdown = render_audit_receipt_examples_markdown(&report);
+
+        for expected in [
+            "Examples checked: 1",
+            BUNDLE_AUDIT_SCHEMA_JSON,
+            AUDIT_RECEIPT_EXAMPLES_DIR,
+            "`missing_manifest`",
+            "`examples/audit-receipts/missing_manifest.json`",
+            "example error",
+        ] {
+            assert!(
+                markdown.contains(expected),
+                "missing `{expected}` in {markdown}"
+            );
+        }
+    }
+
+    #[test]
+    fn audit_receipt_examples_report_writer_emits_json_and_markdown() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let report = AuditReceiptExamplesReport {
+            schema_version: 1,
+            examples_checked: 1,
+            schema: BUNDLE_AUDIT_SCHEMA_JSON.to_string(),
+            examples_dir: AUDIT_RECEIPT_EXAMPLES_DIR.to_string(),
+            examples: vec![AuditReceiptExampleReport {
+                path: "examples/audit-receipts/missing_manifest.json".to_string(),
+                failure_class: "missing_manifest".to_string(),
+                checks: 1,
+            }],
+            errors: Vec::new(),
+        };
+
+        write_audit_receipt_examples_report_at(dir.path(), &report)?;
+
+        let json_path = dir
+            .path()
+            .join(AUDIT_RECEIPT_REPORT_DIR)
+            .join(AUDIT_RECEIPT_REPORT_JSON);
+        let markdown_path = dir
+            .path()
+            .join(AUDIT_RECEIPT_REPORT_DIR)
+            .join(AUDIT_RECEIPT_REPORT_MD);
+        let json: Value = serde_json::from_str(&fs::read_to_string(&json_path)?)?;
+        let markdown = fs::read_to_string(&markdown_path)?;
+
+        assert_eq!(json["schema_version"], 1);
+        assert_eq!(json["examples_checked"], 1);
+        assert_eq!(json["schema"], BUNDLE_AUDIT_SCHEMA_JSON);
+        assert_eq!(json["examples"][0]["failure_class"], "missing_manifest");
+        assert!(markdown.contains("Examples checked: 1"));
+        assert!(markdown.contains("`missing_manifest`"));
+        Ok(())
     }
 
     #[test]

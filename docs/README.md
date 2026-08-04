@@ -100,6 +100,8 @@ Validation lanes and the claim boundaries behind them.
 Release-candidate proof and public promise evidence.
 
 - [v0.10.0-readiness-record.md](release/v0.10.0-readiness-record.md) - v0.10.0 release-readiness proof, hosted CI, non-blockers, and release-boundary handoff
+- [v0.10-adoption-proof-inventory.md](release/v0.10-adoption-proof-inventory.md) - v0.10.0 surface/job mapping for copyable docs, examples, proof commands, and blockers
+- [v0.10-command-ledger.md](release/v0.10-command-ledger.md) - v0.10.0 release-facing command ledger with proof expectations and boundaries
 - [v0.10.0-public-surface-inventory.md](release/v0.10.0-public-surface-inventory.md) - v0.10.0 release-facing surfaces, user commands, proof, risk, and owners
 - [v0.10.0-version-snippet-reconciliation.md](release/v0.10.0-version-snippet-reconciliation.md) - v0.10.0 current-stable versus release-candidate snippet decisions
 - [v0.10.0-installed-cli-smoke.md](release/v0.10.0-installed-cli-smoke.md) - v0.10.0 installed CLI smoke evidence for doctor, bundle, verify, inspect, and audit

@@ -57,6 +57,118 @@ fn generate_jwk_outputs_json() -> TestResult<()> {
 }
 
 #[test]
+fn generate_ecdsa_pem_is_deterministic_pkcs8() -> TestResult<()> {
+    let args = [
+        "generate", "ecdsa", "--seed", "det-seed", "--label", "svc", "--format", "pem",
+    ];
+    let out1 = run(args)?;
+    let out2 = run(args)?;
+    assert_eq!(
+        out1, out2,
+        "ecdsa pem must be deterministic for a fixed seed"
+    );
+    assert!(
+        out1.contains("BEGIN PRIVATE KEY"),
+        "expected PKCS#8 PEM, got: {out1}"
+    );
+    Ok(())
+}
+
+#[test]
+fn generate_ecdsa_jwk_has_ec_kty() -> TestResult<()> {
+    let out = run([
+        "generate", "ecdsa", "--seed", "det-seed", "--label", "svc", "--format", "jwk",
+    ])?;
+    let value: Value = serde_json::from_str(&out).test_context("valid json")?;
+    assert_eq!(value["kty"], "EC");
+    Ok(())
+}
+
+#[test]
+fn generate_ed25519_pem_is_deterministic_pkcs8() -> TestResult<()> {
+    let args = [
+        "generate", "ed25519", "--seed", "det-seed", "--label", "svc", "--format", "pem",
+    ];
+    let out1 = run(args)?;
+    let out2 = run(args)?;
+    assert_eq!(
+        out1, out2,
+        "ed25519 pem must be deterministic for a fixed seed"
+    );
+    assert!(
+        out1.contains("BEGIN PRIVATE KEY"),
+        "expected PKCS#8 PEM, got: {out1}"
+    );
+    Ok(())
+}
+
+#[test]
+fn generate_ed25519_jwk_has_okp_kty() -> TestResult<()> {
+    let out = run([
+        "generate", "ed25519", "--seed", "det-seed", "--label", "svc", "--format", "jwk",
+    ])?;
+    let value: Value = serde_json::from_str(&out).test_context("valid json")?;
+    assert_eq!(value["kty"], "OKP");
+    Ok(())
+}
+
+#[test]
+fn generate_hmac_jwk_has_oct_kty() -> TestResult<()> {
+    let out = run([
+        "generate", "hmac", "--seed", "det-seed", "--label", "svc", "--format", "jwk",
+    ])?;
+    let value: Value = serde_json::from_str(&out).test_context("valid json")?;
+    assert_eq!(value["kty"], "oct");
+    Ok(())
+}
+
+#[test]
+fn generate_token_pem_is_deterministic_nonempty() -> TestResult<()> {
+    let args = [
+        "generate", "token", "--seed", "det-seed", "--label", "svc", "--format", "pem",
+    ];
+    let out1 = run(args)?;
+    let out2 = run(args)?;
+    assert_eq!(
+        out1, out2,
+        "token value must be deterministic for a fixed seed"
+    );
+    assert!(!out1.trim().is_empty(), "token value must not be empty");
+    Ok(())
+}
+
+#[test]
+fn generate_x509_pem_emits_certificate() -> TestResult<()> {
+    let out = run([
+        "generate",
+        "x509",
+        "--seed",
+        "det-seed",
+        "--label",
+        "svc.example.com",
+        "--format",
+        "pem",
+    ])?;
+    assert!(
+        out.contains("BEGIN CERTIFICATE"),
+        "expected a certificate PEM, got: {out}"
+    );
+    Ok(())
+}
+
+#[test]
+fn generate_jwks_outputs_keys_array() -> TestResult<()> {
+    let out = run([
+        "generate", "jwks", "--seed", "det-seed", "--label", "issuer", "--format", "jwks",
+    ])?;
+    let value: Value = serde_json::from_str(&out).test_context("valid json")?;
+    let keys = value["keys"].as_array().test_context("keys array")?;
+    assert!(!keys.is_empty(), "jwks must contain at least one key");
+    assert_eq!(keys[0]["kty"], "RSA");
+    Ok(())
+}
+
+#[test]
 fn profiles_command_lists_copyable_contract_pack_paths() -> TestResult<()> {
     let out = run(["profiles"])?;
 
@@ -218,6 +330,47 @@ fn doctor_help_stays_installed_user_scoped() -> TestResult<()> {
     assert!(!out.contains("cargo xtask"));
     assert!(!out.contains("claim-ledger"));
     assert!(!out.contains("release-evidence"));
+    Ok(())
+}
+
+#[test]
+fn bundle_without_out_writes_under_target_not_the_current_directory() -> TestResult<()> {
+    for (profile, expected) in [
+        ("webhook", "target/uselesskey-webhook"),
+        ("oidc", "target/uselesskey-oidc"),
+        ("scanner-safe", "target/uselesskey-bundle"),
+    ] {
+        let dir = tempdir().test_context("tempdir")?;
+        let mut cmd = Command::cargo_bin("uselesskey").test_context("bin exists")?;
+        cmd.current_dir(dir.path())
+            .args(["bundle", "--profile", profile]);
+        let output = cmd.assert().success().get_output().stdout.clone();
+        let report: Value = serde_json::from_slice(&output).test_context("bundle json")?;
+
+        assert_eq!(
+            report["bundle_dir"], expected,
+            "`bundle --profile {profile}` without --out must default to the profile output hint"
+        );
+        assert!(
+            dir.path().join(expected).join("manifest.json").exists(),
+            "expected a manifest under {expected}"
+        );
+
+        // Nothing generated may land directly in the working directory: that is
+        // the repo root for an installed user, and the whole point of the tool
+        // is keeping fixture material out of it.
+        let stray = fs::read_dir(dir.path())
+            .test_context("read working dir")?
+            .filter_map(Result::ok)
+            .map(|entry| entry.file_name().to_string_lossy().into_owned())
+            .filter(|name| name != "target")
+            .collect::<Vec<_>>();
+        assert!(
+            stray.is_empty(),
+            "`bundle --profile {profile}` wrote outside target/: {stray:?}"
+        );
+    }
+
     Ok(())
 }
 

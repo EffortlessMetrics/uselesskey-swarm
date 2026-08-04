@@ -15,6 +15,7 @@ use owo_colors::OwoColorize;
 use regex::Regex;
 use uselesskey_feature_grid::{BDD_FEATURE_MATRIX, CORE_FEATURE_MATRIX};
 
+mod adoption_command_ledger;
 mod adoption_regression;
 mod audit_surface;
 mod bundle_proof;
@@ -277,6 +278,8 @@ enum Cmd {
     CheckDocArtifacts,
     /// Validate support-tier rows against public claims, proof commands, docs, and specs.
     CheckSupportTiers,
+    /// Validate canonical release command ownership rows for adoption closure.
+    CheckAdoptionCommandLedger,
     /// Check advisory merge queue posture against the newest main full-gate proof.
     CheckMergeQueue {
         /// Explicit repo in `owner/name` form. Defaults to the current gh repo.
@@ -773,6 +776,7 @@ fn main() -> Result<()> {
         }
         Cmd::CheckDocArtifacts => doc_artifacts::run(&workspace_root_path()),
         Cmd::CheckSupportTiers => support_tiers::run(&workspace_root_path()),
+        Cmd::CheckAdoptionCommandLedger => adoption_command_ledger::run(&workspace_root_path()),
         Cmd::CheckMergeQueue {
             repo,
             main_branch,
@@ -4960,9 +4964,14 @@ fn main() {
             "--out",
             &cli_bundle.display().to_string(),
         ]))?;
-        run(Command::new(&cli_bin).args(["verify-bundle", &cli_bundle.display().to_string()]))?;
+        run(Command::new(&cli_bin).args([
+            "verify-bundle",
+            "--bundle-dir",
+            &cli_bundle.display().to_string(),
+        ]))?;
         run(Command::new(&cli_bin).args([
             "inspect-bundle",
+            "--bundle-dir",
             &cli_bundle.display().to_string(),
             "--out",
             &inspect_txt.display().to_string(),
@@ -10876,6 +10885,7 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
                 library_examples,
                 format,
             } => {
+                let root = tempfile::tempdir().expect("temporary workspace root");
                 assert!(path.is_none(), "path should default to None");
                 assert!(version.is_none(), "version should default to None");
                 assert!(!ci_recipes, "ci_recipes should default to false");
@@ -10885,7 +10895,7 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
                 );
                 assert!(matches!(format, ExternalAdoptionSmokeFormat::Human));
                 let err = external_adoption_smoke::run(
-                    Path::new("."),
+                    root.path(),
                     external_adoption_smoke::RunOptions {
                         path,
                         version,
@@ -11387,6 +11397,16 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
                 assert!(explain);
             }
             _ => bail!("expected mutants-pr command"),
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn check_adoption_command_ledger_command_parses() -> Result<()> {
+        let parsed = Cli::try_parse_from(["xtask", "check-adoption-command-ledger"])?;
+        match parsed.cmd {
+            Cmd::CheckAdoptionCommandLedger => {}
+            _ => bail!("expected check-adoption-command-ledger command"),
         }
         Ok(())
     }

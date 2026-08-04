@@ -17,6 +17,7 @@ each prove.
 
 ## Recent Handoffs
 
+- [2026-06-19-v0-10-release-adoption-closure-closeout.md](2026-06-19-v0-10-release-adoption-closure-closeout.md) - v0.10 release-adoption closeout and source-boundary handoff.
 - [2026-05-21-v0-10-0-release-readiness-closeout.md](2026-05-21-v0-10-0-release-readiness-closeout.md) - Release-readiness closeout and next release-boundary handoff.
 - [2026-05-21-source-of-truth-control-plane-closeout.md](2026-05-21-source-of-truth-control-plane-closeout.md) - Source-of-truth control-plane closeout and carried product surfaces.
 
