@@ -3065,7 +3065,7 @@ jobs:
             "MAIN_FULL_RESULT: ${{ needs.main-full-gate.result }}",
             "main_full_result=${MAIN_FULL_RESULT:-<empty>}",
             "selected target main-full but result was ${MAIN_FULL_RESULT}",
-            "target/source-of-truth/main-full-gate-receipt.json",
+            "main-full-gate-receipt.json",
             "\"elapsed_seconds\": int(os.environ[\"ELAPSED_SECONDS\"])",
             "\"heartbeat_seen\": os.environ[\"HEARTBEAT_SEEN\"].lower() == \"true\"",
             "Upload main full gate receipt",
@@ -3102,15 +3102,33 @@ jobs:
             .map(|(_, rest)| rest)
             .ok_or_else(|| anyhow::anyhow!("main-full-gate job missing"))?;
         for expected in [
-            "runs-on: ubuntu-latest",
+            "runs-on:\n      group: em-ci-small\n      labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]",
+            "timeout-minutes: 120",
+            "CARGO_BUILD_JOBS: \"12\"",
+            "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
+            "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}",
+            "ci-disk-guard /mnt/ci-scratch 50",
+            "ci-disk-guard /mnt/ci-cache 10",
+            "Prepare main full gate scratch",
+            "shared Cargo cache is not readable",
+            "ln -s \"$CARGO_CACHE_HOME/registry\" \"$CARGO_HOME/registry\"",
+            "ln -s \"$CARGO_CACHE_HOME/git\" \"$CARGO_HOME/git\"",
             "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
             "persist-credentials: false",
             "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
             "toolchain: stable",
             "toolchain: nightly",
-            "Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32",
             "taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed",
+            "Preflight runner and tools",
+            "test -x \"$(command -v ci-disk-guard)\"",
+            "test -x \"$(command -v nasm)\"",
+            "CARGO_TARGET_DIR\"]) / \"source-of-truth\" / \"main-full-gate-receipt.json\"",
             "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "Cleanup main full gate scratch",
+            "^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$",
+            "rm -rf -- \"$workspace_target\" \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
         ] {
             assert!(
                 main_full_gate.contains(expected),
@@ -3118,12 +3136,9 @@ jobs:
             );
         }
         for mutable_ref in [
-            "actions/checkout@v7",
-            "dtolnay/rust-toolchain@stable",
-            "dtolnay/rust-toolchain@nightly",
-            "Swatinem/rust-cache@v2",
-            "taiki-e/install-action@v2.85.6",
-            "actions/upload-artifact@v7",
+            "runs-on: ubuntu-latest",
+            "sudo apt-get",
+            "Swatinem/rust-cache@",
         ] {
             assert!(
                 !main_full_gate.contains(mutable_ref),

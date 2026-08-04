@@ -49,12 +49,14 @@ proof rather than appearing as skipped work.
 
 ## Main Full Gate Receipt
 
-`Uselesskey Main Full Gate` uploads a `main-full-gate-receipt` artifact
-containing `target/source-of-truth/main-full-gate-receipt.json`. Use it to
-review hosted full-gate start and completion timestamps, elapsed seconds,
-`xtask ci` result, exit code, heartbeat evidence, and the relationship to
-`target/xtask/receipt.json`. The receipt is evidence for the latest `main`
-commit; it does not replace the normalized `Uselesskey Rust Small Result`.
+`Uselesskey Main Full Gate` runs on the organization
+`[self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]` tier and uploads
+a `main-full-gate-receipt` artifact containing
+`main-full-gate-receipt.json`. Use it to review full-gate start and completion
+timestamps, elapsed seconds, `xtask ci` result, exit code, heartbeat evidence,
+and the relationship to `target/xtask/receipt.json`. The receipt is evidence
+for the latest `main` commit; it does not replace the normalized
+`Uselesskey Rust Small Result`.
 
 `cargo xtask check-merge-queue` is the local advisory companion to this policy.
 It reads the newest main `EM CI Routed Rust` push run, writes
