@@ -2696,6 +2696,60 @@ mod tests {
     }
 
     #[test]
+    fn mutation_workflow_uses_cx43_container_runner_and_isolation_contract() -> Result<()> {
+        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/workflows/mutation.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        for expected in [
+            "schedule:",
+            "workflow_dispatch:",
+            "scope:",
+            "crate:",
+            "permissions:\n  contents: read",
+            "group: mutation-${{ github.workflow }}-${{ github.ref }}",
+            "cancel-in-progress: false",
+            "group: em-ci-small",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
+            "CARGO_HOME: /mnt/ci-cache/cargo-home",
+            "SCCACHE_DIR: /mnt/ci-cache/sccache",
+            "RUSTC_WRAPPER: /usr/local/cargo/bin/sccache",
+            "CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}",
+            "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
+            "ci-disk-guard /mnt/ci-scratch 50",
+            "ci-disk-guard /mnt/docker 10",
+            "ci-disk-guard /mnt/ci-cache 10",
+            "refusing to clean unexpected workspace",
+            "persist-credentials: false",
+            "clean: false",
+            "docker build --pull=false -t uselesskey-ci-rust:1.95",
+            "cargo mutants --version",
+            "sccache --version",
+            "nasm -v",
+            "cargo xtask mutants-nightly",
+            "-v \"${CARGO_TARGET_DIR}:/cargo-target\"",
+            "-v \"${TMPDIR}:/tmp/jobtmp\"",
+            "name: mutation-nightly",
+            "path: target/mutation",
+            "rm -rf /workspace/target",
+            "rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?*",
+            "rmdir \"$TMPDIR\"",
+            "rmdir \"$CARGO_TARGET_DIR\"",
+        ] {
+            assert!(
+                workflow.contains(expected),
+                "mutation workflow missing expected contract: {expected}"
+            );
+        }
+
+        assert!(!workflow.contains("runs-on: ubuntu-latest"));
+        assert!(!workflow.contains("apt-get install"));
+        assert!(!workflow.contains("cargo install cargo-mutants"));
+        Ok(())
+    }
+
+    #[test]
     fn workflow_hygiene_guard_rejects_quoted_mutable_action_refs() -> Result<()> {
         let root = workspace_root()?;
         let tmp_root = root.join("target/tmp");
