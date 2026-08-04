@@ -2066,15 +2066,16 @@ mod tests {
     }
 
     #[test]
-    fn external_adoption_ci_recipe_profiles_match_actions_matrix() {
+    fn external_adoption_ci_recipe_profiles_match_actions_matrix() -> Result<()> {
         let example = include_str!(
             "../../examples/external/ci-recipes/github-actions-bundle-verify-audit.yml.example"
         );
 
         assert_eq!(
-            actions_matrix_profiles(example),
+            actions_matrix_profiles(example)?,
             CI_RECIPE_PROFILES.to_vec()
         );
+        Ok(())
     }
 
     #[test]
@@ -3683,19 +3684,19 @@ uselesskey-test-server = "0.9.1"
         Ok(())
     }
 
-    fn actions_matrix_profiles(example: &str) -> Vec<&str> {
+    fn actions_matrix_profiles(example: &str) -> Result<Vec<&str>> {
         let line = example
             .lines()
             .find(|line| line.trim_start().starts_with("profile: ["))
-            .expect("actions recipe has profile matrix");
+            .context("Actions recipe is missing its profile matrix")?;
         let (_, profiles) = line
             .split_once('[')
-            .expect("matrix line has opening bracket");
+            .context("Actions recipe profile matrix is missing its opening bracket")?;
         let (profiles, _) = profiles
             .split_once(']')
-            .expect("matrix line has closing bracket");
+            .context("Actions recipe profile matrix is missing its closing bracket")?;
 
-        profiles.split(',').map(str::trim).collect()
+        Ok(profiles.split(',').map(str::trim).collect())
     }
 
     #[test]
