@@ -1,0 +1,12 @@
+self-hosted-runner:
+  labels:
+    - em-ci
+    - cx43
+    - cpx42
+    - cx53
+    - rust-medium
+    - rust-large
+    - rust-16gb
+    - rust
+    - rust-tiny
+    - trusted-pr
