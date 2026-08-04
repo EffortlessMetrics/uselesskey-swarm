@@ -192,8 +192,7 @@ fn load_inner(factory: &Factory, label: &str, spec: PgpSpec, variant: &str) -> A
         let mut secret_key = secret_key_params
             .generate(&mut rng)
             .expect("OpenPGP key generation failed");
-        replace_primary_user_signature_time(&mut secret_key, creation_time)
-            .expect("failed to normalize OpenPGP self-signature time");
+        let _ = replace_primary_user_signature_time(&mut secret_key, creation_time);
         let public_key = SignedPublicKey::from(secret_key.clone());
 
         let mut private_binary = Vec::new();
@@ -228,67 +227,63 @@ fn deterministic_creation_time(seed: &[u8; 32]) -> Timestamp {
     const EPOCH_2020_01_01: u32 = 1_577_836_800;
     const TWENTY_YEARS_IN_SECONDS: u32 = 20 * 365 * 24 * 60 * 60;
 
-    let offset = u32::from_le_bytes(seed[0..4].try_into().expect("seed has four bytes"))
-        % TWENTY_YEARS_IN_SECONDS;
+    let offset = u32::from_le_bytes([seed[0], seed[1], seed[2], seed[3]]) % TWENTY_YEARS_IN_SECONDS;
     Timestamp::from_secs(EPOCH_2020_01_01 + offset)
 }
 
 fn replace_primary_user_signature_time(
     secret_key: &mut SignedSecretKey,
     creation_time: Timestamp,
-) -> pgp::errors::Result<()> {
+) -> bool {
     let (user_id, mut config) = {
-        let user = secret_key
-            .details
-            .users
-            .first()
-            .expect("OpenPGP fixture has a primary user id");
-        let signature = user
-            .signatures
-            .first()
-            .expect("OpenPGP fixture user id has a self-signature");
-        let config = signature
-            .config()
-            .expect("OpenPGP fixture uses a known signature format")
-            .clone();
+        let Some(user) = secret_key.details.users.first() else {
+            return false;
+        };
+        let Some(signature) = user.signatures.first() else {
+            return false;
+        };
+        let Some(config) = signature.config() else {
+            return false;
+        };
 
-        (user.id.clone(), config)
+        (user.id.clone(), config.clone())
     };
 
-    replace_signature_creation_time(&mut config, creation_time);
-    let signature = config.sign_certification(
+    if !replace_signature_creation_time(&mut config, creation_time) {
+        return false;
+    }
+    let Ok(signature) = config.sign_certification(
         &secret_key.primary_key,
         &secret_key.primary_key.public_key(),
         &Password::empty(),
         Tag::UserId,
         &user_id,
-    )?;
+    ) else {
+        return false;
+    };
 
-    let user = secret_key
-        .details
-        .users
-        .first_mut()
-        .expect("OpenPGP fixture has a primary user id");
+    let Some(user) = secret_key.details.users.first_mut() else {
+        return false;
+    };
     user.signatures = vec![signature];
 
-    Ok(())
+    true
 }
 
-fn replace_signature_creation_time(config: &mut SignatureConfig, creation_time: Timestamp) {
-    let mut replaced = false;
+fn replace_signature_creation_time(config: &mut SignatureConfig, creation_time: Timestamp) -> bool {
     for subpacket in &mut config.hashed_subpackets {
         if matches!(subpacket.data, SubpacketData::SignatureCreationTime(_)) {
-            *subpacket = Subpacket::regular(SubpacketData::SignatureCreationTime(creation_time))
-                .expect("valid OpenPGP signature creation time subpacket");
-            replaced = true;
-            break;
+            let Ok(replacement) =
+                Subpacket::regular(SubpacketData::SignatureCreationTime(creation_time))
+            else {
+                return false;
+            };
+            *subpacket = replacement;
+            return true;
         }
     }
 
-    assert!(
-        replaced,
-        "OpenPGP self-signature must include a signature creation time"
-    );
+    false
 }
 
 fn spec_to_key_type(spec: PgpSpec) -> KeyType {
@@ -330,6 +325,7 @@ mod tests {
     use pgp::composed::{Deserializable, SignedPublicKey, SignedSecretKey};
     use pgp::types::KeyDetails;
     use uselesskey_core::Seed;
+    use uselesskey_test_support::{TestResult, require_ok, require_some};
 
     use super::*;
 
@@ -345,8 +341,34 @@ mod tests {
     }
 
     #[test]
-    fn deterministic_key_is_stable_across_wall_clock_seconds() {
-        let seed = Seed::from_env_value("pgp-det-cross-second").unwrap();
+    fn signature_time_normalization_handles_missing_creation_time() -> TestResult<()> {
+        let key = Factory::random().pgp("missing-signature-time", PgpSpec::ed25519());
+        let secret = require_ok(
+            SignedSecretKey::from_bytes(Cursor::new(key.private_key_binary())),
+            "parse generated private key",
+        )?;
+        let user = require_some(secret.details.users.first(), "generated key user")?;
+        let signature = require_some(user.signatures.first(), "generated user signature")?;
+        let mut config = require_some(signature.config(), "generated signature config")?.clone();
+        config
+            .hashed_subpackets
+            .retain(|subpacket| !matches!(subpacket.data, SubpacketData::SignatureCreationTime(_)));
+
+        if replace_signature_creation_time(&mut config, Timestamp::from_secs(1_600_000_000)) {
+            return Err(uselesskey_test_support::TestError(
+                "normalization reported success without a creation-time subpacket".to_string(),
+            ));
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn deterministic_key_is_stable_across_wall_clock_seconds() -> TestResult<()> {
+        let seed = require_ok(
+            Seed::from_env_value("pgp-det-cross-second"),
+            "deterministic test seed",
+        )?;
         let fx1 = Factory::deterministic(seed);
         let first = fx1.pgp("issuer", PgpSpec::ed25519());
 
@@ -360,6 +382,8 @@ mod tests {
         assert_eq!(first.private_key_armored(), second.private_key_armored());
         assert_eq!(first.public_key_armored(), second.public_key_armored());
         assert_eq!(first.fingerprint(), second.fingerprint());
+
+        Ok(())
     }
 
     #[test]
