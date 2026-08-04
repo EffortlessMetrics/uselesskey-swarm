@@ -2710,6 +2710,11 @@ mod tests {
             "github.event.pull_request.head.repo.full_name == github.repository",
             "group: em-ci-small",
             "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
+            "taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed",
+            "codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f",
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
             "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
             "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
             "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
@@ -2735,6 +2740,11 @@ mod tests {
         ));
         assert!(!workflow.contains("runs-on: ubuntu-latest"));
         assert!(!workflow.contains("sudo apt-get"));
+        assert!(!workflow.contains("actions/checkout@v7"));
+        assert!(!workflow.contains("dtolnay/rust-toolchain@stable"));
+        assert!(!workflow.contains("taiki-e/install-action@v2.85.6"));
+        assert!(!workflow.contains("codecov/codecov-action@v7"));
+        assert!(!workflow.contains("actions/upload-artifact@v7"));
         assert!(!workflow.contains("CARGO_HOME: /mnt/ci-cache/cargo-home"));
         Ok(())
     }
