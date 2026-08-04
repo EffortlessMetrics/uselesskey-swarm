@@ -63,6 +63,7 @@ const HMAC_SIGNATURE_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
 
 const OUTPUT_RESET_RETRIES: usize = 120;
 const OUTPUT_RESET_RETRY: Duration = Duration::from_millis(250);
+const CHILD_COMMAND_TIMEOUT: Duration = Duration::from_mins(5);
 const JSONWEBTOKEN_ADAPTER_VALIDATION_EXAMPLE: ExternalExample = ExternalExample {
     name: "jsonwebtoken-adapter-validation",
     source_dir: "examples/external/jsonwebtoken-adapter-validation",
@@ -219,6 +220,22 @@ struct ExternalAdoptionStep {
 }
 
 pub fn run(root: &Path, options: RunOptions) -> Result<()> {
+    run_with_matrix(root, options, run_matrix)
+}
+
+fn run_with_matrix(
+    root: &Path,
+    options: RunOptions,
+    matrix: impl FnOnce(
+        &Path,
+        &SmokeSource,
+        &Path,
+        &Path,
+        bool,
+        bool,
+        &mut ExternalAdoptionSmokeReceipt,
+    ) -> Result<()>,
+) -> Result<()> {
     let out_dir = root.join(OUT_DIR);
     let work_dir = root.join(WORK_DIR);
     let log_dir = root.join(LOG_DIR);
@@ -347,7 +364,7 @@ pub fn run(root: &Path, options: RunOptions) -> Result<()> {
         return Err(err);
     }
 
-    let result = run_matrix(
+    let result = matrix(
         root,
         &source,
         &work_dir,
@@ -1417,10 +1434,30 @@ fn resolve_existing_path(path: &Path) -> Result<PathBuf> {
 fn run_command_step(
     receipt: &mut ExternalAdoptionSmokeReceipt,
     name: &str,
+    cmd: Command,
+    cwd: &Path,
+    log_dir: &Path,
+    artifacts: &[&str],
+) -> Result<PathBuf> {
+    run_command_step_with_timeout(
+        receipt,
+        name,
+        cmd,
+        cwd,
+        log_dir,
+        artifacts,
+        CHILD_COMMAND_TIMEOUT,
+    )
+}
+
+fn run_command_step_with_timeout(
+    receipt: &mut ExternalAdoptionSmokeReceipt,
+    name: &str,
     mut cmd: Command,
     cwd: &Path,
     log_dir: &Path,
     artifacts: &[&str],
+    timeout: Duration,
 ) -> Result<PathBuf> {
     eprintln!("==> {name}");
     cmd.stdin(Stdio::null());
@@ -1435,19 +1472,69 @@ fn run_command_step(
         fs::create_dir_all(stderr_parent)
             .with_context(|| format!("failed to create {}", stderr_parent.display()))?;
     }
-    let start = Instant::now();
-    let output = cmd
-        .output()
-        .with_context(|| format!("failed to spawn {name}"))?;
-    let duration_ms = start.elapsed().as_millis() as u64;
-    fs::write(&stdout_path, &output.stdout)
-        .with_context(|| format!("failed to write {}", stdout_path.display()))?;
-    fs::write(&stderr_path, &output.stderr)
-        .with_context(|| format!("failed to write {}", stderr_path.display()))?;
+    let stdout_file = fs::File::create(&stdout_path)
+        .with_context(|| format!("failed to create {}", stdout_path.display()))?;
+    let stderr_file = fs::File::create(&stderr_path)
+        .with_context(|| format!("failed to create {}", stderr_path.display()))?;
+    cmd.stdout(Stdio::from(stdout_file));
+    cmd.stderr(Stdio::from(stderr_file));
 
-    let stdout = relative_artifact_from_path(&stdout_path);
-    let stderr = relative_artifact_from_path(&stderr_path);
-    if output.status.success() {
+    let start = Instant::now();
+    let mut child = cmd
+        .spawn()
+        .with_context(|| format!("failed to spawn {name}"))?;
+    let mut timed_out = false;
+    let mut kill_error = None;
+    let status = loop {
+        match child
+            .try_wait()
+            .with_context(|| format!("failed to poll {name}"))?
+        {
+            Some(status) => break status,
+            None if start.elapsed() >= timeout => {
+                timed_out = true;
+                if let Err(error) = child.kill() {
+                    kill_error = Some(error.to_string());
+                }
+                break child
+                    .wait()
+                    .with_context(|| format!("failed to reap timed-out {name}"))?;
+            }
+            None => thread::sleep(Duration::from_millis(50)),
+        }
+    };
+    let duration_ms = start.elapsed().as_millis() as u64;
+
+    let stdout_artifact = relative_artifact_from_path(&stdout_path);
+    let stderr_artifact = relative_artifact_from_path(&stderr_path);
+    let artifacts = artifacts
+        .iter()
+        .map(|artifact| (*artifact).to_string())
+        .collect();
+    if timed_out {
+        let kill_detail = kill_error
+            .as_deref()
+            .map(|error| format!("; terminating child failed: {error}"))
+            .unwrap_or_default();
+        let details = format!(
+            "command timed out after {duration_ms} ms (limit {} ms){kill_detail}",
+            timeout.as_millis()
+        );
+        eprintln!("==> {name} [TIMED OUT]");
+        eprintln!("    {details}");
+        receipt.steps.push(ExternalAdoptionStep {
+            name: name.to_string(),
+            command,
+            cwd: cwd.display().to_string(),
+            status: "timed-out".to_string(),
+            duration_ms,
+            stdout: stdout_artifact,
+            stderr: stderr_artifact,
+            details: Some(details.clone()),
+            artifacts,
+        });
+        bail!("{name}: {details}")
+    } else if status.success() {
         eprintln!("==> {name} [ok]");
         receipt.steps.push(ExternalAdoptionStep {
             name: name.to_string(),
@@ -1455,17 +1542,14 @@ fn run_command_step(
             cwd: cwd.display().to_string(),
             status: "ok".to_string(),
             duration_ms,
-            stdout,
-            stderr,
+            stdout: stdout_artifact,
+            stderr: stderr_artifact,
             details: None,
-            artifacts: artifacts
-                .iter()
-                .map(|artifact| (*artifact).to_string())
-                .collect(),
+            artifacts,
         });
         Ok(stdout_path)
     } else {
-        let details = format!("command failed with {}", output.status);
+        let details = format!("command failed with {status}");
         eprintln!("==> {name} [FAILED]");
         eprintln!("    {details}");
         receipt.steps.push(ExternalAdoptionStep {
@@ -1474,13 +1558,10 @@ fn run_command_step(
             cwd: cwd.display().to_string(),
             status: "failed".to_string(),
             duration_ms,
-            stdout,
-            stderr,
+            stdout: stdout_artifact,
+            stderr: stderr_artifact,
             details: Some(details.clone()),
-            artifacts: artifacts
-                .iter()
-                .map(|artifact| (*artifact).to_string())
-                .collect(),
+            artifacts,
         });
         bail!("{name}: {details}")
     }
@@ -1490,13 +1571,8 @@ fn run_command_step(
 mod command_steps {
     use super::*;
 
-    #[test]
-    fn run_command_step_creates_missing_log_parents() -> Result<()> {
-        let root = tempfile::tempdir()?;
-        let log_dir = root.path().join("target/external-adoption-smoke/logs");
-        assert!(!log_dir.exists());
-
-        let mut receipt = ExternalAdoptionSmokeReceipt {
+    fn test_receipt() -> ExternalAdoptionSmokeReceipt {
+        ExternalAdoptionSmokeReceipt {
             schema_version: 1,
             status: "running".to_string(),
             generated_at: "2026-06-18T00:00:00Z".to_string(),
@@ -1510,7 +1586,46 @@ mod command_steps {
             steps: Vec::new(),
             artifacts: vec![],
             boundaries: Vec::new(),
-        };
+        }
+    }
+
+    fn command_that_sleeps() -> Command {
+        #[cfg(windows)]
+        {
+            let mut command = Command::new("cmd");
+            command.args(["/C", "echo timeout-output & ping 127.0.0.1 -n 11 > NUL"]);
+            command
+        }
+        #[cfg(not(windows))]
+        {
+            let mut command = Command::new("sh");
+            command.args(["-c", "printf timeout-output; sleep 10"]);
+            command
+        }
+    }
+
+    fn command_that_fails() -> Command {
+        #[cfg(windows)]
+        {
+            let mut command = Command::new("cmd");
+            command.args(["/C", "echo failure-output & exit /B 7"]);
+            command
+        }
+        #[cfg(not(windows))]
+        {
+            let mut command = Command::new("sh");
+            command.args(["-c", "printf failure-output; exit 7"]);
+            command
+        }
+    }
+
+    #[test]
+    fn run_command_step_creates_missing_log_parents() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let log_dir = root.path().join("target/external-adoption-smoke/logs");
+        assert!(!log_dir.exists());
+
+        let mut receipt = test_receipt();
 
         let mut command = Command::new("cargo");
         command.arg("--version");
@@ -1527,6 +1642,70 @@ mod command_steps {
         assert_eq!(receipt.steps.len(), 1);
         assert_eq!(receipt.steps[0].status, "ok");
         assert!(log_dir.exists());
+
+        Ok(())
+    }
+
+    #[test]
+    fn run_command_step_records_ordinary_failure() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let log_dir = root.path().join("logs");
+        let mut receipt = test_receipt();
+
+        let result = run_command_step_with_timeout(
+            &mut receipt,
+            "expected-failure",
+            command_that_fails(),
+            root.path(),
+            &log_dir,
+            &[],
+            Duration::from_secs(10),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(receipt.steps.len(), 1);
+        assert_eq!(receipt.steps[0].status, "failed");
+        assert!(
+            receipt.steps[0]
+                .details
+                .as_deref()
+                .is_some_and(|details| details.contains("command failed"))
+        );
+        assert!(
+            fs::read_to_string(log_dir.join("expected-failure.stdout.txt"))?
+                .starts_with("failure-output")
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn run_command_step_records_timeout_and_preserves_logs() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let log_dir = root.path().join("logs");
+        let mut receipt = test_receipt();
+
+        let result = run_command_step_with_timeout(
+            &mut receipt,
+            "expected-timeout",
+            command_that_sleeps(),
+            root.path(),
+            &log_dir,
+            &[],
+            Duration::from_secs(5),
+        );
+
+        assert!(result.is_err());
+        assert_eq!(receipt.steps.len(), 1);
+        assert_eq!(receipt.steps[0].status, "timed-out");
+        assert!(
+            receipt.steps[0]
+                .details
+                .as_deref()
+                .is_some_and(|details| details.contains("command timed out"))
+        );
+        assert!(log_dir.join("expected-timeout.stdout.txt").is_file());
+        assert!(log_dir.join("expected-timeout.stderr.txt").is_file());
 
         Ok(())
     }
@@ -1837,6 +2016,40 @@ fn toml_escape(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn timeout_matrix(
+        _root: &Path,
+        _source: &SmokeSource,
+        _work_dir: &Path,
+        log_dir: &Path,
+        _ci_recipes: bool,
+        _library_examples: bool,
+        receipt: &mut ExternalAdoptionSmokeReceipt,
+    ) -> Result<()> {
+        #[cfg(windows)]
+        let command = {
+            let mut command = Command::new("cmd");
+            command.args(["/C", "ping 127.0.0.1 -n 11 > NUL"]);
+            command
+        };
+        #[cfg(not(windows))]
+        let command = {
+            let mut command = Command::new("sh");
+            command.args(["-c", "sleep 10"]);
+            command
+        };
+
+        run_command_step_with_timeout(
+            receipt,
+            "expected-timeout",
+            command,
+            Path::new("."),
+            log_dir,
+            &[],
+            Duration::from_millis(100),
+        )
+        .map(|_| ())
+    }
 
     #[test]
     fn external_adoption_profiles_are_bounded() {
@@ -2224,6 +2437,39 @@ mod tests {
         assert_eq!(steps[0]["name"], "validate-run-options");
         assert_eq!(steps[0]["status"], "failed");
         assert_eq!(receipt["status"], "failed");
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_writes_failed_receipt_after_timeout() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .context("xtask manifest should be inside the workspace")?
+            .to_path_buf();
+        let result = run_with_matrix(
+            root.path(),
+            RunOptions {
+                path: Some(workspace_root),
+                version: None,
+                ci_recipes: false,
+                library_examples: false,
+                format: OutputFormat::Json,
+            },
+            timeout_matrix,
+        );
+
+        assert!(result.is_err());
+        let receipt: Value = read_json(&root.path().join(REPORT_JSON))?;
+        assert_eq!(receipt["status"], "failed");
+        assert_eq!(receipt["steps"][0]["status"], "timed-out");
+        assert!(receipt["steps"][0]["stdout"].is_string());
+        assert!(receipt["steps"][0]["stderr"].is_string());
+        assert!(
+            receipt["steps"][0]["details"]
+                .as_str()
+                .is_some_and(|details| details.contains("command timed out"))
+        );
         Ok(())
     }
 
