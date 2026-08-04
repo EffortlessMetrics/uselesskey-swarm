@@ -47,8 +47,8 @@ assert_eq!(
 ```
 
 `NearMissScenario` is non-exhaustive because the negative-fixture taxonomy can
-gain new rejection classes. Downstream `match` expressions should include a
-wildcard arm.
+gain new rejection classes. Downstream `match` expressions must include a
+wildcard arm, otherwise they fail to compile against a newer minor release.
 
 For file-based CI fixtures:
 
@@ -110,7 +110,7 @@ verifier rejection:
 | `near_miss_wrong_secret()` | `webhook_wrong_secret` | signature compare rejects unknown secret |
 | `near_miss_tampered_payload()` | `webhook_tampered_body` | signature compare rejects changed body bytes |
 | `near_miss_signature()` | `webhook_near_miss_signature` | verifier rejects a well-formed header whose digest differs by one hex digit |
-| `near_miss_malformed_canonical_payload()` | `webhook_malformed_canonical_payload` | verifier rejects payload bytes that cannot be canonicalized as JSON |
+| `near_miss_malformed_canonical_payload()` | `webhook_malformed_canonical_payload` | consumer canonicalization rejects malformed JSON before verification (the raw-byte signature stays self-consistent) |
 | `requests/negative-missing-signature.json` | `webhook_missing_signature` | verifier rejects a request without the signature credential |
 | `requests/negative-malformed-signature.json` | `webhook_malformed_signature` | parser or verifier rejects invalid signature encoding |
 

@@ -695,15 +695,28 @@ mod tests {
                 .cloned()
                 .unwrap_or_default();
 
-            // Same length and encoding, exactly one character different.
-            assert_eq!(valid_sig.len(), near_sig.len());
-            assert_ne!(valid_sig, near_sig);
-            let diffs = valid_sig
+            // Split each header into its non-digest prefix and trailing hex
+            // digest. The digest is always the component after the final `=`
+            // (`sha256=<hex>`, `t=<ts>,v1=<hex>`, `v0=<hex>`).
+            let (valid_prefix, valid_digest) = valid_sig
+                .rsplit_once('=')
+                .unwrap_or(("", valid_sig.as_str()));
+            let (near_prefix, near_digest) =
+                near_sig.rsplit_once('=').unwrap_or(("", near_sig.as_str()));
+
+            // The provider prefix and Stripe timestamp are untouched, so only
+            // the digest itself distinguishes the near miss: same lowercase-hex
+            // shape and length, differing in exactly one character.
+            assert_eq!(valid_prefix, near_prefix);
+            assert_lower_hex(valid_digest);
+            assert_lower_hex(near_digest);
+            assert_eq!(valid_digest.len(), near_digest.len());
+            let diffs = valid_digest
                 .chars()
-                .zip(near_sig.chars())
+                .zip(near_digest.chars())
                 .filter(|(a, b)| a != b)
                 .count();
-            assert_eq!(diffs, 1, "exactly one digit should differ");
+            assert_eq!(diffs, 1, "exactly one digest hex digit should differ");
 
             // The near-miss request must fail verification.
             match profile {
