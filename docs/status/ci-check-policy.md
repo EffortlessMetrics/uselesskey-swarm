@@ -49,12 +49,14 @@ proof rather than appearing as skipped work.
 
 ## Main Full Gate Receipt
 
-`Uselesskey Main Full Gate` runs on the organization
+`Uselesskey Main Full Gate` runs the pinned `uselesskey-ci-rust:1.95` container
+on the organization
 `[self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]` tier and uploads
 a `main-full-gate-receipt` artifact containing
 `main-full-gate-receipt.json`. Use it to review full-gate start and completion
 timestamps, elapsed seconds, `xtask ci` result, exit code, heartbeat evidence,
-and the relationship to `target/xtask/receipt.json`. The receipt is evidence
+and the relationship to `target/xtask/receipt.json`. The container provides the
+pinned Rust tools and NASM; the receipt is evidence
 for the latest `main` commit; it does not replace the normalized
 `Uselesskey Rust Small Result`.
 

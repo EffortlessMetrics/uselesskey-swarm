@@ -3113,20 +3113,23 @@ jobs:
             "ci-disk-guard /mnt/ci-cache 10",
             "Prepare main full gate scratch",
             "shared Cargo cache is not readable",
-            "ln -s \"$CARGO_CACHE_HOME/registry\" \"$CARGO_HOME/registry\"",
-            "ln -s \"$CARGO_CACHE_HOME/git\" \"$CARGO_HOME/git\"",
+            "CARGO_CACHE_MODE=isolated",
+            "CARGO_CACHE_MODE=shared",
             "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
             "persist-credentials: false",
-            "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
-            "toolchain: stable",
-            "toolchain: nightly",
-            "Install NASM",
-            "sudo apt-get update && sudo apt-get install -y nasm",
-            "taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed",
-            "Preflight runner and tools",
+            "docker build --pull=false -t uselesskey-ci-rust:1.95",
+            "Preflight runner and container",
             "test -x \"$(command -v ci-disk-guard)\"",
-            "test -x \"$(command -v nasm)\"",
-            "CARGO_TARGET_DIR\"]) / \"source-of-truth\" / \"main-full-gate-receipt.json\"",
+            "test -x \"$(command -v docker)\"",
+            "docker image inspect uselesskey-ci-rust:1.95",
+            "cargo +nightly -vV",
+            "nasm -v",
+            "--cpus=\"14\"",
+            "--memory=\"28g\"",
+            "ln -s /cargo-cache/registry /cargo-home/registry",
+            "ln -s /cargo-cache/git /cargo-home/git",
+            "-v \"${CARGO_TARGET_DIR}:/cargo-target\"",
+            "Path(\"/cargo-target/source-of-truth/main-full-gate-receipt.json\")",
             "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
             "Cleanup main full gate scratch",
             "^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$",
@@ -3137,7 +3140,11 @@ jobs:
                 "main-full-gate missing pinned contract: {expected}"
             );
         }
-        for mutable_ref in ["runs-on: ubuntu-latest", "Swatinem/rust-cache@"] {
+        for mutable_ref in [
+            "runs-on: ubuntu-latest",
+            "Swatinem/rust-cache@",
+            "sudo apt-get",
+        ] {
             assert!(
                 !main_full_gate.contains(mutable_ref),
                 "main-full-gate retains mutable action ref: {mutable_ref}"

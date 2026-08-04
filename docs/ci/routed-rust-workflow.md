@@ -100,10 +100,12 @@ CI path.
 
 ## Main Full Gate Observability
 
-The `Uselesskey Main Full Gate` wraps `cargo xtask ci` with a one-minute
-heartbeat line while the command is still running. A long-running `xtask ci`
-step is expected on `main`; the heartbeat exists so operators can distinguish a
-live full gate from a silent no-output failure.
+The `Uselesskey Main Full Gate` runs the pinned `uselesskey-ci-rust:1.95`
+container and wraps `cargo xtask ci` with a one-minute heartbeat line while the
+command is still running. The container supplies the pinned Rust tools and NASM
+without mutating the host runner. A long-running `xtask ci` step is expected on
+`main`; the heartbeat exists so operators can distinguish a live full gate from
+a silent no-output failure.
 
 The job also uploads a `main-full-gate-receipt` artifact containing
 `main-full-gate-receipt.json` from the per-run `/mnt/ci-scratch/target/` path.
