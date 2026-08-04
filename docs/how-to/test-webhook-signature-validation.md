@@ -6,16 +6,12 @@ verification.
 
 ## Copy this
 
-For Rust tests using the next pre-1.0 minor release:
+For Rust tests using the published API:
 
 ```toml
 [dev-dependencies]
-uselesskey = { version = "0.10.0", default-features = false, features = ["webhook"] }
+uselesskey = { version = "0.9.1", default-features = false, features = ["webhook"] }
 ```
-
-The two helpers below are unreleased in `0.9.1`; use this snippet after the
-next pre-1.0 minor release is published, or use a path dependency when testing
-the current repository checkout.
 
 ```rust
 use uselesskey::{Factory, NearMissScenario, WebhookFactoryExt, WebhookPayloadSpec};
@@ -26,12 +22,23 @@ let fixture = fx.webhook_stripe("payment", WebhookPayloadSpec::Canonical);
 let stale = fixture.near_miss_stale_timestamp(300);
 let wrong_secret = fixture.near_miss_wrong_secret();
 let tampered = fixture.near_miss_tampered_payload();
-let near_signature = fixture.near_miss_signature();
-let malformed = fixture.near_miss_malformed_canonical_payload();
 
 assert_eq!(stale.scenario, NearMissScenario::StaleTimestamp);
 assert_eq!(wrong_secret.scenario, NearMissScenario::WrongSecret);
 assert_eq!(tampered.scenario, NearMissScenario::TamperedPayload);
+```
+
+## Next pre-1.0 minor helpers
+
+The current repository checkout also provides two deterministic rejection
+helpers that are not part of published `0.9.1`. They will be available in the
+next pre-1.0 minor release. Do not add a future version to a copyable dependency
+snippet before publication; use a path dependency when testing this checkout.
+
+```rust
+let near_signature = fixture.near_miss_signature();
+let malformed = fixture.near_miss_malformed_canonical_payload();
+
 assert_eq!(near_signature.scenario, NearMissScenario::NearMissSignature);
 assert_eq!(
     malformed.scenario,
@@ -41,8 +48,7 @@ assert_eq!(
 
 `NearMissScenario` is non-exhaustive because the negative-fixture taxonomy can
 gain new rejection classes. Downstream `match` expressions should include a
-wildcard arm. The two scenarios shown above are part of the next pre-1.0 minor
-release boundary; the current published `0.9.1` API does not contain them.
+wildcard arm.
 
 For file-based CI fixtures:
 
