@@ -227,13 +227,27 @@ commands = [
 
 [[work_item]]
 id = "local-untracked-pr-planning-test-no-panic"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0005"
 plan = "plans/no-panic-burndown/implementation-plan.md"
 commands = [
   "cargo xtask check-no-panic-family",
   "cargo test -p xtask pr_changed_files_include_local_untracked_paths",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "bdd-scenario-count-test-setup-no-panic"
+status = "ready"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo test -p xtask count_bdd_scenarios_counts_scenarios_and_outlines",
   "cargo clippy -p xtask --all-targets -- -D warnings",
   "cargo xtask pr",
   "git diff --check",
