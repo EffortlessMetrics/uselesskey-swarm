@@ -1583,7 +1583,7 @@ mod command_steps {
         #[cfg(not(windows))]
         {
             let mut command = Command::new("sh");
-            command.args(["-c", "printf timeout-output; sleep 0.25"]);
+            command.args(["-c", "printf timeout-output; sleep 10"]);
             command
         }
     }
