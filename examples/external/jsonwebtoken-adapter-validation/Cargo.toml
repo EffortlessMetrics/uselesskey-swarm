@@ -11,5 +11,6 @@ uselesskey-core = { version = "0.9.1", default-features = false }
 uselesskey-hmac = "0.9.1"
 uselesskey-jsonwebtoken = { version = "0.9.1", features = ["rsa", "hmac"] }
 uselesskey-rsa = "0.9.1"
+uselesskey-test-support = { path = "../../../crates/uselesskey-test-support" }
 
 [workspace]
