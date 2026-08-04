@@ -14,28 +14,86 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: performance-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: false
+
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
+  CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}
+  CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home
+  TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+  CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   perf:
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]
+    timeout-minutes: 90
     steps:
-      # actions/checkout@v7
+      - name: Disk guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 20
+          ci-disk-guard /mnt/ci-cache 10
+
+      - name: Prepare scratch dirs
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p \
+            "$TMPDIR" \
+            "$CARGO_TARGET_DIR" \
+            "$CARGO_HOME" \
+            "$CARGO_CACHE_HOME/registry" \
+            "$CARGO_CACHE_HOME/git"
+          shared_cache_unreadable=""
+          for cache_root in "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; do
+            if ! unreadable_entry="$(find "$cache_root" -type f ! -readable -print -quit 2>/dev/null)"; then
+              shared_cache_unreadable="$cache_root (scan failed)"
+              break
+            fi
+            if [[ -n "$unreadable_entry" ]]; then
+              shared_cache_unreadable="$unreadable_entry"
+              break
+            fi
+          done
+          if [[ -n "$shared_cache_unreadable" ]]; then
+            echo "::warning::shared Cargo cache is not readable at ${shared_cache_unreadable}; using isolated per-run Cargo cache"
+          else
+            ln -s "$CARGO_CACHE_HOME/registry" "$CARGO_HOME/registry"
+            ln -s "$CARGO_CACHE_HOME/git" "$CARGO_HOME/git"
+          fi
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
+        with:
+          persist-credentials: false
 
-      - name: Install Rust toolchain
-        run: rustup toolchain install stable --profile minimal
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
+        with:
+          toolchain: "1.95"
 
-      - name: Install NASM
-        run: sudo apt-get update && sudo apt-get install -y nasm
+      - name: Preflight performance toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h /mnt/ci-scratch /mnt/ci-cache
+          rustc --version
+          cargo --version
+          nasm -v
+          python3 --version
 
       - name: Run performance evidence
         shell: bash
+        env:
+          PERF_COMPARE: ${{ inputs.compare }}
         run: |
-          compare="${{ inputs.compare }}"
+          set -euo pipefail
+          compare="${PERF_COMPARE:-}"
 
           args=()
           if [[ -z "$compare" || "$compare" == "true" ]]; then
@@ -48,7 +106,7 @@ jobs:
         if: always()
         shell: bash
         run: |
-          python - <<'PY'
+          python3 - <<'PY'
           import json
           import os
           from pathlib import Path
@@ -102,10 +160,38 @@ jobs:
               print(text)
           PY
 
-      # actions/upload-artifact@v7
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: performance-evidence
           path: target/xtask/perf
           if-no-files-found: warn
+
+      - name: Cleanup performance scratch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          workspace_target="${GITHUB_WORKSPACE}/target"
+          case "${workspace_target}" in
+            /mnt/actions/_work/*/*/target) ;;
+            *)
+              echo "refusing to clean unexpected target: ${workspace_target}" >&2
+              exit 1
+              ;;
+          esac
+          for candidate in "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; do
+            if [[ ! "${candidate}" =~ ^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$ ]]; then
+              echo "refusing to clean unexpected scratch path: ${candidate}" >&2
+              exit 1
+            fi
+          done
+          rm -rf -- "$workspace_target" "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"
+          df -h /mnt/ci-scratch /mnt/ci-cache

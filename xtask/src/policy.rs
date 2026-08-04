@@ -2722,13 +2722,23 @@ mod tests {
             "ci-disk-guard /mnt/ci-scratch 45",
             "\"$CARGO_CACHE_HOME/registry\"",
             "\"$CARGO_CACHE_HOME/git\"",
+            "shared_cache_unreadable=\"\"",
+            "find \"$cache_root\" -type f ! -readable -print -quit 2>/dev/null",
+            "using isolated per-run Cargo cache",
             "ln -s \"$CARGO_CACHE_HOME/registry\" \"$CARGO_HOME/registry\"",
             "ln -s \"$CARGO_CACHE_HOME/git\" \"$CARGO_HOME/git\"",
             "persist-credentials: false",
             "cargo llvm-cov --version",
             "nasm -v",
             "Cleanup coverage scratch",
-            "rm -rf \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
+            "refusing to clean unexpected workspace",
+            "refusing to clean unexpected target",
+            "^/mnt/ci-scratch/(tmp|cargo-home|uselesskey-coverage)/[0-9]+-[0-9]+$",
+            "rm -rf -- \\",
+            "\"$workspace_target\" \\",
+            "\"$TMPDIR\" \\",
+            "\"$CARGO_HOME\" \\",
+            "\"$CARGO_TARGET_DIR\"",
         ] {
             assert!(
                 workflow.contains(expected),
@@ -2746,6 +2756,243 @@ mod tests {
         assert!(!workflow.contains("codecov/codecov-action@v7"));
         assert!(!workflow.contains("actions/upload-artifact@v7"));
         assert!(!workflow.contains("CARGO_HOME: /mnt/ci-cache/cargo-home"));
+        assert!(!workflow.contains("set +e\n          rm -rf"));
+
+        let step = |marker: &str| -> Result<&str> {
+            let after = workflow
+                .split_once(marker)
+                .map(|(_, after)| after)
+                .ok_or_else(|| anyhow::anyhow!("coverage workflow missing step `{marker}`"))?;
+            Ok(after.split("\n      - ").next().unwrap_or(after))
+        };
+        let upload_marker = "      - name: Upload coverage artifacts\n";
+        let cleanup_marker = "      - name: Cleanup coverage scratch\n";
+        let upload_step = step(upload_marker)?;
+        let cleanup_step = step(cleanup_marker)?;
+        assert!(
+            workflow.find(upload_marker) < workflow.find(cleanup_marker),
+            "coverage artifacts must be uploaded before scratch cleanup"
+        );
+        for (name, step) in [
+            ("coverage artifact upload", upload_step),
+            ("coverage scratch cleanup", cleanup_step),
+        ] {
+            let guard = step.lines().find(|line| line.starts_with("        if: "));
+            assert_eq!(
+                guard.map(str::trim),
+                Some("if: always()"),
+                "post-run step `{name}` must have a step-level if: always() guard"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
+    fn mutation_workflow_uses_cx43_container_runner_and_isolation_contract() -> Result<()> {
+        let workflow_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/mutation.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        for expected in [
+            "schedule:",
+            "workflow_dispatch:",
+            "scope:",
+            "crate:",
+            "permissions:\n  contents: read",
+            "group: mutation-${{ github.workflow }}-${{ github.ref }}",
+            "cancel-in-progress: false",
+            "group: em-ci-small",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
+            "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
+            "SCCACHE_DIR: /mnt/ci-cache/sccache",
+            "RUSTC_WRAPPER: /usr/local/cargo/bin/sccache",
+            "CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}",
+            "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
+            "ci-disk-guard /mnt/ci-scratch 50",
+            "ci-disk-guard /mnt/docker 10",
+            "ci-disk-guard /mnt/ci-cache 10",
+            "\"$CARGO_CACHE_HOME/registry\"",
+            "\"$CARGO_CACHE_HOME/git\"",
+            "refusing to clean unexpected workspace",
+            "persist-credentials: false",
+            "clean: false",
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "docker build --pull=false -t uselesskey-ci-rust:1.95",
+            "MUTATION_SCOPE: ${{ inputs.scope }}",
+            "MUTATION_CRATE: ${{ inputs.crate }}",
+            "git config --global --add safe.directory /workspace",
+            "ln -s /cargo-cache/registry /cargo-home/registry",
+            "ln -s /cargo-cache/git /cargo-home/git",
+            "cargo mutants --version",
+            "sccache --version",
+            "nasm -v",
+            "cargo xtask mutants-nightly",
+            "-e MUTATION_SCOPE",
+            "-e MUTATION_CRATE",
+            "scope=\"${MUTATION_SCOPE:-}\"",
+            "crate_name=\"${MUTATION_CRATE:-}\"",
+            "-v \"${CARGO_TARGET_DIR}:/cargo-target\"",
+            "-v \"${TMPDIR}:/tmp/jobtmp\"",
+            "-v \"${CARGO_CACHE_HOME}/registry:/cargo-cache/registry\"",
+            "-v \"${CARGO_CACHE_HOME}/git:/cargo-cache/git\"",
+            "name: mutation-nightly",
+            "path: target/mutation",
+            "rm -rf /workspace/target",
+            "rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?*",
+            "rm -rf /cargo-home/* /cargo-home/.[!.]* /cargo-home/..?*",
+            "cleanup_workspace_target()",
+            "refusing host cleanup for unexpected target",
+            "using validated host cleanup",
+            "cleanup_scratch_dirs_host()",
+            "^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$",
+            "rm -rf -- \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
+            "rmdir \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
+        ] {
+            assert!(
+                workflow.contains(expected),
+                "mutation workflow missing expected contract: {expected}"
+            );
+        }
+
+        assert!(!workflow.contains("runs-on: ubuntu-latest"));
+        assert!(!workflow.contains("apt-get install"));
+        assert!(!workflow.contains("cargo install cargo-mutants"));
+        assert!(!workflow.contains("scope=\"${{ inputs.scope }}\""));
+        assert!(!workflow.contains("crate_name=\"${{ inputs.crate }}\""));
+        assert!(!workflow.contains("bash -c 'rm -rf /workspace/target' || true"));
+
+        for step_marker in [
+            "      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a\n",
+            "      - name: Cleanup workspace target\n",
+            "      - name: Cleanup scratch dirs\n",
+            "      - name: Disk report\n",
+        ] {
+            let step = workflow
+                .split(step_marker)
+                .nth(1)
+                .ok_or_else(|| anyhow::anyhow!("mutation workflow missing step `{step_marker}`"))?;
+            let step = step.split("\n      - ").next().unwrap_or(step);
+            let guard = step.lines().find(|line| line.starts_with("        if: "));
+            assert_eq!(
+                guard.map(str::trim),
+                Some("if: always()"),
+                "post-run step `{step_marker}` must have a step-level if: always() guard"
+            );
+        }
+
+        let actionlint_config_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/actionlint.yaml");
+        let actionlint_config = fs::read_to_string(&actionlint_config_path)
+            .with_context(|| format!("read {}", actionlint_config_path.display()))?;
+        for label in [
+            "em-ci",
+            "cx43",
+            "cpx42",
+            "cx53",
+            "rust-medium",
+            "rust-large",
+            "rust-16gb",
+            "rust",
+            "rust-tiny",
+            "trusted-pr",
+        ] {
+            assert!(
+                actionlint_config.contains(&format!("    - {label}")),
+                "actionlint config missing custom runner label `{label}`"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
+    fn performance_workflow_uses_cx43_with_isolated_scratch_and_receipt_contract() -> Result<()> {
+        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/workflows/performance.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        for expected in [
+            "schedule:",
+            "workflow_dispatch:",
+            "compare:",
+            "permissions:\n  contents: read",
+            "group: performance-${{ github.workflow }}-${{ github.ref }}",
+            "cancel-in-progress: false",
+            "group: em-ci-small",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
+            "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
+            "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}",
+            "ci-disk-guard /mnt/ci-scratch 20",
+            "ci-disk-guard /mnt/ci-cache 10",
+            "\"$CARGO_CACHE_HOME/registry\"",
+            "\"$CARGO_CACHE_HOME/git\"",
+            "shared_cache_unreadable=\"\"",
+            "find \"$cache_root\" -type f ! -readable -print -quit 2>/dev/null",
+            "using isolated per-run Cargo cache",
+            "ln -s \"$CARGO_CACHE_HOME/registry\" \"$CARGO_HOME/registry\"",
+            "ln -s \"$CARGO_CACHE_HOME/git\" \"$CARGO_HOME/git\"",
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "persist-credentials: false",
+            "PERF_COMPARE: ${{ inputs.compare }}",
+            "cargo xtask perf",
+            "python3 - <<'PY'",
+            "name: performance-evidence",
+            "path: target/xtask/perf",
+            "Cleanup performance scratch",
+            "refusing to clean unexpected workspace",
+            "refusing to clean unexpected target",
+            "^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$",
+            "rm -rf -- \"$workspace_target\" \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
+            "Performance evidence is host- and runner-sensitive.",
+        ] {
+            assert!(
+                workflow.contains(expected),
+                "performance workflow missing expected contract: {expected}"
+            );
+        }
+
+        assert!(!workflow.contains("runs-on: ubuntu-latest"));
+        assert!(!workflow.contains("sudo apt-get"));
+        assert!(!workflow.contains("CARGO_HOME: /mnt/ci-cache/cargo-home"));
+        assert!(!workflow.contains("actions/checkout@v7"));
+        assert!(!workflow.contains("dtolnay/rust-toolchain@stable"));
+        assert!(!workflow.contains("actions/upload-artifact@v7"));
+        assert!(!workflow.contains("python - <<'PY'"));
+
+        let step = |marker: &str| -> Result<&str> {
+            let after = workflow
+                .split_once(marker)
+                .map(|(_, after)| after)
+                .ok_or_else(|| anyhow::anyhow!("performance workflow missing step `{marker}`"))?;
+            Ok(after.split("\n      - ").next().unwrap_or(after))
+        };
+        let upload_marker =
+            "      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a\n";
+        let cleanup_marker = "      - name: Cleanup performance scratch\n";
+        let upload_step = step(upload_marker)?;
+        let cleanup_step = step(cleanup_marker)?;
+        assert!(
+            workflow.find(upload_marker) < workflow.find(cleanup_marker),
+            "performance evidence must be uploaded before scratch cleanup"
+        );
+        for (name, step) in [
+            ("performance evidence upload", upload_step),
+            ("performance scratch cleanup", cleanup_step),
+        ] {
+            let guard = step.lines().find(|line| line.starts_with("        if: "));
+            assert_eq!(
+                guard.map(str::trim),
+                Some("if: always()"),
+                "post-run step `{name}` must have a step-level if: always() guard"
+            );
+        }
         Ok(())
     }
 
@@ -2857,6 +3104,7 @@ jobs:
             "\"changed_surfaces\": changed_surfaces",
             "def route_reason_for(path):",
             "\"surface\": \"workflow_policy_test\"",
+            "\"surface\": \"workflow_policy_config\"",
             "\"surface\": \"github_issue_template\"",
             "\"surface\": \"github_pr_template\"",
             "\"surface\": \"policy_ledger\"",
@@ -2881,6 +3129,7 @@ jobs:
             "idle_runner_count \"cpx42\" \"rust-medium\"",
             "idle_runner_count \"cx53\" \"rust-large\"",
             "CONTRIBUTING.md",
+            ".github/actionlint.yaml)\n                  has_workflow=\"true\"",
             "docs/tracking/*",
             "ci/hardware/*",
             ".codex/campaigns/*",
