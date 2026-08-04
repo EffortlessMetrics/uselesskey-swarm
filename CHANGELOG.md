@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- The next pre-1.0 minor release will add `NearMissSignature` and
+  `MalformedCanonicalPayload` to the public `NearMissScenario` enum and make
+  that enum non-exhaustive. Downstream matches must include a wildcard arm;
+  these webhook fixture APIs are not part of the published `0.9.1` surface.
+
 ### Changed
 
 - `uselesskey-ecdsa` now depends on the released `p256` 0.14, `p384` 0.14, and
@@ -20,8 +27,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   they have without running `uselesskey doctor`.
 - Added a guard test that fails when any visible CLI command or argument ships
   without help text.
-
-### Changed
 
 - Documented every previously blank CLI flag and positional in `--help`, and
   gave `uselesskey export k8s` and `uselesskey export vault-kv-json` command

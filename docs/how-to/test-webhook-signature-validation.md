@@ -6,7 +6,7 @@ verification.
 
 ## Copy this
 
-For Rust tests:
+For Rust tests using the published API:
 
 ```toml
 [dev-dependencies]
@@ -28,6 +28,28 @@ assert_eq!(wrong_secret.scenario, NearMissScenario::WrongSecret);
 assert_eq!(tampered.scenario, NearMissScenario::TamperedPayload);
 ```
 
+## Next pre-1.0 minor helpers
+
+The current repository checkout also provides two deterministic rejection
+helpers that are not part of published `0.9.1`. They will be available in the
+next pre-1.0 minor release. Do not add a future version to a copyable dependency
+snippet before publication; use a path dependency when testing this checkout.
+
+```rust
+let near_signature = fixture.near_miss_signature();
+let malformed = fixture.near_miss_malformed_canonical_payload();
+
+assert_eq!(near_signature.scenario, NearMissScenario::NearMissSignature);
+assert_eq!(
+    malformed.scenario,
+    NearMissScenario::MalformedCanonicalPayload
+);
+```
+
+`NearMissScenario` is non-exhaustive because the negative-fixture taxonomy can
+gain new rejection classes. Downstream `match` expressions must include a
+wildcard arm, otherwise they fail to compile against a newer minor release.
+
 For file-based CI fixtures:
 
 ```bash
@@ -45,7 +67,8 @@ The Rust path gives a signed request fixture with:
   `X-Hub-Signature-256`, or `X-Slack-Signature`;
 - canonical or raw payload bytes;
 - a deterministic fixture secret;
-- near-miss request fixtures for freshness, secret, and body mismatch paths.
+- near-miss request fixtures for freshness, secret, body, digest-comparison,
+  and canonicalization rejection paths.
 
 The installed CLI bundle writes:
 
@@ -86,8 +109,16 @@ verifier rejection:
 | `near_miss_stale_timestamp(300)` | `webhook_stale_timestamp` | freshness window rejects before signature acceptance |
 | `near_miss_wrong_secret()` | `webhook_wrong_secret` | signature compare rejects unknown secret |
 | `near_miss_tampered_payload()` | `webhook_tampered_body` | signature compare rejects changed body bytes |
+| `near_miss_signature()` | `webhook_near_miss_signature` | verifier rejects a well-formed header whose digest differs by one hex digit |
+| `near_miss_malformed_canonical_payload()` | `webhook_malformed_canonical_payload` | consumer canonicalization rejects malformed JSON before verification (the raw-byte signature stays self-consistent) |
 | `requests/negative-missing-signature.json` | `webhook_missing_signature` | verifier rejects a request without the signature credential |
 | `requests/negative-malformed-signature.json` | `webhook_malformed_signature` | parser or verifier rejects invalid signature encoding |
+
+The two Rust-only helpers are intentionally not added to the webhook bundle.
+`near_miss_signature()` keeps the provider header shape valid so the rejection
+comes from digest comparison. `near_miss_malformed_canonical_payload()` signs
+the malformed bytes as-is; a consumer that canonicalizes before verification
+can therefore exercise its parse or canonicalization failure path.
 
 Use the installed bundle when the test needs JSON request fixtures and
 metadata-only audit receipts.

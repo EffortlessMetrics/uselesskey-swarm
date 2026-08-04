@@ -4,7 +4,7 @@ use uselesskey_core::Factory;
 
 use crate::payload::{canonical_payload, stable_spec_bytes};
 use crate::secret::build_secret;
-use crate::signature::sign;
+use crate::signature::{perturb_last_hex_digit, sign, signature_header_name};
 use crate::{
     DOMAIN_WEBHOOK_FIXTURE, NearMissScenario, NearMissWebhookFixture, WebhookFixture,
     WebhookPayloadSpec, WebhookProfile,
@@ -113,6 +113,44 @@ impl WebhookFixture {
         f
     }
 
+    /// Produce a near-miss-signature variant for digest-comparison tests.
+    ///
+    /// The payload, secret, timestamp, and canonical signature input match the
+    /// valid fixture exactly; only one hex digit of the signature header is
+    /// flipped. A verifier must reject on the digest comparison itself rather
+    /// than on a malformed header shape.
+    pub fn near_miss_signature(&self) -> NearMissWebhookFixture {
+        let (headers, signature_input) =
+            sign(self.profile, &self.secret, &self.payload, self.timestamp);
+        let mut f = NearMissWebhookFixture {
+            scenario: NearMissScenario::NearMissSignature,
+            profile: self.profile,
+            secret: self.secret.clone(),
+            payload: self.payload.clone(),
+            headers,
+            timestamp: self.timestamp,
+            signature_input,
+        };
+        let header_name = signature_header_name(self.profile);
+        if let Some(value) = f.headers.get(header_name) {
+            let perturbed = perturb_last_hex_digit(value);
+            f.headers.insert(header_name.to_string(), perturbed);
+        }
+        f
+    }
+
+    /// Produce a malformed-canonical-payload variant for canonicalization tests.
+    ///
+    /// The body is signed as-is but cannot be parsed as canonical JSON, so a
+    /// verifier that canonicalizes the request before checking the digest
+    /// rejects at the canonicalization step.
+    pub fn near_miss_malformed_canonical_payload(&self) -> NearMissWebhookFixture {
+        let malformed = malformed_canonical_payload(&self.payload);
+        let mut f = build_near_miss(self.profile, self.secret.clone(), malformed, self.timestamp);
+        f.scenario = NearMissScenario::MalformedCanonicalPayload;
+        f
+    }
+
     fn with_timestamp(&self, timestamp: i64) -> NearMissWebhookFixture {
         build_near_miss(
             self.profile,
@@ -138,6 +176,19 @@ fn build_near_miss(
         headers,
         timestamp,
         signature_input,
+    }
+}
+
+/// Break a canonical payload so it can no longer be parsed as JSON.
+///
+/// Dropping the trailing `}` of an object body, or appending an unbalanced
+/// brace otherwise, yields deterministic bytes that fail canonicalization
+/// while staying clearly fixture-shaped.
+fn malformed_canonical_payload(payload: &str) -> String {
+    if let Some(trimmed) = payload.strip_suffix('}') {
+        trimmed.to_string()
+    } else {
+        format!("{payload}{{")
     }
 }
 

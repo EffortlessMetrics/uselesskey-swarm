@@ -39,6 +39,22 @@ test.
 Token fixtures are protocol-shaped test values. They are not production JWTs and
 do not make an authorization decision meaningful by themselves.
 
+## Webhook Signatures
+
+| Fixture | Failure class | Expected downstream rejection | Generate with |
+| --- | --- | --- | --- |
+| `requests/negative-wrong-secret.json` | signature verification failure | verifier rejects a signature made with another secret | `uselesskey bundle --profile webhook` |
+| `requests/negative-stale-timestamp.json` | replay-window failure | verifier rejects a timestamp outside tolerance | `uselesskey bundle --profile webhook` |
+| `requests/negative-malformed-signature.json` | signature parse failure | parser or verifier rejects an unparsable signature header | `uselesskey bundle --profile webhook` |
+| `WebhookFixture::near_miss_signature` | digest comparison failure in Rust tests | verifier rejects a request whose signature is one hex digit off, with a valid header shape | `uselesskey-webhook` or facade `webhook` feature |
+| `WebhookFixture::near_miss_malformed_canonical_payload` | canonicalization failure in Rust tests | a verifier that canonicalizes the request body before checking the digest rejects an unparsable payload | `uselesskey-webhook` or facade `webhook` feature |
+
+The webhook bundle profile emits provider-shaped HMAC-SHA256 request fixtures.
+The crate-level near-miss helpers cover digest-comparison and canonicalization
+rejection branches for Rust tests. They are deterministic verifier fixtures, not
+provider compatibility, replay-protection completeness, or production
+secret-management proofs.
+
 ## Scanner-Safe Bundle Handoff
 
 | Fixture or payload | Failure class | Expected downstream rejection | Generate with |

@@ -77,6 +77,22 @@ fn token_reexport_works() {
 }
 
 #[test]
+#[cfg(feature = "webhook")]
+fn webhook_near_miss_reexports_work() {
+    use uselesskey::{NearMissScenario, WebhookFactoryExt, WebhookPayloadSpec};
+
+    let fixture = testutil::fx().webhook_stripe("payment", WebhookPayloadSpec::Canonical);
+    let near_signature = fixture.near_miss_signature();
+    let malformed = fixture.near_miss_malformed_canonical_payload();
+
+    assert_eq!(near_signature.scenario, NearMissScenario::NearMissSignature);
+    assert_eq!(
+        malformed.scenario,
+        NearMissScenario::MalformedCanonicalPayload
+    );
+}
+
+#[test]
 #[cfg(all(feature = "rsa", feature = "token"))]
 fn deterministic_facade_usage_is_order_independent() {
     use uselesskey::{Factory, RsaFactoryExt, RsaSpec, Seed, TokenFactoryExt, TokenSpec};
