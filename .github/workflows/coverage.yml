@@ -37,10 +37,10 @@ env:
   CARGO_BUILD_JOBS: "4"
   RUST_TEST_THREADS: "2"
   RUSTFLAGS: "-C debuginfo=0"
-  # Shared registry/git cache keeps dependency downloads warm; each run gets
-  # isolated scratch and target directories so concurrent coverage jobs cannot
-  # corrupt one another's instrumented build.
-  CARGO_HOME: /mnt/ci-cache/cargo-home
+  # Share only credential-free registry/git caches; each run gets an isolated
+  # Cargo home so checked-out code cannot read another run's credentials.
+  CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}
+  CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home
   TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
   CARGO_TARGET_DIR: /mnt/ci-scratch/uselesskey-coverage/${{ github.run_id }}-${{ github.run_attempt }}
 
@@ -73,7 +73,14 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME"
+          mkdir -p \
+            "$TMPDIR" \
+            "$CARGO_TARGET_DIR" \
+            "$CARGO_HOME" \
+            "$CARGO_CACHE_HOME/registry" \
+            "$CARGO_CACHE_HOME/git"
+          ln -s "$CARGO_CACHE_HOME/registry" "$CARGO_HOME/registry"
+          ln -s "$CARGO_CACHE_HOME/git" "$CARGO_HOME/git"
 
       - uses: actions/checkout@v7
         with:
@@ -203,5 +210,5 @@ jobs:
         shell: bash
         run: |
           set +e
-          rm -rf "$TMPDIR" "$CARGO_TARGET_DIR"
+          rm -rf "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"
           df -h /mnt/ci-scratch /mnt/ci-cache || true

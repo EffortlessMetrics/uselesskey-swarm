@@ -2710,15 +2710,20 @@ mod tests {
             "github.event.pull_request.head.repo.full_name == github.repository",
             "group: em-ci-small",
             "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
-            "CARGO_HOME: /mnt/ci-cache/cargo-home",
+            "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
             "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
             "CARGO_TARGET_DIR: /mnt/ci-scratch/uselesskey-coverage/${{ github.run_id }}-${{ github.run_attempt }}",
             "ci-disk-guard /mnt/ci-scratch 45",
+            "\"$CARGO_CACHE_HOME/registry\"",
+            "\"$CARGO_CACHE_HOME/git\"",
+            "ln -s \"$CARGO_CACHE_HOME/registry\" \"$CARGO_HOME/registry\"",
+            "ln -s \"$CARGO_CACHE_HOME/git\" \"$CARGO_HOME/git\"",
             "persist-credentials: false",
             "cargo llvm-cov --version",
             "nasm -v",
             "Cleanup coverage scratch",
-            "rm -rf \"$TMPDIR\" \"$CARGO_TARGET_DIR\"",
+            "rm -rf \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
         ] {
             assert!(
                 workflow.contains(expected),
@@ -2730,6 +2735,7 @@ mod tests {
         ));
         assert!(!workflow.contains("runs-on: ubuntu-latest"));
         assert!(!workflow.contains("sudo apt-get"));
+        assert!(!workflow.contains("CARGO_HOME: /mnt/ci-cache/cargo-home"));
         Ok(())
     }
 
