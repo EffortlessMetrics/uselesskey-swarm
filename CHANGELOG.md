@@ -28,8 +28,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Added a guard test that fails when any visible CLI command or argument ships
   without help text.
 
-### Changed
-
 - Documented every previously blank CLI flag and positional in `--help`, and
   gave `uselesskey export k8s` and `uselesskey export vault-kv-json` command
   descriptions.
