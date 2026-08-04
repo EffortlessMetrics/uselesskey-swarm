@@ -30,7 +30,8 @@ concurrency:
 env:
   CARGO_TERM_COLOR: always
   CARGO_INCREMENTAL: 0
-  CARGO_HOME: /mnt/ci-cache/cargo-home
+  CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}
+  CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home
   SCCACHE_DIR: /mnt/ci-cache/sccache
   SCCACHE_CACHE_SIZE: 30G
   RUSTC_WRAPPER: /usr/local/cargo/bin/sccache
@@ -57,7 +58,13 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME" "$SCCACHE_DIR"
+          mkdir -p \
+            "$TMPDIR" \
+            "$CARGO_TARGET_DIR" \
+            "$CARGO_HOME" \
+            "$CARGO_CACHE_HOME/registry" \
+            "$CARGO_CACHE_HOME/git" \
+            "$SCCACHE_DIR"
 
       - name: Pre-clean workspace
         shell: bash
@@ -123,12 +130,16 @@ jobs:
             -e MUTATION_CRATE \
             -v "${GITHUB_WORKSPACE}:/workspace" \
             -v "${CARGO_HOME}:/cargo-home" \
+            -v "${CARGO_CACHE_HOME}/registry:/cargo-cache/registry" \
+            -v "${CARGO_CACHE_HOME}/git:/cargo-cache/git" \
             -v "${SCCACHE_DIR}:/sccache" \
             -v "${CARGO_TARGET_DIR}:/cargo-target" \
             -v "${TMPDIR}:/tmp/jobtmp" \
             -w /workspace \
             "${IMAGE}" \
             bash -eu -o pipefail -c '
+              ln -s /cargo-cache/registry /cargo-home/registry
+              ln -s /cargo-cache/git /cargo-home/git
               git config --global --add safe.directory /workspace
               rustc --version
               cargo --version
@@ -170,10 +181,35 @@ jobs:
           IMAGE: em-ci-rust:1.95
         run: |
           set -eu
-          docker run --rm \
+          cleanup_workspace_target() {
+            case "${GITHUB_WORKSPACE}" in
+              /mnt/actions/_work/*/*) ;;
+              *)
+                echo "refusing host cleanup for unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+                return 1
+                ;;
+            esac
+            local target="${GITHUB_WORKSPACE}/target"
+            case "${target}" in
+              /mnt/actions/_work/*/*/target) ;;
+              *)
+                echo "refusing host cleanup for unexpected target: ${target}" >&2
+                return 1
+                ;;
+            esac
+            rm -rf -- "${target}"
+          }
+
+          if ! docker run --rm \
             -v "${GITHUB_WORKSPACE}:/workspace" \
             "${IMAGE}" \
-            bash -c 'rm -rf /workspace/target' || true
+            bash -c 'rm -rf /workspace/target'; then
+            echo "::warning::Docker target cleanup failed; using validated host cleanup" >&2
+            cleanup_workspace_target
+          elif [ -e "${GITHUB_WORKSPACE}/target" ]; then
+            echo "::warning::Docker target cleanup left target behind; using validated host cleanup" >&2
+            cleanup_workspace_target
+          fi
 
       - name: Cleanup scratch dirs
         if: always()
@@ -182,16 +218,33 @@ jobs:
           IMAGE: em-ci-rust:1.95
         run: |
           set -eu
-          docker run --rm \
+          cleanup_scratch_dirs_host() {
+            local candidate
+            for candidate in "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; do
+              if [[ ! "${candidate}" =~ ^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$ ]]; then
+                echo "refusing host cleanup for unexpected scratch path: ${candidate}" >&2
+                return 1
+              fi
+            done
+            rm -rf -- "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"
+          }
+
+          if ! docker run --rm \
             -v "${TMPDIR}:/tmp/jobtmp" \
+            -v "${CARGO_HOME}:/cargo-home" \
             -v "${CARGO_TARGET_DIR}:/cargo-target" \
             "${IMAGE}" \
             bash -c '
-              rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?* 2>/dev/null || true
-              rm -rf /cargo-target/* /cargo-target/.[!.]* /cargo-target/..?* 2>/dev/null || true
-            ' || true
-          rmdir "$TMPDIR" 2>/dev/null || true
-          rmdir "$CARGO_TARGET_DIR" 2>/dev/null || true
+              rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?*
+              rm -rf /cargo-home/* /cargo-home/.[!.]* /cargo-home/..?*
+              rm -rf /cargo-target/* /cargo-target/.[!.]* /cargo-target/..?*
+            '; then
+            echo "::warning::Docker scratch cleanup failed; using validated host cleanup" >&2
+            cleanup_scratch_dirs_host
+          elif ! rmdir "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; then
+            echo "::warning::Docker scratch cleanup left data behind; using validated host cleanup" >&2
+            cleanup_scratch_dirs_host
+          fi
 
       - name: Disk report
         if: always()

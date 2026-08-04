@@ -144,7 +144,6 @@ jobs:
               ".uselesskey/*",
               ".codex/campaigns/*",
               ".github/CODEOWNERS",
-              ".github/actionlint.yaml",
               ".github/dependabot.yml",
               ".github/ISSUE_TEMPLATE/*",
               ".github/pull_request_template.md",
@@ -173,7 +172,7 @@ jobs:
                       "surface": "workflow_policy_config",
                       "target": "workflow",
                       "reason": "actionlint runner-label config; workflow validation checks workflow policy",
-                  }
+                }
               if fnmatch.fnmatch(path, ".github/ISSUE_TEMPLATE/*"):
                   return {
                       "path": path,
@@ -405,7 +404,10 @@ jobs:
                 xtask/src/policy.rs)
                   has_policy_test="true"
                   ;;
-                README.md|CHANGELOG.md|SECURITY.md|CONTRIBUTING.md|LICENSE|LICENSE-*|NOTICE|AGENTS.md|docs/*|docs/tracking/*|badges/*|policy/*|plans/*|ci/hardware/*|.rails/*|.uselesskey/*|.codex/campaigns/*|.github/CODEOWNERS|.github/actionlint.yaml|.github/dependabot.yml|.github/ISSUE_TEMPLATE/*|.github/pull_request_template.md|.github/PULL_REQUEST_TEMPLATE.md|.github/PULL_REQUEST_TEMPLATE/*)
+                .github/actionlint.yaml)
+                  has_workflow="true"
+                  ;;
+                README.md|CHANGELOG.md|SECURITY.md|CONTRIBUTING.md|LICENSE|LICENSE-*|NOTICE|AGENTS.md|docs/*|docs/tracking/*|badges/*|policy/*|plans/*|ci/hardware/*|.rails/*|.uselesskey/*|.codex/campaigns/*|.github/CODEOWNERS|.github/dependabot.yml|.github/ISSUE_TEMPLATE/*|.github/pull_request_template.md|.github/PULL_REQUEST_TEMPLATE.md|.github/PULL_REQUEST_TEMPLATE/*)
                   ;;
                 *)
                   all_light="false"

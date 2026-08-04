@@ -2712,7 +2712,8 @@ mod tests {
             "cancel-in-progress: false",
             "group: em-ci-small",
             "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
-            "CARGO_HOME: /mnt/ci-cache/cargo-home",
+            "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
             "SCCACHE_DIR: /mnt/ci-cache/sccache",
             "RUSTC_WRAPPER: /usr/local/cargo/bin/sccache",
             "CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}",
@@ -2720,6 +2721,8 @@ mod tests {
             "ci-disk-guard /mnt/ci-scratch 50",
             "ci-disk-guard /mnt/docker 10",
             "ci-disk-guard /mnt/ci-cache 10",
+            "\"$CARGO_CACHE_HOME/registry\"",
+            "\"$CARGO_CACHE_HOME/git\"",
             "refusing to clean unexpected workspace",
             "persist-credentials: false",
             "clean: false",
@@ -2728,6 +2731,8 @@ mod tests {
             "MUTATION_SCOPE: ${{ inputs.scope }}",
             "MUTATION_CRATE: ${{ inputs.crate }}",
             "git config --global --add safe.directory /workspace",
+            "ln -s /cargo-cache/registry /cargo-home/registry",
+            "ln -s /cargo-cache/git /cargo-home/git",
             "cargo mutants --version",
             "sccache --version",
             "nasm -v",
@@ -2738,12 +2743,20 @@ mod tests {
             "crate_name=\"${MUTATION_CRATE:-}\"",
             "-v \"${CARGO_TARGET_DIR}:/cargo-target\"",
             "-v \"${TMPDIR}:/tmp/jobtmp\"",
+            "-v \"${CARGO_CACHE_HOME}/registry:/cargo-cache/registry\"",
+            "-v \"${CARGO_CACHE_HOME}/git:/cargo-cache/git\"",
             "name: mutation-nightly",
             "path: target/mutation",
             "rm -rf /workspace/target",
             "rm -rf /tmp/jobtmp/* /tmp/jobtmp/.[!.]* /tmp/jobtmp/..?*",
-            "rmdir \"$TMPDIR\"",
-            "rmdir \"$CARGO_TARGET_DIR\"",
+            "rm -rf /cargo-home/* /cargo-home/.[!.]* /cargo-home/..?*",
+            "cleanup_workspace_target()",
+            "refusing host cleanup for unexpected target",
+            "using validated host cleanup",
+            "cleanup_scratch_dirs_host()",
+            "^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$",
+            "rm -rf -- \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
+            "rmdir \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
         ] {
             assert!(
                 workflow.contains(expected),
@@ -2756,21 +2769,24 @@ mod tests {
         assert!(!workflow.contains("cargo install cargo-mutants"));
         assert!(!workflow.contains("scope=\"${{ inputs.scope }}\""));
         assert!(!workflow.contains("crate_name=\"${{ inputs.crate }}\""));
+        assert!(!workflow.contains("bash -c 'rm -rf /workspace/target' || true"));
 
-        for step_name in [
-            "Cleanup workspace target",
-            "Cleanup scratch dirs",
-            "Disk report",
+        for step_marker in [
+            "      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a\n",
+            "      - name: Cleanup workspace target\n",
+            "      - name: Cleanup scratch dirs\n",
+            "      - name: Disk report\n",
         ] {
-            let marker = format!("      - name: {step_name}\n");
             let step = workflow
-                .split(&marker)
+                .split(step_marker)
                 .nth(1)
-                .ok_or_else(|| anyhow::anyhow!("mutation workflow missing step `{step_name}`"))?;
+                .ok_or_else(|| anyhow::anyhow!("mutation workflow missing step `{step_marker}`"))?;
             let step = step.split("\n      - ").next().unwrap_or(step);
-            assert!(
-                step.lines().any(|line| line.trim() == "if: always()"),
-                "post-run step `{step_name}` must run with if: always()"
+            let guard = step.lines().find(|line| line.starts_with("        if: "));
+            assert_eq!(
+                guard.map(str::trim),
+                Some("if: always()"),
+                "post-run step `{step_marker}` must have a step-level if: always() guard"
             );
         }
 
@@ -2931,7 +2947,7 @@ jobs:
             "idle_runner_count \"cpx42\" \"rust-medium\"",
             "idle_runner_count \"cx53\" \"rust-large\"",
             "CONTRIBUTING.md",
-            ".github/actionlint.yaml",
+            ".github/actionlint.yaml)\n                  has_workflow=\"true\"",
             "docs/tracking/*",
             "ci/hardware/*",
             ".codex/campaigns/*",
