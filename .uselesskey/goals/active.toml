@@ -129,7 +129,7 @@ commands = [
 
 [[work_item]]
 id = "webauthn-validation-example-no-panic"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0005"
 plan = "plans/no-panic-burndown/implementation-plan.md"
@@ -137,6 +137,20 @@ commands = [
   "cargo xtask check-no-panic-family",
   "cargo test --manifest-path examples/external/webauthn-ceremony-validation/Cargo.toml",
   "cargo clippy --manifest-path examples/external/webauthn-ceremony-validation/Cargo.toml --all-targets -- -D warnings",
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "docs-sync-adapter-test-no-panic"
+status = "ready"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo test -p xtask docs_sync",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
   "cargo xtask pr",
   "git diff --check",
 ]
