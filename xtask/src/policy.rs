@@ -2909,8 +2909,8 @@ mod tests {
 
     #[test]
     fn performance_workflow_uses_cx43_with_isolated_scratch_and_receipt_contract() -> Result<()> {
-        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../.github/workflows/performance.yml");
+        let workflow_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/performance.yml");
         let workflow = fs::read_to_string(&workflow_path)
             .with_context(|| format!("read {}", workflow_path.display()))?;
 
@@ -3158,7 +3158,7 @@ jobs:
             "MAIN_FULL_RESULT: ${{ needs.main-full-gate.result }}",
             "main_full_result=${MAIN_FULL_RESULT:-<empty>}",
             "selected target main-full but result was ${MAIN_FULL_RESULT}",
-            "target/source-of-truth/main-full-gate-receipt.json",
+            "main-full-gate-receipt.json",
             "\"elapsed_seconds\": int(os.environ[\"ELAPSED_SECONDS\"])",
             "\"heartbeat_seen\": os.environ[\"HEARTBEAT_SEEN\"].lower() == \"true\"",
             "Upload main full gate receipt",
@@ -3189,6 +3189,62 @@ jobs:
             workflow.find("Prepare CPX42 scratch") < workflow.find("dtolnay/rust-toolchain@v1"),
             "CPX42 scratch preparation must run before installing the Rust toolchain"
         );
+
+        let main_full_gate = workflow
+            .split_once("  main-full-gate:\n")
+            .map(|(_, rest)| rest)
+            .ok_or_else(|| anyhow::anyhow!("main-full-gate job missing"))?;
+        for expected in [
+            "runs-on:\n      group: em-ci-small\n      labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]",
+            "timeout-minutes: 120",
+            "CARGO_BUILD_JOBS: \"12\"",
+            "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
+            "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}",
+            "ci-disk-guard /mnt/ci-scratch 50",
+            "ci-disk-guard /mnt/ci-cache 10",
+            "Prepare main full gate scratch",
+            "shared Cargo cache is not readable",
+            "CARGO_CACHE_MODE=isolated",
+            "CARGO_CACHE_MODE=shared",
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "persist-credentials: false",
+            "docker build --pull=false -t uselesskey-ci-rust:1.95",
+            "Preflight runner and container",
+            "test -x \"$(command -v ci-disk-guard)\"",
+            "test -x \"$(command -v docker)\"",
+            "docker image inspect uselesskey-ci-rust:1.95",
+            "cargo +nightly -vV",
+            "nasm -v",
+            "docker_args=(",
+            "docker_args+=(",
+            "--cpus=\"14\"",
+            "--memory=\"28g\"",
+            "ln -s /cargo-cache/registry /cargo-home/registry",
+            "ln -s /cargo-cache/git /cargo-home/git",
+            "-v \"${CARGO_TARGET_DIR}:/cargo-target\"",
+            "Path(\"/cargo-target/source-of-truth/main-full-gate-receipt.json\")",
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "Cleanup main full gate scratch",
+            "^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$",
+            "rm -rf -- \"$workspace_target\" \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"",
+        ] {
+            assert!(
+                main_full_gate.contains(expected),
+                "main-full-gate missing pinned contract: {expected}"
+            );
+        }
+        for mutable_ref in [
+            "runs-on: ubuntu-latest",
+            "Swatinem/rust-cache@",
+            "sudo apt-get",
+        ] {
+            assert!(
+                !main_full_gate.contains(mutable_ref),
+                "main-full-gate retains mutable action ref: {mutable_ref}"
+            );
+        }
 
         Ok(())
     }
