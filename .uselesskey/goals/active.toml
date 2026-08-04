@@ -22,7 +22,7 @@ end_state = [
 
 [[work_item]]
 id = "pgp-production-no-panic"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0005"
 plan = "plans/no-panic-burndown/implementation-plan.md"
@@ -34,13 +34,14 @@ commands = [
 ]
 
 [[work_item]]
-id = "next-production-no-panic-slice"
-status = "planned"
+id = "pkcs11-mock-test-no-panic"
+status = "ready"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0005"
 plan = "plans/no-panic-burndown/implementation-plan.md"
 commands = [
   "cargo xtask check-no-panic-family",
+  "cargo test -p uselesskey-pkcs11-mock",
   "cargo xtask pr",
   "git diff --check",
 ]
