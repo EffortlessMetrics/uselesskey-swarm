@@ -11,5 +11,6 @@ tokio = { version = "1.52.3", features = ["macros", "rt-multi-thread"] }
 uselesskey-core = { version = "0.9.1", default-features = false }
 uselesskey-rsa = "0.9.1"
 uselesskey-test-server = "0.9.1"
+uselesskey-test-support = { path = "../../../crates/uselesskey-test-support" }
 
 [workspace]
