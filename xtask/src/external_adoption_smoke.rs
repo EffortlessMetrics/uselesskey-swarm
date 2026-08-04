@@ -2016,6 +2016,7 @@ fn toml_escape(value: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use anyhow::ensure;
 
     fn timeout_matrix(
         _root: &Path,
@@ -2611,7 +2612,7 @@ mod tests {
     }
 
     #[test]
-    fn external_adoption_examples_readme_lists_runnable_examples() {
+    fn external_adoption_examples_readme_lists_runnable_examples() -> Result<()> {
         let doc = include_str!("../../examples/external/README.md");
         let library_proof = "cargo xtask external-adoption-smoke --path . --library-examples";
 
@@ -2621,20 +2622,25 @@ mod tests {
                 example
                     .source_dir
                     .strip_prefix("examples/external/")
-                    .expect("external example source is under examples/external")
+                    .with_context(|| {
+                        format!(
+                            "external example source is not under examples/external: {}",
+                            example.source_dir
+                        )
+                    })?
             );
             let row = doc
                 .lines()
                 .find(|line| line.contains(&link))
-                .unwrap_or_else(|| {
-                    panic!(
+                .with_context(|| {
+                    format!(
                         "external examples README missing runnable example `{}`",
                         example.name
                     )
-                });
-            assert!(
+                })?;
+            ensure!(
                 row.contains(library_proof),
-                "external examples README row for `{}` should use library-example proof",
+                "external examples README row for `{}` should use library-example proof; row={row}",
                 example.name
             );
         }
@@ -2642,26 +2648,27 @@ mod tests {
         let downstream_row = doc
             .lines()
             .find(|line| line.contains("](downstream-ci-bundle-audit/)"))
-            .expect("external examples README lists downstream CI bundle audit example");
-        assert!(
+            .context("external examples README lists downstream CI bundle audit example")?;
+        ensure!(
             downstream_row.contains("cargo xtask external-adoption-smoke --path ."),
-            "downstream CI bundle audit row should use the installed CLI path proof"
+            "downstream CI bundle audit row should use the installed CLI path proof; row={downstream_row}"
         );
-        assert!(
+        ensure!(
             !downstream_row.contains("--library-examples"),
-            "downstream CI bundle audit row should not use library-example proof"
+            "downstream CI bundle audit row should not use library-example proof; row={downstream_row}"
         );
 
         let ci_recipes_row = doc
             .lines()
             .find(|line| line.contains("](ci-recipes/)"))
-            .expect("external examples README lists CI recipes");
-        assert!(
+            .context("external examples README lists CI recipes")?;
+        ensure!(
             ci_recipes_row.contains(
                 "cargo xtask external-adoption-smoke --path . --ci-recipes --format json"
             ),
-            "CI recipes row should use the CI recipe proof mode"
+            "CI recipes row should use the CI recipe proof mode; row={ci_recipes_row}"
         );
+        Ok(())
     }
 
     #[test]
@@ -2691,22 +2698,23 @@ mod tests {
     }
 
     #[test]
-    fn external_adoption_examples_readme_lists_example_directories() {
+    fn external_adoption_examples_readme_lists_example_directories() -> Result<()> {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
-            .expect("xtask lives under the workspace root");
+            .context("xtask lives under the workspace root")?;
         let examples_dir = root.join("examples/external");
-        let example_dirs = fs::read_dir(&examples_dir)
-            .expect("external examples directory should exist")
-            .filter_map(|entry| {
-                let entry = entry.expect("external example entry should be readable");
-                if entry.path().is_dir() {
-                    Some(entry.file_name().to_string_lossy().into_owned())
-                } else {
-                    None
-                }
-            })
-            .collect::<std::collections::BTreeSet<_>>();
+        let mut example_dirs = std::collections::BTreeSet::new();
+        for entry in fs::read_dir(&examples_dir).with_context(|| {
+            format!(
+                "external examples directory should exist: {}",
+                examples_dir.display()
+            )
+        })? {
+            let entry = entry.context("external example entry should be readable")?;
+            if entry.path().is_dir() {
+                example_dirs.insert(entry.file_name().to_string_lossy().into_owned());
+            }
+        }
         let doc = include_str!("../../examples/external/README.md");
         let readme_links = doc
             .lines()
@@ -2726,6 +2734,7 @@ mod tests {
             readme_links, example_dirs,
             "external examples README should link every committed example directory and no stale example directories"
         );
+        Ok(())
     }
 
     #[test]
