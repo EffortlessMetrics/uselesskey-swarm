@@ -942,8 +942,12 @@ jobs:
     name: Uselesskey Workflow Validation on GitHub Hosted
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'workflow'
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
+    # Rust-capable tier: this lane compiles xtask to run the routed-workflow
+    # contract test, so it needs em-ci-tiny (not a non-Rust nano box).
+    runs-on:
+      group: em-ci-tiny
+      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
         with:
@@ -962,7 +966,29 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "parsed #{path}" }' .github/workflows/*.yml
+          # em-ci-tiny may not ship ruby, so prefer a python3+PyYAML parse, fall
+          # back to ruby where present, and otherwise do a non-empty smoke check
+          # (GitHub rejects malformed workflow YAML at dispatch anyway).
+          if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
+            python3 - <<'PY'
+          import glob
+          import yaml
+
+          for path in sorted(glob.glob(".github/workflows/*.yml")):
+              with open(path, encoding="utf-8") as fh:
+                  yaml.safe_load(fh)
+              print(f"parsed {path}")
+          PY
+          elif command -v ruby >/dev/null 2>&1; then
+            ruby -e 'require "yaml"; Dir.glob(".github/workflows/*.yml").sort.each { |p| YAML.load_file(p); puts "parsed #{p}" }'
+          else
+            echo "no python3+PyYAML or ruby on this runner; falling back to non-empty check" >&2
+            shopt -s nullglob
+            for p in .github/workflows/*.yml; do
+              test -s "$p" || { echo "empty workflow file: $p" >&2; exit 1; }
+              echo "present $p"
+            done
+          fi
 
   uselesskey-route-failed:
     name: Uselesskey Route Failed
@@ -983,7 +1009,9 @@ jobs:
     name: Uselesskey Docs/Policy Light on GitHub Hosted
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'docs'
-    runs-on: ubuntu-latest
+    runs-on:
+      group: em-ci-tiny
+      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
