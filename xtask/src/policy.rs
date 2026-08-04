@@ -2846,6 +2846,7 @@ mod tests {
             "persist-credentials: false",
             "PERF_COMPARE: ${{ inputs.compare }}",
             "cargo xtask perf",
+            "python3 - <<'PY'",
             "name: performance-evidence",
             "path: target/xtask/perf",
             "Cleanup performance scratch",
@@ -2867,6 +2868,7 @@ mod tests {
         assert!(!workflow.contains("actions/checkout@v7"));
         assert!(!workflow.contains("dtolnay/rust-toolchain@stable"));
         assert!(!workflow.contains("actions/upload-artifact@v7"));
+        assert!(!workflow.contains("python - <<'PY'"));
 
         let step = |marker: &str| -> Result<&str> {
             let after = workflow
