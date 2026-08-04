@@ -2724,10 +2724,16 @@ mod tests {
             "persist-credentials: false",
             "clean: false",
             "docker build --pull=false -t uselesskey-ci-rust:1.95",
+            "MUTATION_SCOPE: ${{ inputs.scope }}",
+            "MUTATION_CRATE: ${{ inputs.crate }}",
             "cargo mutants --version",
             "sccache --version",
             "nasm -v",
             "cargo xtask mutants-nightly",
+            "-e MUTATION_SCOPE",
+            "-e MUTATION_CRATE",
+            "scope=\"${MUTATION_SCOPE:-}\"",
+            "crate_name=\"${MUTATION_CRATE:-}\"",
             "-v \"${CARGO_TARGET_DIR}:/cargo-target\"",
             "-v \"${TMPDIR}:/tmp/jobtmp\"",
             "name: mutation-nightly",
@@ -2746,6 +2752,8 @@ mod tests {
         assert!(!workflow.contains("runs-on: ubuntu-latest"));
         assert!(!workflow.contains("apt-get install"));
         assert!(!workflow.contains("cargo install cargo-mutants"));
+        assert!(!workflow.contains("scope=\"${{ inputs.scope }}\""));
+        assert!(!workflow.contains("crate_name=\"${{ inputs.crate }}\""));
         Ok(())
     }
 

@@ -103,6 +103,8 @@ jobs:
         shell: bash
         env:
           IMAGE: uselesskey-ci-rust:1.95
+          MUTATION_SCOPE: ${{ inputs.scope }}
+          MUTATION_CRATE: ${{ inputs.crate }}
         run: |
           set -euo pipefail
           docker run --rm \
@@ -117,6 +119,8 @@ jobs:
             -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" \
             -e CARGO_TARGET_DIR=/cargo-target \
             -e TMPDIR=/tmp/jobtmp \
+            -e MUTATION_SCOPE \
+            -e MUTATION_CRATE \
             -v "${GITHUB_WORKSPACE}:/workspace" \
             -v "${CARGO_HOME}:/cargo-home" \
             -v "${SCCACHE_DIR}:/sccache" \
@@ -131,8 +135,8 @@ jobs:
               sccache --version
               nasm -v
 
-              scope="${{ inputs.scope }}"
-              crate_name="${{ inputs.crate }}"
+              scope="${MUTATION_SCOPE:-}"
+              crate_name="${MUTATION_CRATE:-}"
 
               if [[ -z "$scope" ]]; then
                 scope="public"
