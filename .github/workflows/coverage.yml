@@ -76,23 +76,30 @@ jobs:
           mkdir -p \
             "$TMPDIR" \
             "$CARGO_TARGET_DIR" \
-            "$CARGO_HOME" \
-            "$CARGO_CACHE_HOME/registry" \
-            "$CARGO_CACHE_HOME/git"
+            "$CARGO_HOME"
           shared_cache_unreadable=""
-          for cache_root in "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; do
-            if ! unreadable_entry="$(find "$cache_root" -type f ! -readable -print -quit 2>/dev/null)"; then
-              shared_cache_unreadable="$cache_root (scan failed)"
-              break
-            fi
-            if [[ -n "$unreadable_entry" ]]; then
-              shared_cache_unreadable="$unreadable_entry"
-              break
-            fi
-          done
-          if [[ -n "$shared_cache_unreadable" ]]; then
-            echo "::warning::shared Cargo cache is not readable at ${shared_cache_unreadable}; using isolated per-run Cargo cache"
+          if ! mkdir -p "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; then
+            shared_cache_unreadable="$CARGO_CACHE_HOME (prepare failed)"
           else
+            for cache_root in "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; do
+              if ! unreadable_entry="$(find "$cache_root" -type f ! -readable -print -quit 2>/dev/null)"; then
+                shared_cache_unreadable="$cache_root (scan failed)"
+                break
+              fi
+              if [[ -n "$unreadable_entry" ]]; then
+                shared_cache_unreadable="$unreadable_entry"
+                break
+              fi
+            done
+          fi
+
+          if [[ -n "$shared_cache_unreadable" ]]; then
+            echo "::warning::shared Cargo cache is not usable at ${shared_cache_unreadable}; using isolated per-run Cargo cache"
+          else
+            if [[ -e "$CARGO_HOME/registry" || -L "$CARGO_HOME/registry" || -e "$CARGO_HOME/git" || -L "$CARGO_HOME/git" ]]; then
+              echo "::error::per-run Cargo home unexpectedly contains shared cache paths" >&2
+              exit 1
+            fi
             ln -s "$CARGO_CACHE_HOME/registry" "$CARGO_HOME/registry"
             ln -s "$CARGO_CACHE_HOME/git" "$CARGO_HOME/git"
           fi
