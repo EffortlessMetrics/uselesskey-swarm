@@ -786,6 +786,53 @@ mod tests {
     }
 
     #[test]
+    fn malformed_payload_near_miss_also_handles_raw_json() {
+        let fx = Factory::deterministic_from_str("webhook-malformed-raw");
+
+        for profile in [
+            WebhookProfile::GitHub,
+            WebhookProfile::Stripe,
+            WebhookProfile::Slack,
+        ] {
+            let valid = fx.webhook(
+                profile,
+                "raw",
+                WebhookPayloadSpec::Raw(r#"["event",{"ok":true}]"#.to_string()),
+            );
+            let malformed = valid.near_miss_malformed_canonical_payload();
+
+            assert_eq!(
+                malformed.scenario,
+                NearMissScenario::MalformedCanonicalPayload
+            );
+            assert!(serde_json::from_str::<serde_json::Value>(&valid.payload).is_ok());
+            assert!(serde_json::from_str::<serde_json::Value>(&malformed.payload).is_err());
+
+            match profile {
+                WebhookProfile::GitHub => assert!(verify_github(
+                    &malformed.secret,
+                    &malformed.payload,
+                    &malformed.headers
+                )),
+                WebhookProfile::Stripe => assert!(verify_stripe(
+                    &malformed.secret,
+                    &malformed.payload,
+                    &malformed.headers,
+                    malformed.timestamp,
+                    300
+                )),
+                WebhookProfile::Slack => assert!(verify_slack(
+                    &malformed.secret,
+                    &malformed.payload,
+                    &malformed.headers,
+                    malformed.timestamp,
+                    300
+                )),
+            }
+        }
+    }
+
+    #[test]
     fn hmac_sha256_long_key_is_hashed_first() {
         // RFC 4231 test vector 4: 131-byte key (longer than the 64-byte block),
         // exercising the SHA-256 pre-hash branch of hmac_sha256_hex.
