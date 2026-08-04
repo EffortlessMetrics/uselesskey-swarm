@@ -2160,7 +2160,7 @@ mod tests {
         fs::create_dir_all(
             out_dir
                 .parent()
-                .expect("output path must have a parent for test setup"),
+                .context("output path must have a parent for test setup")?,
         )?;
         fs::write(&out_dir, b"stale output file")?;
         let mut permissions = fs::metadata(&out_dir)?.permissions();
@@ -2342,22 +2342,24 @@ mod tests {
     }
 
     #[test]
-    fn external_adoption_ci_recipes_readme_lists_recipe_files() {
+    fn external_adoption_ci_recipes_readme_lists_recipe_files() -> Result<()> {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
-            .expect("xtask lives under the workspace root");
+            .context("xtask lives under the workspace root")?;
         let recipes_dir = root.join("examples/external/ci-recipes");
-        let recipe_files = fs::read_dir(&recipes_dir)
-            .expect("ci-recipes directory should exist")
-            .map(|entry| {
-                entry
-                    .expect("ci-recipes entry should be readable")
-                    .file_name()
-                    .to_string_lossy()
-                    .into_owned()
-            })
-            .filter(|name| name != "README.md")
-            .collect::<std::collections::BTreeSet<_>>();
+        let mut recipe_files = std::collections::BTreeSet::new();
+        for entry in fs::read_dir(&recipes_dir)
+            .with_context(|| format!("read CI recipe directory {}", recipes_dir.display()))?
+        {
+            let name = entry
+                .with_context(|| format!("read CI recipe entry in {}", recipes_dir.display()))?
+                .file_name()
+                .to_string_lossy()
+                .into_owned();
+            if name != "README.md" {
+                recipe_files.insert(name);
+            }
+        }
         let doc = include_str!("../../examples/external/ci-recipes/README.md");
         let readme_links = doc
             .lines()
@@ -2376,6 +2378,7 @@ mod tests {
             readme_links, recipe_files,
             "ci-recipes README should link every committed recipe file and no missing recipe files"
         );
+        Ok(())
     }
 
     #[test]
@@ -2407,7 +2410,7 @@ mod tests {
 
     #[test]
     fn external_adoption_rejects_conflicting_direct_modes() -> Result<()> {
-        let root = tempfile::tempdir().expect("temp root for isolated smoke");
+        let root = tempfile::tempdir().context("temp root for isolated smoke")?;
         let err = run(
             root.path(),
             RunOptions {
