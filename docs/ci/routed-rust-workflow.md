@@ -17,7 +17,7 @@ The router first classifies the change:
 | Workflow changes | `workflow` | Runs hosted workflow validation and the no-bare-self-hosted guard; it does not run Rust CI. |
 | Rust or mixed implementation changes | self-hosted Rust runner when available | Uses org-level runner discovery and the CX43/CPX42/CX53 capacity contract. |
 | Fork PRs | `github` | Hosted fallback is allowed for fork safety. |
-| Push to `main`, or `workflow_dispatch` with `run_full_gate=true` | `main-full` | Runs the hosted full gate and makes the normalized result follow that job. |
+| Push to `main`, or `workflow_dispatch` with `run_full_gate=true` | `main-full` | Runs the full gate on the organization `cx53` / `rust-large` self-hosted tier and makes the normalized result follow that job. |
 
 ## Proof Route Receipt
 
@@ -51,9 +51,10 @@ state being proven. GitHub Actions may still keep only one pending replacement
 run for the same concurrency group when cancellation is disabled for the event.
 
 Pushes to `main` do not use PR runner discovery. They run
-`Uselesskey Main Full Gate`, and the normalized `Uselesskey Rust Small Result`
-waits for that full gate so the branch state is not marked red merely because no
-self-hosted PR runner is idle.
+`Uselesskey Main Full Gate` on the organization runner label set
+`[self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]`, and the
+normalized `Uselesskey Rust Small Result` waits for that full gate so the branch
+state is not marked red merely because no PR runner is idle.
 
 ## Main Branch Queue Behavior
 
@@ -99,19 +100,24 @@ CI path.
 
 ## Main Full Gate Observability
 
-The `Uselesskey Main Full Gate` wraps `cargo xtask ci` with a one-minute
-heartbeat line while the command is still running. A long-running `xtask ci`
-step is expected on `main`; the heartbeat exists so operators can distinguish a
-live full gate from a silent no-output failure.
+The `Uselesskey Main Full Gate` runs the pinned `uselesskey-ci-rust:1.95`
+container and wraps `cargo xtask ci` with a one-minute heartbeat line while the
+command is still running. The container supplies the pinned Rust tools and NASM
+without mutating the host runner. A long-running `xtask ci` step is expected on
+`main`; the heartbeat exists so operators can distinguish a live full gate from
+a silent no-output failure.
 
-The job also uploads a `main-full-gate-receipt` artifact from
-`target/source-of-truth/main-full-gate-receipt.json`. The receipt records the
-run id, commit, ref, start and completion timestamps, elapsed seconds,
-`xtask ci` exit code, final result, whether the heartbeat loop ran, and the
-existing `target/xtask/receipt.json` artifact relationship. This is hosted
-main-branch execution evidence; it does not replace `Uselesskey Rust Small
-Result` and does not move release, publish, signing, tag, GitHub release,
-crates.io, or source-sync authority.
+The job also uploads a `main-full-gate-receipt` artifact containing
+`main-full-gate-receipt.json` from the per-run `/mnt/ci-scratch/target/` path.
+The receipt records the run id, commit, ref, start and completion timestamps,
+elapsed seconds, `xtask ci` exit code, final result, whether the heartbeat loop
+ran, and the existing `target/xtask/receipt.json` artifact relationship. Each
+run gets isolated Cargo home, target, and temporary paths; shared registry/git
+cache directories are used only when readable, otherwise the run falls back to
+its isolated Cargo cache. This is organization self-hosted main-branch
+execution evidence; it does not replace `Uselesskey Rust Small Result` and does
+not move release, publish, signing, tag, GitHub release, crates.io, or
+source-sync authority.
 
 When the job is still in progress, GitHub may not expose the step log through
 `gh run view --job ... --log` yet. In that state, use the run and job metadata

@@ -1145,52 +1145,138 @@ jobs:
   main-full-gate:
     name: Uselesskey Main Full Gate
     if: (github.event_name == 'push' && github.ref == 'refs/heads/main') || (github.event_name == 'workflow_dispatch' && inputs.run_full_gate)
-    runs-on: ubuntu-latest
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx53, rust-large, trusted-pr]
     timeout-minutes: 120
+    env:
+      CARGO_BUILD_JOBS: "12"
+      CARGO_INCREMENTAL: "0"
+      CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}
+      CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home
+      TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+      CARGO_TARGET_DIR: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}
     steps:
+      - name: Disk guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 50
+          ci-disk-guard /mnt/ci-cache 10
+
+      - name: Prepare main full gate scratch
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p \
+            "$TMPDIR" \
+            "$CARGO_TARGET_DIR" \
+            "$CARGO_HOME" \
+            "$CARGO_CACHE_HOME/registry" \
+            "$CARGO_CACHE_HOME/git"
+
+          for path in "$TMPDIR" "$CARGO_TARGET_DIR" "$CARGO_HOME"; do
+            test -w "$path"
+          done
+
+          shared_cache_unreadable=""
+          for cache_root in "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; do
+            if ! unreadable_entry="$(find "$cache_root" -type f ! -readable -print -quit 2>/dev/null)"; then
+              shared_cache_unreadable="$cache_root (scan failed)"
+              break
+            fi
+            if [[ -n "$unreadable_entry" ]]; then
+              shared_cache_unreadable="$unreadable_entry"
+              break
+            fi
+          done
+
+          if [[ -n "$shared_cache_unreadable" ]]; then
+            echo "::warning::shared Cargo cache is not readable at ${shared_cache_unreadable}; using isolated per-run Cargo cache"
+            echo "CARGO_CACHE_MODE=isolated" >> "$GITHUB_ENV"
+          else
+            echo "CARGO_CACHE_MODE=shared" >> "$GITHUB_ENV"
+          fi
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
           persist-credentials: false
 
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
-        with:
-          toolchain: stable
-          components: rustfmt, clippy
+      - name: Build Uselesskey CI image
+        shell: bash
+        run: docker build --pull=false -t uselesskey-ci-rust:1.95 -f .github/ci/uselesskey-rust-small.Dockerfile .github/ci
 
-      - uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
-        with:
-          toolchain: nightly
-
-      - name: Install NASM
-        run: sudo apt-get update && sudo apt-get install -y nasm
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32
-        with:
-          cache-on-failure: true
-
-      - name: Install tools
-        uses: taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed
-        with:
-          tool: cargo-fuzz,cargo-mutants,typos-cli,cargo-deny
-
-      - name: Toolchain diagnostics
-        run: |
-          rustc -vV
-          cargo +nightly -vV
-          cargo deny --version
-          cargo fuzz --version
-          cargo mutants --version
-          typos --version
-          nasm -v
-
-      - name: xtask ci
+      - name: Preflight runner and container
         shell: bash
         run: |
           set -euo pipefail
+          test -x "$(command -v ci-disk-guard)"
+          test -x "$(command -v docker)"
+          test -w "$TMPDIR"
+          test -w "$CARGO_HOME"
+          test -w "$CARGO_TARGET_DIR"
+          df -h /mnt/ci-scratch /mnt/ci-cache
+          docker image inspect uselesskey-ci-rust:1.95 >/dev/null
+          docker run --rm \
+            -v "${CARGO_HOME}:/cargo-home" \
+            -v "${CARGO_TARGET_DIR}:/cargo-target" \
+            -v "${TMPDIR}:/tmp/jobtmp" \
+            uselesskey-ci-rust:1.95 \
+            bash -eu -o pipefail -c '
+              rustc -vV
+              cargo -vV
+              cargo +nightly -vV
+              cargo deny --version
+              cargo fuzz --version
+              cargo mutants --version
+              typos --version
+              nasm -v
+              test -w /cargo-home
+              test -w /cargo-target
+              test -w /tmp/jobtmp
+            '
 
-          mkdir -p target/source-of-truth
+      - name: xtask ci
+        shell: bash
+        env:
+          IMAGE: uselesskey-ci-rust:1.95
+        run: |
+          set -euo pipefail
+
+          docker_args=(
+            --rm
+            --cpus="14"
+            --memory="28g"
+            -e CARGO_HOME=/cargo-home
+            -e CARGO_CACHE_MODE="${CARGO_CACHE_MODE}"
+            -e CARGO_TERM_COLOR="${CARGO_TERM_COLOR}"
+            -e CARGO_INCREMENTAL="${CARGO_INCREMENTAL}"
+            -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}"
+            -e CARGO_TARGET_DIR=/cargo-target
+            -e TMPDIR=/tmp/jobtmp
+            -v "${GITHUB_WORKSPACE}:/workspace"
+            -v "${CARGO_HOME}:/cargo-home"
+            -v "${CARGO_TARGET_DIR}:/cargo-target"
+            -v "${TMPDIR}:/tmp/jobtmp"
+            -w /workspace
+          )
+          if [[ "${CARGO_CACHE_MODE}" == "shared" ]]; then
+            docker_args+=(
+              -v "${CARGO_CACHE_HOME}/registry:/cargo-cache/registry"
+              -v "${CARGO_CACHE_HOME}/git:/cargo-cache/git"
+            )
+          fi
+
+          docker run "${docker_args[@]}" \
+            "${IMAGE}" \
+            bash -eu -o pipefail -c '
+          if [[ "${CARGO_CACHE_MODE}" == "shared" ]]; then
+            ln -s /cargo-cache/registry /cargo-home/registry
+            ln -s /cargo-cache/git /cargo-home/git
+          fi
+          git config --global --add safe.directory /workspace
+          mkdir -p /cargo-target/source-of-truth
           started_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           started_epoch="$(date -u +%s)"
 
@@ -1198,7 +1284,7 @@ jobs:
           xtask_pid=$!
 
           while kill -0 "$xtask_pid" 2>/dev/null; do
-            touch target/source-of-truth/main-full-gate-heartbeat.seen
+            touch /cargo-target/source-of-truth/main-full-gate-heartbeat.seen
             echo "xtask ci still running at $(date -u +%Y-%m-%dT%H:%M:%SZ)"
             sleep 60
           done &
@@ -1215,7 +1301,7 @@ jobs:
           completed_at="$(date -u +%Y-%m-%dT%H:%M:%SZ)"
           completed_epoch="$(date -u +%s)"
           heartbeat_seen=false
-          if [ -f target/source-of-truth/main-full-gate-heartbeat.seen ]; then
+          if [ -f /cargo-target/source-of-truth/main-full-gate-heartbeat.seen ]; then
             heartbeat_seen=true
           fi
 
@@ -1224,7 +1310,7 @@ jobs:
             ELAPSED_SECONDS="$((completed_epoch - started_epoch))" \
             EXIT_CODE="$status" \
             HEARTBEAT_SEEN="$heartbeat_seen" \
-            python3 <<'PY'
+            python3 <<"PY"
           import json
           import os
           from pathlib import Path
@@ -1247,24 +1333,25 @@ jobs:
               "exit_code": exit_code,
               "receipt_artifacts": ["target/xtask/receipt.json"],
               "boundaries": [
-                  "This receipt records hosted main full-gate execution metadata only.",
+                  "This receipt records organization self-hosted main full-gate execution metadata only.",
                   "It does not replace the normalized Uselesskey Rust Small Result merge signal.",
                   "It does not move release, publish, signing, tag, GitHub release, crates.io, or source-sync authority.",
               ],
           }
 
-          out = Path("target/source-of-truth/main-full-gate-receipt.json")
+          out = Path("/cargo-target/source-of-truth/main-full-gate-receipt.json")
           out.write_text(json.dumps(receipt, indent=2) + "\n")
           PY
 
           exit "$status"
+            '
 
       - name: Upload main full gate receipt
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         if: always()
         with:
           name: main-full-gate-receipt
-          path: target/source-of-truth/main-full-gate-receipt.json
+          path: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}/source-of-truth/main-full-gate-receipt.json
           if-no-files-found: warn
 
       - name: Upload receipt
@@ -1272,5 +1359,37 @@ jobs:
         if: always()
         with:
           name: receipt-main-full-gate
-          path: target/xtask/receipt.json
+          path: /mnt/ci-scratch/target/${{ github.run_id }}-${{ github.run_attempt }}/xtask/receipt.json
           if-no-files-found: warn
+
+      - name: Cleanup main full gate scratch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+
+          workspace_target="${GITHUB_WORKSPACE}/target"
+          case "${workspace_target}" in
+            /mnt/actions/_work/*/*/target) ;;
+            *)
+              echo "refusing to clean unexpected target: ${workspace_target}" >&2
+              exit 1
+              ;;
+          esac
+
+          for candidate in "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; do
+            if [[ ! "${candidate}" =~ ^/mnt/ci-scratch/(tmp|cargo-home|target)/[0-9]+-[0-9]+$ ]]; then
+              echo "refusing to clean unexpected scratch path: ${candidate}" >&2
+              exit 1
+            fi
+          done
+
+          rm -rf -- "$workspace_target" "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"
+          df -h /mnt/ci-scratch /mnt/ci-cache
