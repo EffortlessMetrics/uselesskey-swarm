@@ -8600,7 +8600,7 @@ expires = "2026-12-01"
     }
 
     #[test]
-    fn pr_changed_files_include_local_untracked_paths() {
+    fn pr_changed_files_include_local_untracked_paths() -> Result<()> {
         let _cwd_lock = CWD_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().expect("tempdir");
         let _cwd = CwdGuard::new(dir.path());
@@ -8609,16 +8609,16 @@ expires = "2026-12-01"
         run_git(["config", "user.email", "agent@example.com"]);
         run_git(["config", "user.name", "Agent"]);
 
-        fs::write("tracked.txt", "base\n").expect("write base");
+        fs::write("tracked.txt", "base\n").context("write tracked fixture")?;
         run_git(["add", "tracked.txt"]);
         run_git(["commit", "-m", "initial"]);
         run_git(["branch", "-M", "main"]);
         run_git(["checkout", "-b", "feature"]);
 
-        fs::create_dir_all("xtask/src").expect("create xtask src");
-        fs::write("xtask/src/main.rs", "fn main() {}\n").expect("write xtask change");
+        fs::create_dir_all("xtask/src").context("create local xtask fixture directory")?;
+        fs::write("xtask/src/main.rs", "fn main() {}\n").context("write local xtask fixture")?;
 
-        let changed = pr_changed_files("origin/main").expect("local paths should be included");
+        let changed = pr_changed_files("origin/main").context("collect local changed paths")?;
         assert!(changed.contains(&"xtask/src/main.rs".to_string()));
 
         let plan = plan::build_plan(&changed);
@@ -8627,6 +8627,8 @@ expires = "2026-12-01"
             plan.run_xtask_tests,
             "local xtask changes should trigger xtask tests"
         );
+
+        Ok(())
     }
 
     #[test]
