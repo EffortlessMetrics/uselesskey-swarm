@@ -213,13 +213,27 @@ commands = [
 
 [[work_item]]
 id = "external-adoption-workflow-support-path-no-panic"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0005"
 plan = "plans/no-panic-burndown/implementation-plan.md"
 commands = [
   "cargo xtask check-no-panic-family",
   "cargo test -p xtask external_adoption_workflow_support_doc_paths_exist",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "local-untracked-pr-planning-test-no-panic"
+status = "ready"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo test -p xtask pr_changed_files_include_local_untracked_paths",
   "cargo clippy -p xtask --all-targets -- -D warnings",
   "cargo xtask pr",
   "git diff --check",
