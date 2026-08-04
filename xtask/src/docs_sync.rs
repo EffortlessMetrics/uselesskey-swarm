@@ -1138,13 +1138,22 @@ mod tests {
             .find(|dependency| dependency.crate_name == "uselesskey-jsonwebtoken")
             .context("jsonwebtoken adapter dependency exists")?;
 
-        ensure!(adapter_dep.features == vec!["all".to_string()]);
+        let expected_features = vec!["all".to_string()];
+        ensure!(
+            adapter_dep.features == expected_features,
+            "jsonwebtoken adapter features: actual={:?}, expected={:?}",
+            adapter_dep.features,
+            expected_features
+        );
         let rendered = render_single_dependency_snippet(snippet, &metadata.release_version);
         let expected = format!(
             "uselesskey-jsonwebtoken = {{ version = \"{}\", features = [\"all\"] }}",
             metadata.release_version
         );
-        ensure!(rendered.contains(&expected), "{rendered}");
+        ensure!(
+            rendered.contains(&expected),
+            "rendered dependency: actual={rendered}, expected={expected}"
+        );
         Ok(())
     }
 
