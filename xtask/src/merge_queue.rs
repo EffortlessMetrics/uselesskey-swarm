@@ -352,13 +352,17 @@ mod tests {
     }
 
     #[test]
-    fn ignores_pull_request_runs_when_finding_main_push_proof() {
+    fn ignores_pull_request_runs_when_finding_main_push_proof() -> Result<()> {
         let mut pr_run = run("in_progress", "");
         pr_run.event = "pull_request".to_string();
         let receipt = evaluate_runs(&[pr_run, run("completed", "success")], &options());
 
         assert_eq!(receipt.decision, MergeQueueDecision::Pass);
-        assert_eq!(receipt.latest_main_rust_run.unwrap().event, "push");
+        let latest_main_rust_run = receipt
+            .latest_main_rust_run
+            .context("main proof should be present for a successful push fixture")?;
+        assert_eq!(latest_main_rust_run.event, "push");
+        Ok(())
     }
 
     #[test]
