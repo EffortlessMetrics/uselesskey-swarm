@@ -2867,6 +2867,34 @@ mod tests {
         assert!(!workflow.contains("actions/checkout@v7"));
         assert!(!workflow.contains("dtolnay/rust-toolchain@stable"));
         assert!(!workflow.contains("actions/upload-artifact@v7"));
+
+        let step = |marker: &str| -> Result<&str> {
+            let after = workflow
+                .split_once(marker)
+                .map(|(_, after)| after)
+                .ok_or_else(|| anyhow::anyhow!("performance workflow missing step `{marker}`"))?;
+            Ok(after.split("\n      - ").next().unwrap_or(after))
+        };
+        let upload_marker =
+            "      - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a\n";
+        let cleanup_marker = "      - name: Cleanup performance scratch\n";
+        let upload_step = step(upload_marker)?;
+        let cleanup_step = step(cleanup_marker)?;
+        assert!(
+            workflow.find(upload_marker) < workflow.find(cleanup_marker),
+            "performance evidence must be uploaded before scratch cleanup"
+        );
+        for (name, step) in [
+            ("performance evidence upload", upload_step),
+            ("performance scratch cleanup", cleanup_step),
+        ] {
+            let guard = step.lines().find(|line| line.starts_with("        if: "));
+            assert_eq!(
+                guard.map(str::trim),
+                Some("if: always()"),
+                "post-run step `{name}` must have a step-level if: always() guard"
+            );
+        }
         Ok(())
     }
 
