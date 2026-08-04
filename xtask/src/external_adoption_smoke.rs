@@ -2765,10 +2765,10 @@ mod tests {
     }
 
     #[test]
-    fn external_adoption_workflow_support_doc_paths_exist() {
+    fn external_adoption_workflow_support_doc_paths_exist() -> Result<()> {
         let root = Path::new(env!("CARGO_MANIFEST_DIR"))
             .parent()
-            .expect("xtask lives under the workspace root");
+            .context("xtask manifest path is missing its workspace root")?;
         let doc = include_str!("../../docs/status/workflow-support.md");
 
         for path in doc
@@ -2782,6 +2782,8 @@ mod tests {
                 "workflow support matrix references missing doc path `{path}`"
             );
         }
+
+        Ok(())
     }
 
     #[test]
