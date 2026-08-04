@@ -117,6 +117,9 @@ jobs:
         run: |
           set -euo pipefail
           df -h /mnt/ci-scratch /mnt/ci-cache
+          for path in "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; do
+            test -w "$path"
+          done
           rustc --version
           cargo --version
           cargo llvm-cov --version

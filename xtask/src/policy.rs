@@ -2697,8 +2697,8 @@ mod tests {
 
     #[test]
     fn coverage_workflow_uses_cpx42_with_fork_guard_and_isolated_scratch() -> Result<()> {
-        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../.github/workflows/coverage.yml");
+        let workflow_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/coverage.yml");
         let workflow = fs::read_to_string(&workflow_path)
             .with_context(|| format!("read {}", workflow_path.display()))?;
 
@@ -2728,6 +2728,8 @@ mod tests {
             "ln -s \"$CARGO_CACHE_HOME/registry\" \"$CARGO_HOME/registry\"",
             "ln -s \"$CARGO_CACHE_HOME/git\" \"$CARGO_HOME/git\"",
             "persist-credentials: false",
+            "for path in \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"; do",
+            "test -w \"$path\"",
             "cargo llvm-cov --version",
             "nasm -v",
             "Cleanup coverage scratch",
@@ -2745,9 +2747,7 @@ mod tests {
                 "coverage workflow missing runner or isolation contract: {expected}"
             );
         }
-        assert!(workflow.contains(
-            "if: >-\n      (\n        github.event_name == 'push'"
-        ));
+        assert!(workflow.contains("if: >-\n      (\n        github.event_name == 'push'"));
         assert!(!workflow.contains("runs-on: ubuntu-latest"));
         assert!(!workflow.contains("sudo apt-get"));
         assert!(!workflow.contains("actions/checkout@v7"));
