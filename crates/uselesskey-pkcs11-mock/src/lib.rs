@@ -267,7 +267,7 @@ mod tests {
     use std::collections::{HashMap, HashSet};
 
     use uselesskey_core::Seed;
-    use uselesskey_test_support::{TestResult, require_ok, require_some};
+    use uselesskey_test_support::{TestResult, ensure_eq, require_ok, require_some};
 
     use super::*;
 
@@ -330,29 +330,37 @@ mod tests {
     }
 
     #[test]
-    fn handle_for_label_round_trips_with_key_label() {
-        let fx = Factory::deterministic(Seed::from_env_value("pkcs11-lookup").unwrap());
+    fn handle_for_label_round_trips_with_key_label() -> TestResult<()> {
+        let seed = require_ok(
+            Seed::from_env_value("pkcs11-lookup"),
+            "deterministic PKCS#11 lookup seed",
+        )?;
+        let fx = Factory::deterministic(seed);
         let mut spec = Pkcs11MockSpec::basic("HSM-LOOKUP");
         spec.key_labels = vec!["signing-key".to_string(), "verification-key".to_string()];
 
         let provider = fx.pkcs11_mock("lookup", spec);
 
         // Forward lookup finds the right handle...
-        let signing = provider
-            .handle_for_label("signing-key")
-            .expect("signing-key handle");
-        let verifying = provider
-            .handle_for_label("verification-key")
-            .expect("verification-key handle");
-        assert_eq!(signing, KeyHandle(1));
-        assert_eq!(verifying, KeyHandle(2));
+        let signing = require_some(
+            provider.handle_for_label("signing-key"),
+            "signing-key handle",
+        )?;
+        let verifying = require_some(
+            provider.handle_for_label("verification-key"),
+            "verification-key handle",
+        )?;
+        ensure_eq!(signing, KeyHandle(1));
+        ensure_eq!(verifying, KeyHandle(2));
 
         // ...and round-trips through the reverse lookup.
-        assert_eq!(provider.key_label(signing), Some("signing-key"));
-        assert_eq!(provider.key_label(verifying), Some("verification-key"));
+        ensure_eq!(provider.key_label(signing), Some("signing-key"));
+        ensure_eq!(provider.key_label(verifying), Some("verification-key"));
 
         // Unknown labels return None.
-        assert_eq!(provider.handle_for_label("no-such-key"), None);
+        ensure_eq!(provider.handle_for_label("no-such-key"), None);
+
+        Ok(())
     }
 
     #[test]
