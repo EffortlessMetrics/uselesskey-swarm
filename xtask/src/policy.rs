@@ -2631,6 +2631,39 @@ mod tests {
     }
 
     #[test]
+    fn workflow_validation_parser_fails_closed_without_yaml_tooling() -> Result<()> {
+        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/workflows/em-ci-routed-rust.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+        let job = workflow
+            .split("  uselesskey-workflow-validation:\n")
+            .nth(1)
+            .ok_or_else(|| anyhow::anyhow!("workflow validation job missing"))?
+            .split("\n  uselesskey-route-failed:")
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("workflow validation job boundary missing"))?;
+
+        for expected in [
+            "runs-on: ubuntu-latest",
+            "command -v python3",
+            "python3 -c 'import yaml'",
+            "import yaml",
+            "command -v ruby",
+            "require \"yaml\"",
+            "workflow YAML validation requires Python 3 with PyYAML or Ruby YAML",
+            "exit 1",
+        ] {
+            assert!(
+                job.contains(expected),
+                "workflow validation job missing parser contract: {expected}"
+            );
+        }
+        assert!(!job.contains("non-empty"));
+        Ok(())
+    }
+
+    #[test]
     fn workflow_hygiene_guard_rejects_quoted_mutable_action_refs() -> Result<()> {
         let root = workspace_root()?;
         let tmp_root = root.join("target/tmp");

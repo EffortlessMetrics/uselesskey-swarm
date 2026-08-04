@@ -962,7 +962,22 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          ruby -e 'require "yaml"; ARGV.each { |path| YAML.load_file(path); puts "parsed #{path}" }' .github/workflows/*.yml
+          if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
+            python3 - <<'PY'
+          import glob
+          import yaml
+
+          for path in sorted(glob.glob(".github/workflows/*.yml")):
+              with open(path, encoding="utf-8") as fh:
+                  yaml.safe_load(fh)
+              print(f"parsed {path}")
+          PY
+          elif command -v ruby >/dev/null 2>&1; then
+            ruby -e 'require "yaml"; Dir.glob(".github/workflows/*.yml").sort.each { |path| YAML.load_file(path); puts "parsed #{path}" }'
+          else
+            echo "::error::workflow YAML validation requires Python 3 with PyYAML or Ruby YAML" >&2
+            exit 1
+          fi
 
   uselesskey-route-failed:
     name: Uselesskey Route Failed
