@@ -2697,8 +2697,8 @@ mod tests {
 
     #[test]
     fn mutation_workflow_uses_cx43_container_runner_and_isolation_contract() -> Result<()> {
-        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../.github/workflows/mutation.yml");
+        let workflow_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/mutation.yml");
         let workflow = fs::read_to_string(&workflow_path)
             .with_context(|| format!("read {}", workflow_path.display()))?;
 
@@ -2790,8 +2790,8 @@ mod tests {
             );
         }
 
-        let actionlint_config_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../.github/actionlint.yaml");
+        let actionlint_config_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/actionlint.yaml");
         let actionlint_config = fs::read_to_string(&actionlint_config_path)
             .with_context(|| format!("read {}", actionlint_config_path.display()))?;
         for label in [
