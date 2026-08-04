@@ -7,5 +7,6 @@ publish = false
 [dependencies]
 uselesskey-core = { version = "0.9.1", default-features = false }
 uselesskey-pkcs11-mock = "0.9.1"
+uselesskey-test-support = { path = "../../../crates/uselesskey-test-support" }
 
 [workspace]
