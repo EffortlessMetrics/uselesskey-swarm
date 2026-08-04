@@ -2602,6 +2602,35 @@ mod tests {
     }
 
     #[test]
+    fn routed_docs_policy_job_uses_tiny_runner_with_fork_guard() -> Result<()> {
+        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/workflows/em-ci-routed-rust.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+        let job = workflow
+            .split("  uselesskey-docs-policy-light:\n")
+            .nth(1)
+            .ok_or_else(|| anyhow::anyhow!("docs/policy light job missing"))?
+            .split("\n  uselesskey-rust-small-result:")
+            .next()
+            .ok_or_else(|| anyhow::anyhow!("docs/policy light job boundary missing"))?;
+
+        for expected in [
+            "target == 'docs'",
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            "group: em-ci-tiny",
+            "labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]",
+            "persist-credentials: false",
+        ] {
+            assert!(
+                job.contains(expected),
+                "docs/policy light job missing trust or runner contract: {expected}"
+            );
+        }
+        Ok(())
+    }
+
+    #[test]
     fn workflow_hygiene_guard_rejects_quoted_mutable_action_refs() -> Result<()> {
         let root = workspace_root()?;
         let tmp_root = root.join("target/tmp");

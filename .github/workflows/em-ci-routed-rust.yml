@@ -982,13 +982,19 @@ jobs:
   uselesskey-docs-policy-light:
     name: Uselesskey Docs/Policy Light on GitHub Hosted
     needs: route-uselesskey-rust-small
-    if: needs.route-uselesskey-rust-small.outputs.target == 'docs'
-    runs-on: ubuntu-latest
+    if: needs.route-uselesskey-rust-small.outputs.target == 'docs' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
+    # This lane is selected only after the hosted router classifies the change;
+    # keep fork PRs on the hosted fallback and reserve the tiny fleet for trusted
+    # same-repository automation.
+    runs-on:
+      group: em-ci-tiny
+      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - uses: dtolnay/rust-toolchain@stable
 
