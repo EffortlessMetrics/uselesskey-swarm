@@ -3014,7 +3014,7 @@ uselesskey-test-server = "0.9.1"
     }
 
     #[test]
-    fn external_adoption_markdown_lists_cli_loop_and_boundaries() {
+    fn external_adoption_markdown_lists_cli_loop_and_boundaries() -> Result<()> {
         let receipt = ExternalAdoptionSmokeReceipt {
             schema_version: 1,
             status: "pass".to_string(),
@@ -3121,10 +3121,18 @@ uselesskey-test-server = "0.9.1"
         assert!(markdown.contains("External Adoption Smoke Receipt"));
         assert!(markdown.contains("installed-style CLI smoke does not claim provider"));
         assert!(markdown.contains("child Cargo build caches may use CARGO_TARGET_DIR"));
-        let bundle_pos = markdown.find("cli-bundle-webhook").expect("bundle step");
-        let verify_pos = markdown.find("cli-verify-webhook").expect("verify step");
-        let inspect_pos = markdown.find("cli-inspect-webhook").expect("inspect step");
-        let audit_pos = markdown.find("cli-audit-webhook").expect("audit step");
+        let bundle_pos = markdown
+            .find("cli-bundle-webhook")
+            .context("receipt missing cli-bundle-webhook step")?;
+        let verify_pos = markdown
+            .find("cli-verify-webhook")
+            .context("receipt missing cli-verify-webhook step")?;
+        let inspect_pos = markdown
+            .find("cli-inspect-webhook")
+            .context("receipt missing cli-inspect-webhook step")?;
+        let audit_pos = markdown
+            .find("cli-audit-webhook")
+            .context("receipt missing cli-audit-webhook step")?;
         assert!(bundle_pos < verify_pos);
         assert!(verify_pos < inspect_pos);
         assert!(inspect_pos < audit_pos);
@@ -3132,11 +3140,11 @@ uselesskey-test-server = "0.9.1"
         let inspect_row = markdown
             .lines()
             .find(|line| line.contains("cli-inspect-webhook"))
-            .expect("inspect step row");
+            .context("receipt missing cli-inspect-webhook row")?;
         let audit_row = markdown
             .lines()
             .find(|line| line.contains("cli-audit-webhook"))
-            .expect("audit step row");
+            .context("receipt missing cli-audit-webhook row")?;
         assert!(
             inspect_row.contains(
                 "`target/external-adoption-smoke/work/webhook-cli/target/inspect-webhook.txt`"
@@ -3148,6 +3156,7 @@ uselesskey-test-server = "0.9.1"
                 .contains("target/external-adoption-smoke/work/webhook-cli/target/audit-webhook"),
             "{markdown}"
         );
+        Ok(())
     }
 
     #[test]
