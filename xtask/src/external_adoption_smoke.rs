@@ -220,6 +220,22 @@ struct ExternalAdoptionStep {
 }
 
 pub fn run(root: &Path, options: RunOptions) -> Result<()> {
+    run_with_matrix(root, options, run_matrix)
+}
+
+fn run_with_matrix(
+    root: &Path,
+    options: RunOptions,
+    matrix: impl FnOnce(
+        &Path,
+        &SmokeSource,
+        &Path,
+        &Path,
+        bool,
+        bool,
+        &mut ExternalAdoptionSmokeReceipt,
+    ) -> Result<()>,
+) -> Result<()> {
     let out_dir = root.join(OUT_DIR);
     let work_dir = root.join(WORK_DIR);
     let log_dir = root.join(LOG_DIR);
@@ -348,7 +364,7 @@ pub fn run(root: &Path, options: RunOptions) -> Result<()> {
         return Err(err);
     }
 
-    let result = run_matrix(
+    let result = matrix(
         root,
         &source,
         &work_dir,
@@ -2001,6 +2017,40 @@ fn toml_escape(value: &str) -> String {
 mod tests {
     use super::*;
 
+    fn timeout_matrix(
+        _root: &Path,
+        _source: &SmokeSource,
+        _work_dir: &Path,
+        log_dir: &Path,
+        _ci_recipes: bool,
+        _library_examples: bool,
+        receipt: &mut ExternalAdoptionSmokeReceipt,
+    ) -> Result<()> {
+        #[cfg(windows)]
+        let command = {
+            let mut command = Command::new("cmd");
+            command.args(["/C", "ping 127.0.0.1 -n 11 > NUL"]);
+            command
+        };
+        #[cfg(not(windows))]
+        let command = {
+            let mut command = Command::new("sh");
+            command.args(["-c", "sleep 10"]);
+            command
+        };
+
+        run_command_step_with_timeout(
+            receipt,
+            "expected-timeout",
+            command,
+            Path::new("."),
+            log_dir,
+            &[],
+            Duration::from_millis(100),
+        )
+        .map(|_| ())
+    }
+
     #[test]
     fn external_adoption_profiles_are_bounded() {
         assert_eq!(CLI_PROFILES, ["scanner-safe", "tls", "oidc", "webhook"]);
@@ -2387,6 +2437,39 @@ mod tests {
         assert_eq!(steps[0]["name"], "validate-run-options");
         assert_eq!(steps[0]["status"], "failed");
         assert_eq!(receipt["status"], "failed");
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_writes_failed_receipt_after_timeout() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .context("xtask manifest should be inside the workspace")?
+            .to_path_buf();
+        let result = run_with_matrix(
+            root.path(),
+            RunOptions {
+                path: Some(workspace_root),
+                version: None,
+                ci_recipes: false,
+                library_examples: false,
+                format: OutputFormat::Json,
+            },
+            timeout_matrix,
+        );
+
+        assert!(result.is_err());
+        let receipt: Value = read_json(&root.path().join(REPORT_JSON))?;
+        assert_eq!(receipt["status"], "failed");
+        assert_eq!(receipt["steps"][0]["status"], "timed-out");
+        assert!(receipt["steps"][0]["stdout"].is_string());
+        assert!(receipt["steps"][0]["stderr"].is_string());
+        assert!(
+            receipt["steps"][0]["details"]
+                .as_str()
+                .is_some_and(|details| details.contains("command timed out"))
+        );
         Ok(())
     }
 
