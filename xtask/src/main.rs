@@ -10405,9 +10405,11 @@ end_of_record
     }
 
     #[test]
-    fn count_bdd_scenarios_counts_scenarios_and_outlines() {
-        let _cwd_lock = CWD_LOCK.lock().unwrap();
-        let dir = tempfile::tempdir().expect("tempdir");
+    fn count_bdd_scenarios_counts_scenarios_and_outlines() -> Result<()> {
+        let _cwd_lock = CWD_LOCK
+            .lock()
+            .map_err(|err| anyhow::anyhow!("cwd lock poisoned: {err}"))?;
+        let dir = tempfile::tempdir().context("create BDD fixture tempdir")?;
         let root = dir.path();
         let features_dir = root.join("crates").join("uselesskey-bdd").join("features");
         fs::create_dir_all(&features_dir).expect("create features dir");
@@ -10421,6 +10423,8 @@ end_of_record
         let _cwd = CwdGuard::new(root);
         let counts = count_bdd_scenarios().expect("count scenarios");
         assert_eq!(counts.get("sample.feature"), Some(&2));
+
+        Ok(())
     }
 
     #[test]
