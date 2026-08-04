@@ -2723,6 +2723,7 @@ mod tests {
             "refusing to clean unexpected workspace",
             "persist-credentials: false",
             "clean: false",
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
             "docker build --pull=false -t uselesskey-ci-rust:1.95",
             "MUTATION_SCOPE: ${{ inputs.scope }}",
             "MUTATION_CRATE: ${{ inputs.crate }}",
@@ -2754,6 +2755,45 @@ mod tests {
         assert!(!workflow.contains("cargo install cargo-mutants"));
         assert!(!workflow.contains("scope=\"${{ inputs.scope }}\""));
         assert!(!workflow.contains("crate_name=\"${{ inputs.crate }}\""));
+
+        for step_name in [
+            "Cleanup workspace target",
+            "Cleanup scratch dirs",
+            "Disk report",
+        ] {
+            let marker = format!("      - name: {step_name}\n");
+            let step = workflow
+                .split(&marker)
+                .nth(1)
+                .ok_or_else(|| anyhow::anyhow!("mutation workflow missing step `{step_name}`"))?;
+            let step = step.split("\n      - ").next().unwrap_or(step);
+            assert!(
+                step.lines().any(|line| line.trim() == "if: always()"),
+                "post-run step `{step_name}` must run with if: always()"
+            );
+        }
+
+        let actionlint_config_path = Path::new(env!("CARGO_MANIFEST_DIR"))
+            .join("../.github/actionlint.yaml");
+        let actionlint_config = fs::read_to_string(&actionlint_config_path)
+            .with_context(|| format!("read {}", actionlint_config_path.display()))?;
+        for label in [
+            "em-ci",
+            "cx43",
+            "cpx42",
+            "cx53",
+            "rust-medium",
+            "rust-large",
+            "rust-16gb",
+            "rust",
+            "rust-tiny",
+            "trusted-pr",
+        ] {
+            assert!(
+                actionlint_config.contains(&format!("    - {label}")),
+                "actionlint config missing custom runner label `{label}`"
+            );
+        }
         Ok(())
     }
 
