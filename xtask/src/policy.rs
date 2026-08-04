@@ -2816,8 +2816,8 @@ mod tests {
 
     #[test]
     fn performance_workflow_uses_cx43_with_isolated_scratch_and_receipt_contract() -> Result<()> {
-        let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
-            .join("../.github/workflows/performance.yml");
+        let workflow_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/performance.yml");
         let workflow = fs::read_to_string(&workflow_path)
             .with_context(|| format!("read {}", workflow_path.display()))?;
 
@@ -3096,6 +3096,40 @@ jobs:
             workflow.find("Prepare CPX42 scratch") < workflow.find("dtolnay/rust-toolchain@v1"),
             "CPX42 scratch preparation must run before installing the Rust toolchain"
         );
+
+        let main_full_gate = workflow
+            .split_once("  main-full-gate:\n")
+            .map(|(_, rest)| rest)
+            .ok_or_else(|| anyhow::anyhow!("main-full-gate job missing"))?;
+        for expected in [
+            "runs-on: ubuntu-latest",
+            "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
+            "persist-credentials: false",
+            "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
+            "toolchain: stable",
+            "toolchain: nightly",
+            "Swatinem/rust-cache@e18b497796c12c097a38f9edb9d0641fb99eee32",
+            "taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed",
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+        ] {
+            assert!(
+                main_full_gate.contains(expected),
+                "main-full-gate missing pinned contract: {expected}"
+            );
+        }
+        for mutable_ref in [
+            "actions/checkout@v7",
+            "dtolnay/rust-toolchain@stable",
+            "dtolnay/rust-toolchain@nightly",
+            "Swatinem/rust-cache@v2",
+            "taiki-e/install-action@v2.85.6",
+            "actions/upload-artifact@v7",
+        ] {
+            assert!(
+                !main_full_gate.contains(mutable_ref),
+                "main-full-gate retains mutable action ref: {mutable_ref}"
+            );
+        }
 
         Ok(())
     }
