@@ -106,20 +106,3 @@ callee = "panic"
 [allow.last_seen]
 line = 36
 column = 25
-
-[[allow]]
-id = "panic-x509-sans-dnsname-invariant"
-path = "crates/uselesskey-x509/src/chain/params.rs"
-family = "expect"
-classification = "infallible_invariant"
-owner = "x509"
-explanation = "ChainSpec currently stores DNS SANs for the non-fallible chain API; invalid user-provided SANs need a fallible spec/chain API rather than silent dropping."
-expires = "2026-11-13"
-
-[allow.selector]
-kind = "method_call"
-callee = "expect"
-
-[allow.last_seen]
-line = 111
-column = 35
