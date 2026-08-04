@@ -106,7 +106,13 @@ impl fmt::Debug for NearMissWebhookFixture {
 }
 
 /// Supported near-miss negative scenarios.
+///
+/// This enum is intentionally non-exhaustive because the negative-fixture
+/// taxonomy can grow without changing the shape of `NearMissWebhookFixture`.
+/// Downstream matches should include a wildcard arm. The variants added for
+/// the next pre-1.0 minor release are documented in the changelog.
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[non_exhaustive]
 pub enum NearMissScenario {
     /// Header timestamp falls outside the acceptable window.
     StaleTimestamp,

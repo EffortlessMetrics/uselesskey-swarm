@@ -35,6 +35,11 @@ assert_eq!(
 );
 ```
 
+`NearMissScenario` is non-exhaustive because the negative-fixture taxonomy can
+gain new rejection classes. Downstream `match` expressions should include a
+wildcard arm. The two scenarios shown above are part of the next pre-1.0 minor
+release boundary; the current published `0.9.1` API does not contain them.
+
 For file-based CI fixtures:
 
 ```bash
