@@ -6,12 +6,16 @@ verification.
 
 ## Copy this
 
-For Rust tests:
+For Rust tests using the next pre-1.0 minor release:
 
 ```toml
 [dev-dependencies]
-uselesskey = { version = "0.9.1", default-features = false, features = ["webhook"] }
+uselesskey = { version = "0.10.0", default-features = false, features = ["webhook"] }
 ```
+
+The two helpers below are unreleased in `0.9.1`; use this snippet after the
+next pre-1.0 minor release is published, or use a path dependency when testing
+the current repository checkout.
 
 ```rust
 use uselesskey::{Factory, NearMissScenario, WebhookFactoryExt, WebhookPayloadSpec};
