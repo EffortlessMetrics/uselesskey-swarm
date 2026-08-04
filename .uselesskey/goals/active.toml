@@ -185,13 +185,27 @@ commands = [
 
 [[work_item]]
 id = "external-adoption-receipt-rendering-no-panic"
-status = "ready"
+status = "done"
 proposal = "USELESSKEY-PROP-0001"
 spec = "USELESSKEY-SPEC-0005"
 plan = "plans/no-panic-burndown/implementation-plan.md"
 commands = [
   "cargo xtask check-no-panic-family",
   "cargo test -p xtask external_adoption_markdown_lists_cli_loop_and_boundaries",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
+  "cargo xtask pr",
+  "git diff --check",
+]
+
+[[work_item]]
+id = "external-adoption-actions-matrix-no-panic"
+status = "ready"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo test -p xtask external_adoption_ci_recipe_profiles_match_actions_matrix",
   "cargo clippy -p xtask --all-targets -- -D warnings",
   "cargo xtask pr",
   "git diff --check",
