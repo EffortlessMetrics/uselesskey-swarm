@@ -3124,6 +3124,8 @@ jobs:
             "docker image inspect uselesskey-ci-rust:1.95",
             "cargo +nightly -vV",
             "nasm -v",
+            "docker_args=(",
+            "docker_args+=(",
             "--cpus=\"14\"",
             "--memory=\"28g\"",
             "ln -s /cargo-cache/registry /cargo-home/registry",

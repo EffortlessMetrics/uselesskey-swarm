@@ -1244,24 +1244,31 @@ jobs:
         run: |
           set -euo pipefail
 
-          docker run --rm \
-            --cpus="14" \
-            --memory="28g" \
-            -e CARGO_HOME=/cargo-home \
-            -e CARGO_CACHE_MODE="${CARGO_CACHE_MODE}" \
-            -e CARGO_TERM_COLOR="${CARGO_TERM_COLOR}" \
-            -e CARGO_INCREMENTAL="${CARGO_INCREMENTAL}" \
-            -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}" \
-            -e CARGO_TARGET_DIR=/cargo-target \
-            -e TMPDIR=/tmp/jobtmp \
-            -v "${GITHUB_WORKSPACE}:/workspace" \
-            -v "${CARGO_HOME}:/cargo-home" \
-            -v "${CARGO_TARGET_DIR}:/cargo-target" \
-            -v "${TMPDIR}:/tmp/jobtmp" \
-            $(if [[ "${CARGO_CACHE_MODE}" == "shared" ]]; then printf '%s\n' \
-              -v "${CARGO_CACHE_HOME}/registry:/cargo-cache/registry" \
-              -v "${CARGO_CACHE_HOME}/git:/cargo-cache/git"; fi) \
-            -w /workspace \
+          docker_args=(
+            --rm
+            --cpus="14"
+            --memory="28g"
+            -e CARGO_HOME=/cargo-home
+            -e CARGO_CACHE_MODE="${CARGO_CACHE_MODE}"
+            -e CARGO_TERM_COLOR="${CARGO_TERM_COLOR}"
+            -e CARGO_INCREMENTAL="${CARGO_INCREMENTAL}"
+            -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}"
+            -e CARGO_TARGET_DIR=/cargo-target
+            -e TMPDIR=/tmp/jobtmp
+            -v "${GITHUB_WORKSPACE}:/workspace"
+            -v "${CARGO_HOME}:/cargo-home"
+            -v "${CARGO_TARGET_DIR}:/cargo-target"
+            -v "${TMPDIR}:/tmp/jobtmp"
+            -w /workspace
+          )
+          if [[ "${CARGO_CACHE_MODE}" == "shared" ]]; then
+            docker_args+=(
+              -v "${CARGO_CACHE_HOME}/registry:/cargo-cache/registry"
+              -v "${CARGO_CACHE_HOME}/git:/cargo-cache/git"
+            )
+          fi
+
+          docker run "${docker_args[@]}" \
             "${IMAGE}" \
             bash -eu -o pipefail -c '
           if [[ "${CARGO_CACHE_MODE}" == "shared" ]]; then
