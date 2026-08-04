@@ -2727,6 +2727,7 @@ mod tests {
             "docker build --pull=false -t uselesskey-ci-rust:1.95",
             "MUTATION_SCOPE: ${{ inputs.scope }}",
             "MUTATION_CRATE: ${{ inputs.crate }}",
+            "git config --global --add safe.directory /workspace",
             "cargo mutants --version",
             "sccache --version",
             "nasm -v",

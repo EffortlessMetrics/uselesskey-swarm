@@ -129,6 +129,7 @@ jobs:
             -w /workspace \
             "${IMAGE}" \
             bash -eu -o pipefail -c '
+              git config --global --add safe.directory /workspace
               rustc --version
               cargo --version
               cargo mutants --version
