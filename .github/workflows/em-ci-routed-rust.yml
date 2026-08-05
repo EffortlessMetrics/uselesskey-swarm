@@ -459,10 +459,20 @@ jobs:
               ;;
             rust) ;;
             *)
-              emit "route-fail" "unknown_change_class" "true" "false"
-              exit 0
-              ;;
+            emit "route-fail" "unknown_change_class" "true" "false"
+            exit 0
+            ;;
           esac
+
+          # An explicit hosted-fallback opt-in must not select an idle but
+          # unhealthy self-hosted runner whose capacity guard will fail before
+          # proof starts. Keep docs/workflow light routes unchanged, preserve
+          # the self-hosted guards, and make the provider choice deterministic
+          # for allowlisted Rust PRs.
+          if [ "${fallback_ok}" = "true" ]; then
+            emit "github" "github_hosted_allowlisted" "false" "true"
+            exit 0
+          fi
 
           if [ "${SELF_HOSTED_READY}" != "true" ]; then
             if [ "${fallback_ok}" = "true" ]; then
