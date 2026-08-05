@@ -1252,9 +1252,7 @@ fn patch_dependency_path(manifest: &str, crate_name: &str, path: &Path) -> Strin
                 .split(',')
                 .map(str::trim)
                 .filter(|part| {
-                    !part.is_empty()
-                        && !part.starts_with("version")
-                        && !part.starts_with("path")
+                    !part.is_empty() && !part.starts_with("version") && !part.starts_with("path")
                 })
                 .map(ToString::to_string),
         );
