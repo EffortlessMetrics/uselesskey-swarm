@@ -76,14 +76,14 @@ fn rejects_unsupported_alg() {
 }
 
 #[test]
-fn rejects_mixed_valid_invalid_set_member() {
+fn rejects_duplicate_key_set_member() {
     let jwks = issuer()
         .public_jwks()
-        .negative_value(NegativeJwks::MixedValidInvalid);
+        .negative_value(NegativeJwks::DuplicateKey);
 
     assert_eq!(
         validate_oidc_jwks(&jwks),
-        Err(JwksValidationError::MalformedMaterial)
+        Err(JwksValidationError::DuplicateKey)
     );
 }
 
