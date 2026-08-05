@@ -1,8 +1,15 @@
-# BDD Scenarios Implementation Plan
+# Historical BDD Scenarios Implementation Plan
 
-This document provides detailed BDD scenarios to implement for expanding the test coverage in the uselesskey project.
+> **Note:** This document records scenarios proposed at an earlier snapshot.
+> It is preserved as implementation context, not as a live backlog or current
+> coverage report. For the current inventory and bounded claims, see
+> [`summary.md`](summary.md).
 
-## Phase 1: Expand Existing BDD Features
+The scenarios below describe the design that informed the BDD expansion. Some
+or all of them may now exist in the repository; test-file presence does not by
+itself establish exhaustive semantic coverage or provider compatibility.
+
+## Historical Phase 1: Expand Existing BDD Features
 
 ### 1.1 RSA Feature Expansion (`rsa.feature`)
 
@@ -317,7 +324,7 @@ Scenario: JWKS from X.509 certificate
   And the X.509 certificate JWK should have a kid
 ```
 
-## Phase 2: New BDD Features
+## Historical Phase 2: New BDD Features
 
 ### 2.1 JWT Integration Feature (`jwt.feature`)
 
