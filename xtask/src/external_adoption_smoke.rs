@@ -169,6 +169,12 @@ struct SmokeSource {
     cli_source: CliSource,
 }
 
+struct CliCompatibility<'a> {
+    help: &'a str,
+    published_version: bool,
+    source_label: &'a str,
+}
+
 #[derive(Debug)]
 enum FacadeDependency {
     Path(PathBuf),
@@ -405,9 +411,28 @@ fn run_matrix(
     }
 
     run_external_examples(root, source, EXTERNAL_EXAMPLES, work_dir, log_dir, receipt)?;
-    run_cli_discovery(&cli_bin, work_dir, log_dir, receipt)?;
+    let cli_help = run_cli_discovery(
+        &cli_bin,
+        work_dir,
+        log_dir,
+        receipt,
+        matches!(&source.mode, SmokeMode::Version),
+        &source.label,
+    )?;
+    let cli_compatibility = CliCompatibility {
+        help: &cli_help,
+        published_version: matches!(&source.mode, SmokeMode::Version),
+        source_label: &source.label,
+    };
     for profile in CLI_PROFILES {
-        run_cli_profile(&cli_bin, profile, work_dir, log_dir, receipt)?;
+        run_cli_profile(
+            &cli_bin,
+            profile,
+            work_dir,
+            log_dir,
+            receipt,
+            &cli_compatibility,
+        )?;
     }
     Ok(())
 }
@@ -561,50 +586,174 @@ fn run_cli_discovery(
     work_dir: &Path,
     log_dir: &Path,
     receipt: &mut ExternalAdoptionSmokeReceipt,
-) -> Result<()> {
+    published_version: bool,
+    source_label: &str,
+) -> Result<String> {
     let project_dir = work_dir.join("cli-discovery");
     fs::create_dir_all(project_dir.join("target"))
         .with_context(|| format!("failed to create {}", project_dir.display()))?;
 
-    let mut doctor = Command::new(cli_bin);
-    doctor
-        .args(["doctor", "--format", "json"])
-        .current_dir(&project_dir);
-    let doctor_stdout = run_command_step(
-        receipt,
-        "cli-doctor-json",
-        doctor,
-        &project_dir,
-        log_dir,
-        &[],
-    )?;
-    verify_doctor_json(&doctor_stdout)?;
+    let mut help = Command::new(cli_bin);
+    help.arg("--help").current_dir(&project_dir);
+    let help_stdout = run_command_step(receipt, "cli-help", help, &project_dir, log_dir, &[])?;
+    let help_text = fs::read_to_string(&help_stdout)
+        .with_context(|| format!("failed to read {}", help_stdout.display()))?;
 
-    let mut profiles = Command::new(cli_bin);
-    profiles.arg("profiles").current_dir(&project_dir);
-    run_command_step(
-        receipt,
-        "cli-profiles",
-        profiles,
-        &project_dir,
-        log_dir,
-        &[],
-    )?;
+    if cli_supports_command(&help_text, "doctor") {
+        let mut doctor = Command::new(cli_bin);
+        doctor
+            .args(["doctor", "--format", "json"])
+            .current_dir(&project_dir);
+        let doctor_stdout = run_command_step(
+            receipt,
+            "cli-doctor-json",
+            doctor,
+            &project_dir,
+            log_dir,
+            &[],
+        )?;
+        verify_doctor_json(&doctor_stdout)?;
+    } else if published_version {
+        record_cli_command_skip(
+            receipt,
+            "cli-doctor-json",
+            cli_bin,
+            &["doctor", "--format", "json"],
+            &project_dir,
+            source_label,
+        );
+    } else {
+        bail!(
+            "current CLI help does not advertise required command `doctor`; inspect cli-help in the smoke receipt"
+        );
+    }
 
-    let mut explain = Command::new(cli_bin);
-    explain
-        .args(["profile", "webhook", "--explain"])
-        .current_dir(&project_dir);
-    run_command_step(
-        receipt,
-        "cli-profile-webhook-explain",
-        explain,
-        &project_dir,
-        log_dir,
-        &[],
-    )?;
+    if cli_supports_command(&help_text, "profiles") {
+        let mut profiles = Command::new(cli_bin);
+        profiles.arg("profiles").current_dir(&project_dir);
+        run_command_step(
+            receipt,
+            "cli-profiles",
+            profiles,
+            &project_dir,
+            log_dir,
+            &[],
+        )?;
+    } else if published_version {
+        record_cli_command_skip(
+            receipt,
+            "cli-profiles",
+            cli_bin,
+            &["profiles"],
+            &project_dir,
+            source_label,
+        );
+    } else {
+        bail!(
+            "current CLI help does not advertise required command `profiles`; inspect cli-help in the smoke receipt"
+        );
+    }
 
-    Ok(())
+    if cli_supports_command(&help_text, "profile") {
+        let mut explain = Command::new(cli_bin);
+        explain
+            .args(["profile", "webhook", "--explain"])
+            .current_dir(&project_dir);
+        run_command_step(
+            receipt,
+            "cli-profile-webhook-explain",
+            explain,
+            &project_dir,
+            log_dir,
+            &[],
+        )?;
+    } else if published_version {
+        record_cli_command_skip(
+            receipt,
+            "cli-profile-webhook-explain",
+            cli_bin,
+            &["profile", "webhook", "--explain"],
+            &project_dir,
+            source_label,
+        );
+    } else {
+        bail!(
+            "current CLI help does not advertise required command `profile`; inspect cli-help in the smoke receipt"
+        );
+    }
+
+    Ok(help_text)
+}
+
+fn cli_supports_command(help: &str, command: &str) -> bool {
+    let mut in_commands = false;
+    for line in help.lines() {
+        let trimmed = line.trim();
+        if trimmed == "Commands:" {
+            in_commands = true;
+            continue;
+        }
+        if !in_commands {
+            continue;
+        }
+        if trimmed.is_empty() {
+            continue;
+        }
+        if !line
+            .chars()
+            .next()
+            .is_some_and(|character| character.is_whitespace())
+        {
+            break;
+        }
+        if trimmed.split_whitespace().next() == Some(command) {
+            return true;
+        }
+    }
+    false
+}
+
+fn record_cli_command_skip(
+    receipt: &mut ExternalAdoptionSmokeReceipt,
+    name: &str,
+    cli_bin: &Path,
+    args: &[&str],
+    cwd: &Path,
+    source_label: &str,
+) {
+    record_published_skip(
+        receipt,
+        name,
+        cli_bin,
+        args,
+        cwd,
+        &format!(
+            "published version {source_label} does not advertise this command in `uselesskey --help`; current checkout mode remains responsible for the current CLI contract"
+        ),
+    );
+}
+
+fn record_published_skip(
+    receipt: &mut ExternalAdoptionSmokeReceipt,
+    name: &str,
+    cli_bin: &Path,
+    args: &[&str],
+    cwd: &Path,
+    details: &str,
+) {
+    let mut command = vec![cli_bin.display().to_string()];
+    command.extend(args.iter().map(|arg| (*arg).to_string()));
+    receipt.steps.push(ExternalAdoptionStep {
+        name: name.to_string(),
+        command,
+        cwd: cwd.display().to_string(),
+        status: "skipped".to_string(),
+        duration_ms: 0,
+        stdout: String::new(),
+        stderr: String::new(),
+        details: Some(details.to_string()),
+        artifacts: Vec::new(),
+    });
 }
 
 fn run_cli_profile(
@@ -613,6 +762,7 @@ fn run_cli_profile(
     work_dir: &Path,
     log_dir: &Path,
     receipt: &mut ExternalAdoptionSmokeReceipt,
+    compatibility: &CliCompatibility<'_>,
 ) -> Result<()> {
     let project_name = format!("{profile}-cli");
     let project_dir = work_dir.join(&project_name);
@@ -644,6 +794,7 @@ fn run_cli_profile(
     let mut verify = Command::new(cli_bin);
     verify
         .arg("verify-bundle")
+        .args(["--bundle-dir"])
         .arg(&bundle_dir)
         .current_dir(&project_dir);
     run_command_step(
@@ -658,6 +809,7 @@ fn run_cli_profile(
     let mut inspect = Command::new(cli_bin);
     inspect
         .arg("inspect-bundle")
+        .args(["--bundle-dir"])
         .arg(&bundle_dir)
         .args(["--out"])
         .arg(&inspect_out)
@@ -671,34 +823,77 @@ fn run_cli_profile(
         &[bundle_artifact.as_str(), inspect_artifact.as_str()],
     )?;
 
-    let mut audit = Command::new(cli_bin);
-    audit
-        .arg("audit-bundle")
-        .arg(&bundle_dir)
-        .args(["--out"])
-        .arg(&audit_dir)
-        .arg("--ci")
-        .args(["--expect-profile", profile])
-        .args(["--policy", "strict"])
-        .current_dir(&project_dir);
-    let audit_stdout = run_command_step(
-        receipt,
-        &format!("cli-audit-{profile}"),
-        audit,
-        &project_dir,
-        log_dir,
-        &[bundle_artifact.as_str(), audit_artifact.as_str()],
-    )?;
-    verify_ci_audit_json(&audit_stdout, profile, "CLI release audit")?;
-    verify_ci_audit_receipt(&audit_dir, profile)?;
+    let audit_supported = cli_supports_command(compatibility.help, "audit-bundle");
+    if audit_supported {
+        let mut audit = Command::new(cli_bin);
+        audit
+            .arg("audit-bundle")
+            .arg(&bundle_dir)
+            .args(["--out"])
+            .arg(&audit_dir)
+            .arg("--ci")
+            .args(["--expect-profile", profile])
+            .args(["--policy", "strict"])
+            .current_dir(&project_dir);
+        let audit_stdout = run_command_step(
+            receipt,
+            &format!("cli-audit-{profile}"),
+            audit,
+            &project_dir,
+            log_dir,
+            &[bundle_artifact.as_str(), audit_artifact.as_str()],
+        )?;
+        if compatibility.published_version {
+            record_published_skip(
+                receipt,
+                &format!("cli-audit-contract-{profile}"),
+                cli_bin,
+                &["audit-bundle", "--ci", "--policy", "strict"],
+                &project_dir,
+                &format!(
+                    "published version {} ran `audit-bundle`, but current-main audit JSON and receipt schema are not asserted against an older release",
+                    compatibility.source_label
+                ),
+            );
+        } else {
+            verify_ci_audit_json(&audit_stdout, profile, "CLI release audit")?;
+            verify_ci_audit_receipt(&audit_dir, profile)?;
+        }
+    } else if compatibility.published_version {
+        record_cli_command_skip(
+            receipt,
+            &format!("cli-audit-{profile}"),
+            cli_bin,
+            &["audit-bundle", "--ci", "--policy", "strict"],
+            &project_dir,
+            compatibility.source_label,
+        );
+    } else {
+        bail!(
+            "current CLI help does not advertise required command `audit-bundle`; inspect cli-help in the smoke receipt"
+        );
+    }
 
-    verify_bundle_shape(&bundle_dir, profile)?;
-    record_project(
-        receipt,
-        &project_name,
-        &project_dir,
-        &[bundle_artifact, inspect_artifact, audit_artifact],
-    );
+    if compatibility.published_version {
+        record_published_skip(
+            receipt,
+            &format!("cli-bundle-contract-{profile}"),
+            cli_bin,
+            &["verify-bundle"],
+            &project_dir,
+            &format!(
+                "published version {} is checked through its own verify-bundle command; current-main bundle receipt shape is not asserted against an older release",
+                compatibility.source_label
+            ),
+        );
+    } else {
+        verify_bundle_shape(&bundle_dir, profile)?;
+    }
+    let mut outputs = vec![bundle_artifact, inspect_artifact];
+    if audit_supported {
+        outputs.push(audit_artifact);
+    }
+    record_project(receipt, &project_name, &project_dir, &outputs);
 
     Ok(())
 }
@@ -2071,6 +2266,77 @@ mod tests {
     #[test]
     fn external_adoption_profiles_are_bounded() {
         assert_eq!(CLI_PROFILES, ["scanner-safe", "tls", "oidc", "webhook"]);
+    }
+
+    #[test]
+    fn external_adoption_cli_help_detects_commands_without_matching_text() {
+        let help = concat!(
+            "Usage: uselesskey <COMMAND>\n\n",
+            "Commands:\n",
+            "  profiles  list profiles\n",
+            "  profile   explain a profile\n",
+            "  bundle    generate a bundle\n",
+            "\n",
+            "Options:\n",
+            "  -h, --help  Print help\n",
+        );
+
+        assert!(cli_supports_command(help, "profiles"));
+        assert!(cli_supports_command(help, "profile"));
+        assert!(!cli_supports_command(help, "doctor"));
+    }
+
+    #[test]
+    fn external_adoption_cli_help_does_not_match_usage_or_option_text() {
+        let help = concat!(
+            "Usage: uselesskey doctor\n\n",
+            "Commands:\n",
+            "  profiles  list profiles\n",
+            "\n",
+            "Options:\n",
+            "  doctor  not a command entry\n",
+        );
+
+        assert!(!cli_supports_command(help, "doctor"));
+    }
+
+    #[test]
+    fn external_adoption_records_published_command_skip() {
+        let mut receipt = ExternalAdoptionSmokeReceipt {
+            schema_version: 1,
+            status: "running".to_string(),
+            generated_at: "2026-06-18T00:00:00Z".to_string(),
+            git_sha: None,
+            mode: SmokeMode::Version,
+            source: "0.9.1".to_string(),
+            work_root: "target/external-adoption-smoke/work".to_string(),
+            ci_recipes: false,
+            library_examples: false,
+            projects: Vec::new(),
+            steps: Vec::new(),
+            artifacts: Vec::new(),
+            boundaries: Vec::new(),
+        };
+        let cwd = Path::new("target/external-adoption-smoke/work/cli-discovery");
+
+        record_cli_command_skip(
+            &mut receipt,
+            "cli-doctor-json",
+            Path::new("uselesskey.exe"),
+            &["doctor", "--format", "json"],
+            cwd,
+            "0.9.1",
+        );
+
+        assert_eq!(receipt.steps.len(), 1);
+        assert_eq!(receipt.steps[0].status, "skipped");
+        assert_eq!(receipt.steps[0].command[1], "doctor");
+        assert!(
+            receipt.steps[0]
+                .details
+                .as_deref()
+                .is_some_and(|details| details.contains("published version 0.9.1"))
+        );
     }
 
     #[test]

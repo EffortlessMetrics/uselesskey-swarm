@@ -114,7 +114,16 @@ cargo xtask external-adoption-smoke --version 0.9.1
 
 Published-version mode may install or depend on the named crates.io version. It
 must not prepare, tag, publish, or otherwise imply release execution for a new
-version.
+version. Because a named version may predate the current CLI, the smoke must
+probe `uselesskey --help` and run only the discovery commands that version
+advertises. An unavailable command is an explicit `skipped` receipt step with
+the version and reason; it is not silently omitted. Current checkout mode
+remains the proof of the current CLI command contract and must fail if its
+required discovery commands are missing. The same boundary applies to
+current-main audit JSON, audit Markdown, and bundle-receipt shape assertions:
+published-version mode runs advertised bundle commands, but records those
+newer contract assertions as skipped when they cannot be compared honestly to
+an older release.
 
 The command must write receipts:
 
@@ -243,6 +252,8 @@ This spec is implemented when:
 - the default Markdown receipt writes
   `target/external-adoption-smoke/report.md`;
 - `--version <published>` exercises a crates.io version without release action;
+- published-version command discovery is version-aware and records unsupported
+  newer commands and current-main-only receipt assertions as explicit skips;
 - generated fixture payloads and temp-project output stay under `target/`;
 - failures name the project, command, and reproducible next command;
 - external adoption can be run from adoption-regression only through an explicit
