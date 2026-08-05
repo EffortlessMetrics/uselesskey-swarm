@@ -2696,7 +2696,7 @@ mod tests {
     }
 
     #[test]
-    fn coverage_workflow_uses_cpx42_with_fork_guard_and_isolated_scratch() -> Result<()> {
+    fn coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch() -> Result<()> {
         let workflow_path =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/coverage.yml");
         let workflow = fs::read_to_string(&workflow_path)
@@ -2709,7 +2709,7 @@ mod tests {
             "github.event_name != 'pull_request'",
             "github.event.pull_request.head.repo.full_name == github.repository",
             "group: em-ci-small",
-            "labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
             "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
             "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
             "taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed",

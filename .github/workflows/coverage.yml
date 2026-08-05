@@ -49,7 +49,7 @@ jobs:
     name: Codecov Coverage
     runs-on:
       group: em-ci-small
-      labels: [self-hosted, linux, x64, em-ci, cpx42, rust-16gb, rust-medium, trusted-pr]
+      labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]
     timeout-minutes: 90
 
     if: >-
