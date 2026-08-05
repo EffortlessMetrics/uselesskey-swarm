@@ -27,6 +27,11 @@ changed surfaces, the selected target, the router reason, merge blockers,
 required and advisory checks, skipped-by-policy notes, and local reproduction
 commands.
 
+The receipt also records the exact GitHub workflow `run_id`, `run_attempt`,
+commit `sha`, and `ref` that produced the routing decision. These fields bind
+the route evidence to one run; they do not replace the normalized check or
+expand the receipt's bounded review role.
+
 The receipt also includes `route_reasons[]` entries with the changed path, the
 classified surface, the selected target family, and a short reason. This keeps
 metadata-only paths such as issue templates, PR templates, policy ledgers,
