@@ -1203,6 +1203,11 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
                 "uselesskey-test-server",
                 &crates_dir.join("uselesskey-test-server"),
             );
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-test-support",
+                &crates_dir.join("uselesskey-test-support"),
+            );
         }
         FacadeDependency::Version(version) => {
             manifest = patch_dependency_version(&manifest, "uselesskey", version);
@@ -1246,7 +1251,11 @@ fn patch_dependency_path(manifest: &str, crate_name: &str, path: &Path) -> Strin
             inner
                 .split(',')
                 .map(str::trim)
-                .filter(|part| !part.is_empty() && !part.starts_with("version"))
+                .filter(|part| {
+                    !part.is_empty()
+                        && !part.starts_with("version")
+                        && !part.starts_with("path")
+                })
                 .map(ToString::to_string),
         );
 
@@ -2926,6 +2935,7 @@ uselesskey-ecdsa = "0.9.1"
 uselesskey-rsa = "0.9.1"
 uselesskey-jsonwebtoken = { version = "0.9.1", features = ["rsa", "hmac"] }
 uselesskey-test-server = "0.9.1"
+uselesskey-test-support = { path = "../../../crates/uselesskey-test-support" }
 "#;
 
         let crates_dir = Path::new(r#"C:\Code\Rust\uselesskey\crates"#);
@@ -2945,6 +2955,7 @@ uselesskey-test-server = "0.9.1"
             "uselesskey-rsa",
             "uselesskey-jsonwebtoken",
             "uselesskey-test-server",
+            "uselesskey-test-support",
         ] {
             patched = patch_dependency_path(&patched, crate_name, &crates_dir.join(crate_name));
         }
@@ -2971,6 +2982,7 @@ uselesskey-test-server = "0.9.1"
             "uselesskey-ecdsa",
             "uselesskey-rsa",
             "uselesskey-test-server",
+            "uselesskey-test-support",
         ] {
             assert!(patched.contains(&format!(
                 r#"{crate_name} = {{ path = "{}" }}"#,
@@ -2982,6 +2994,48 @@ uselesskey-test-server = "0.9.1"
             expected_path("uselesskey-jsonwebtoken")
         )));
         assert!(!patched.contains("version = \"0.9.1\""));
+    }
+
+    #[test]
+    fn external_adoption_path_mode_rewrites_workspace_test_support() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        fs::write(
+            root.path().join("Cargo.toml"),
+            r#"[dependencies]
+uselesskey-test-support = { path = "../../../crates/uselesskey-test-support" }
+"#,
+        )?;
+        let workspace_root = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
+            .parent()
+            .context("xtask manifest should be inside the workspace")?
+            .to_path_buf();
+        let source = SmokeSource {
+            mode: SmokeMode::Path,
+            label: workspace_root.display().to_string(),
+            facade_dep: FacadeDependency::Path(workspace_root.join("crates/uselesskey")),
+            cli_source: CliSource::LocalPath(workspace_root.join("crates/uselesskey-cli")),
+        };
+
+        patch_example_dependencies(root.path(), &source)?;
+
+        let patched = fs::read_to_string(root.path().join("Cargo.toml"))?;
+        let expected_path = toml_escape(
+            &workspace_root
+                .join("crates")
+                .join("uselesskey-test-support")
+                .display()
+                .to_string(),
+        );
+        let expected_line = format!(
+            "uselesskey-test-support = {{ path = \"{}\" }}",
+            expected_path
+        );
+        assert!(
+            patched.contains(&expected_line),
+            "expected line {expected_line:?}, patched manifest was:\n{patched:?}"
+        );
+        assert!(!patched.contains("../../../crates/uselesskey-test-support"));
+        Ok(())
     }
 
     #[test]
