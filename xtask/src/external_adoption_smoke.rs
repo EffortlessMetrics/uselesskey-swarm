@@ -823,7 +823,8 @@ fn run_cli_profile(
         &[bundle_artifact.as_str(), inspect_artifact.as_str()],
     )?;
 
-    if cli_supports_command(compatibility.help, "audit-bundle") {
+    let audit_supported = cli_supports_command(compatibility.help, "audit-bundle");
+    if audit_supported {
         let mut audit = Command::new(cli_bin);
         audit
             .arg("audit-bundle")
@@ -888,12 +889,11 @@ fn run_cli_profile(
     } else {
         verify_bundle_shape(&bundle_dir, profile)?;
     }
-    record_project(
-        receipt,
-        &project_name,
-        &project_dir,
-        &[bundle_artifact, inspect_artifact, audit_artifact],
-    );
+    let mut outputs = vec![bundle_artifact, inspect_artifact];
+    if audit_supported {
+        outputs.push(audit_artifact);
+    }
+    record_project(receipt, &project_name, &project_dir, &outputs);
 
     Ok(())
 }
