@@ -498,7 +498,7 @@ fn run_external_example(
     let project_dir = work_dir.join(example.name);
     copy_example_project(&source_dir, &project_dir)
         .with_context(|| format!("failed to copy {}", source_dir.display()))?;
-    patch_example_dependencies(&project_dir, source)
+    patch_example_dependencies(root, &project_dir, source)
         .with_context(|| format!("failed to patch {}", project_dir.display()))?;
 
     let project_artifact = relative_artifact_from_path(&project_dir);
@@ -1127,7 +1127,11 @@ fn copy_dir_recursive(source: &Path, destination: &Path) -> Result<()> {
     Ok(())
 }
 
-fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Result<()> {
+fn patch_example_dependencies(
+    workspace_root: &Path,
+    project_dir: &Path,
+    source: &SmokeSource,
+) -> Result<()> {
     let manifest_path = project_dir.join("Cargo.toml");
     let mut manifest = fs::read_to_string(&manifest_path)
         .with_context(|| format!("failed to read {}", manifest_path.display()))?;
@@ -1224,6 +1228,11 @@ fn patch_example_dependencies(project_dir: &Path, source: &SmokeSource) -> Resul
             manifest = patch_dependency_version(&manifest, "uselesskey-rsa", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-jsonwebtoken", version);
             manifest = patch_dependency_version(&manifest, "uselesskey-test-server", version);
+            manifest = patch_dependency_path(
+                &manifest,
+                "uselesskey-test-support",
+                &workspace_root.join("crates/uselesskey-test-support"),
+            );
         }
     }
 
@@ -3014,7 +3023,7 @@ uselesskey-test-support = { path = "../../../crates/uselesskey-test-support" }
             cli_source: CliSource::LocalPath(workspace_root.join("crates/uselesskey-cli")),
         };
 
-        patch_example_dependencies(root.path(), &source)?;
+        patch_example_dependencies(root.path(), root.path(), &source)?;
 
         let patched = fs::read_to_string(root.path().join("Cargo.toml"))?;
         let expected_path = toml_escape(
@@ -3032,6 +3041,44 @@ uselesskey-test-support = { path = "../../../crates/uselesskey-test-support" }
             patched.contains(&expected_line),
             "expected line {expected_line:?}, patched manifest was:\n{patched:?}"
         );
+        assert!(!patched.contains("../../../crates/uselesskey-test-support"));
+        Ok(())
+    }
+
+    #[test]
+    fn external_adoption_version_mode_rewrites_workspace_test_support() -> Result<()> {
+        let root = tempfile::tempdir()?;
+        let project_dir = root.path().join("project");
+        fs::create_dir_all(root.path().join("crates/uselesskey-test-support"))?;
+        fs::create_dir_all(&project_dir)?;
+        fs::write(
+            project_dir.join("Cargo.toml"),
+            r#"[dependencies]
+uselesskey = { version = "0.9.1", default-features = false }
+uselesskey-test-support = { path = "../../../crates/uselesskey-test-support" }
+"#,
+        )?;
+        let source = SmokeSource {
+            mode: SmokeMode::Version,
+            label: "0.9.1".to_string(),
+            facade_dep: FacadeDependency::Version("0.9.1".to_string()),
+            cli_source: CliSource::Version("0.9.1".to_string()),
+        };
+
+        patch_example_dependencies(root.path(), &project_dir, &source)?;
+
+        let patched = fs::read_to_string(project_dir.join("Cargo.toml"))?;
+        let expected_path = toml_escape(
+            &root
+                .path()
+                .join("crates/uselesskey-test-support")
+                .display()
+                .to_string(),
+        );
+        assert!(patched.contains(&format!(
+            "uselesskey-test-support = {{ path = \"{expected_path}\" }}"
+        )));
+        assert!(patched.contains("uselesskey = { version = \"0.9.1\", default-features = false }"));
         assert!(!patched.contains("../../../crates/uselesskey-test-support"));
         Ok(())
     }
