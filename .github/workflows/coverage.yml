@@ -37,45 +37,103 @@ env:
   CARGO_BUILD_JOBS: "4"
   RUST_TEST_THREADS: "2"
   RUSTFLAGS: "-C debuginfo=0"
+  # Share only credential-free registry/git caches; each run gets an isolated
+  # Cargo home so checked-out code cannot read another run's credentials.
+  CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}
+  CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home
+  TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}
+  CARGO_TARGET_DIR: /mnt/ci-scratch/uselesskey-coverage/${{ github.run_id }}-${{ github.run_attempt }}
 
 jobs:
   coverage:
     name: Codecov Coverage
-    runs-on: ubuntu-latest
-    timeout-minutes: 60
+    runs-on:
+      group: em-ci-small
+      labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]
+    timeout-minutes: 90
 
     if: >-
-      github.event_name == 'push' ||
-      github.event_name == 'workflow_dispatch' ||
-      contains(github.event.pull_request.labels.*.name, 'coverage') ||
-      contains(github.event.pull_request.labels.*.name, 'full-ci')
+      (
+        github.event_name == 'push' ||
+        github.event_name == 'workflow_dispatch' ||
+        contains(github.event.pull_request.labels.*.name, 'coverage') ||
+        contains(github.event.pull_request.labels.*.name, 'full-ci')
+      ) &&
+      (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
 
     steps:
-      - uses: actions/checkout@v7
+      - name: Disk guards
+        shell: bash
+        run: |
+          set -euo pipefail
+          ci-disk-guard /mnt/ci-scratch 45
+          ci-disk-guard /mnt/ci-cache 10
+
+      - name: Prepare scratch directories
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p \
+            "$TMPDIR" \
+            "$CARGO_TARGET_DIR" \
+            "$CARGO_HOME"
+          for path in "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; do
+            test -w "$path"
+          done
+          shared_cache_unreadable=""
+          if ! mkdir -p "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; then
+            shared_cache_unreadable="$CARGO_CACHE_HOME (prepare failed)"
+          else
+            for cache_root in "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; do
+              if ! unreadable_entry="$(find "$cache_root" -type f ! -readable -print -quit 2>/dev/null)"; then
+                shared_cache_unreadable="$cache_root (scan failed)"
+                break
+              fi
+              if [[ -n "$unreadable_entry" ]]; then
+                shared_cache_unreadable="$unreadable_entry"
+                break
+              fi
+            done
+          fi
+
+          if [[ -n "$shared_cache_unreadable" ]]; then
+            echo "::warning::shared Cargo cache is not usable at ${shared_cache_unreadable}; using isolated per-run Cargo cache"
+          else
+            if [[ -e "$CARGO_HOME/registry" || -L "$CARGO_HOME/registry" || -e "$CARGO_HOME/git" || -L "$CARGO_HOME/git" ]]; then
+              echo "::error::per-run Cargo home unexpectedly contains shared cache paths" >&2
+              exit 1
+            fi
+            ln -s "$CARGO_CACHE_HOME/registry" "$CARGO_HOME/registry"
+            ln -s "$CARGO_CACHE_HOME/git" "$CARGO_HOME/git"
+          fi
+
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+        with:
+          persist-credentials: false
 
       - name: Set up Rust
-        uses: dtolnay/rust-toolchain@stable
+        uses: dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4
         with:
           toolchain: "1.95"
           components: llvm-tools-preview
 
-      - name: Install NASM for aws-lc-rs
-        run: sudo apt-get update && sudo apt-get install -y nasm
-
-      - name: Use larger target dir
-        run: echo "CARGO_TARGET_DIR=${RUNNER_TEMP}/target" >> "$GITHUB_ENV"
-
-      - name: Cache cargo
-        uses: Swatinem/rust-cache@v2
-        with:
-          cache-on-failure: true
-          cache-directories: ${{ runner.temp }}/target
-          save-if: ${{ github.ref == 'refs/heads/main' }}
-
       - name: Install cargo-llvm-cov
-        uses: taiki-e/install-action@v2.85.6
+        uses: taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed
         with:
           tool: cargo-llvm-cov
+
+      - name: Preflight coverage toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          df -h /mnt/ci-scratch /mnt/ci-cache
+          for path in "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; do
+            test -w "$path"
+          done
+          rustc --version
+          cargo --version
+          cargo llvm-cov --version
+          nasm -v
 
       - name: Generate coverage
         env:
@@ -155,7 +213,7 @@ jobs:
 
       - name: Upload coverage to Codecov
         if: ${{ steps.codecov-token.outputs.present == 'true' }}
-        uses: codecov/codecov-action@v7
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f
         with:
           token: ${{ secrets.CODECOV_TOKEN }}
           files: lcov.info
@@ -165,7 +223,7 @@ jobs:
 
       - name: Upload coverage artifacts
         if: always()
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a
         with:
           name: coverage-report
           path: |
@@ -174,3 +232,39 @@ jobs:
             lcov.info
             target/coverage/coverage-receipt.json
           retention-days: 14
+
+      - name: Cleanup coverage scratch
+        if: always()
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to clean unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          workspace_target="${GITHUB_WORKSPACE}/target"
+          case "${workspace_target}" in
+            /mnt/actions/_work/*/*/target) ;;
+            *)
+              echo "refusing to clean unexpected target: ${workspace_target}" >&2
+              exit 1
+              ;;
+          esac
+          for candidate in "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; do
+            if [[ ! "${candidate}" =~ ^/mnt/ci-scratch/(tmp|cargo-home|uselesskey-coverage)/[0-9]+-[0-9]+$ ]]; then
+              echo "refusing to clean unexpected scratch path: ${candidate}" >&2
+              exit 1
+            fi
+          done
+          rm -rf -- \
+            "$workspace_target" \
+            "$TMPDIR" \
+            "$CARGO_HOME" \
+            "$CARGO_TARGET_DIR" \
+            "${GITHUB_WORKSPACE}/coverage.json" \
+            "${GITHUB_WORKSPACE}/coverage.txt" \
+            "${GITHUB_WORKSPACE}/lcov.info"
+          df -h /mnt/ci-scratch /mnt/ci-cache

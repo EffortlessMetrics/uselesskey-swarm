@@ -2696,6 +2696,102 @@ mod tests {
     }
 
     #[test]
+    fn coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch() -> Result<()> {
+        let workflow_path =
+            Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/coverage.yml");
+        let workflow = fs::read_to_string(&workflow_path)
+            .with_context(|| format!("read {}", workflow_path.display()))?;
+
+        for expected in [
+            "workflow_dispatch:",
+            "contains(github.event.pull_request.labels.*.name, 'coverage')",
+            "contains(github.event.pull_request.labels.*.name, 'full-ci')",
+            "github.event_name != 'pull_request'",
+            "github.event.pull_request.head.repo.full_name == github.repository",
+            "group: em-ci-small",
+            "labels: [self-hosted, linux, x64, em-ci, cx43, rust-medium, trusted-pr]",
+            "actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1",
+            "dtolnay/rust-toolchain@4cda84d5c5c54efe2404f9d843567869ab1699d4",
+            "taiki-e/install-action@1beb33eee6d086258184383af9a538940be190ed",
+            "codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f",
+            "actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a",
+            "CARGO_HOME: /mnt/ci-scratch/cargo-home/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_CACHE_HOME: /mnt/ci-cache/cargo-home",
+            "TMPDIR: /mnt/ci-scratch/tmp/${{ github.run_id }}-${{ github.run_attempt }}",
+            "CARGO_TARGET_DIR: /mnt/ci-scratch/uselesskey-coverage/${{ github.run_id }}-${{ github.run_attempt }}",
+            "ci-disk-guard /mnt/ci-scratch 45",
+            "\"$CARGO_CACHE_HOME/registry\"",
+            "\"$CARGO_CACHE_HOME/git\"",
+            "shared_cache_unreadable=\"\"",
+            "shared Cargo cache is not usable",
+            "CARGO_CACHE_HOME (prepare failed)",
+            "find \"$cache_root\" -type f ! -readable -print -quit 2>/dev/null",
+            "using isolated per-run Cargo cache",
+            "per-run Cargo home unexpectedly contains shared cache paths",
+            "ln -s \"$CARGO_CACHE_HOME/registry\" \"$CARGO_HOME/registry\"",
+            "ln -s \"$CARGO_CACHE_HOME/git\" \"$CARGO_HOME/git\"",
+            "persist-credentials: false",
+            "for path in \"$TMPDIR\" \"$CARGO_HOME\" \"$CARGO_TARGET_DIR\"; do",
+            "test -w \"$path\"",
+            "cargo llvm-cov --version",
+            "nasm -v",
+            "Cleanup coverage scratch",
+            "refusing to clean unexpected workspace",
+            "refusing to clean unexpected target",
+            "^/mnt/ci-scratch/(tmp|cargo-home|uselesskey-coverage)/[0-9]+-[0-9]+$",
+            "rm -rf -- \\",
+            "\"$workspace_target\" \\",
+            "\"$TMPDIR\" \\",
+            "\"$CARGO_HOME\" \\",
+            "\"$CARGO_TARGET_DIR\"",
+        ] {
+            assert!(
+                workflow.contains(expected),
+                "coverage workflow missing runner or isolation contract: {expected}"
+            );
+        }
+        assert!(workflow.contains("if: >-\n      (\n        github.event_name == 'push'"));
+        assert!(!workflow.contains("runs-on: ubuntu-latest"));
+        assert!(!workflow.contains("sudo apt-get"));
+        assert!(!workflow.contains("actions/checkout@v7"));
+        assert!(!workflow.contains("dtolnay/rust-toolchain@stable"));
+        assert!(!workflow.contains("taiki-e/install-action@v2.85.6"));
+        assert!(!workflow.contains("codecov/codecov-action@v7"));
+        assert!(!workflow.contains("actions/upload-artifact@v7"));
+        assert!(!workflow.contains("CARGO_HOME: /mnt/ci-cache/cargo-home"));
+        assert!(!workflow.contains("set +e\n          rm -rf"));
+
+        let step = |marker: &str| -> Result<&str> {
+            let after = workflow
+                .split_once(marker)
+                .map(|(_, after)| after)
+                .ok_or_else(|| anyhow::anyhow!("coverage workflow missing step `{marker}`"))?;
+            Ok(after.split("\n      - ").next().unwrap_or(after))
+        };
+        let upload_marker = "      - name: Upload coverage artifacts\n";
+        let cleanup_marker = "      - name: Cleanup coverage scratch\n";
+        let upload_step = step(upload_marker)?;
+        let cleanup_step = step(cleanup_marker)?;
+        assert!(
+            workflow.find(upload_marker) < workflow.find(cleanup_marker),
+            "coverage artifacts must be uploaded before scratch cleanup"
+        );
+        for (name, step) in [
+            ("coverage artifact upload", upload_step),
+            ("coverage scratch cleanup", cleanup_step),
+        ] {
+            let guard = step.lines().find(|line| line.starts_with("        if: "));
+            assert_eq!(
+                guard.map(str::trim),
+                Some("if: always()"),
+                "post-run step `{name}` must have a step-level if: always() guard"
+            );
+        }
+
+        Ok(())
+    }
+
+    #[test]
     fn mutation_workflow_uses_cx43_container_runner_and_isolation_contract() -> Result<()> {
         let workflow_path =
             Path::new(env!("CARGO_MANIFEST_DIR")).join("../.github/workflows/mutation.yml");
