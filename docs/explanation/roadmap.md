@@ -168,7 +168,8 @@ and source-handoff evidence, not a publication claim.
   - `uselesskey-ring`: Native `ring` 0.17 signing key types
   - `uselesskey-aws-lc-rs`: Native `aws-lc-rs` key types with `native` feature for wasm-safe builds
   - `uselesskey-rustcrypto`: RustCrypto native types (`rsa::RsaPrivateKey`, `p256::ecdsa::SigningKey`, etc.)
-- [x] **BDD test suite** (38 feature files, 150+ scenarios)
+- [x] **BDD test suite** (38 feature files, 523 declared scenarios and
+  scenario outlines; declaration count, not a semantic coverage claim)
   - RSA, ECDSA, Ed25519, HMAC, X.509, JWK, JWKS, chains, cross-key, JWT, TLS, PGP, tokens, negative fixtures, edge cases
 - [x] **Examples** (22 runnable examples)
   - JWT signing, TLS server chains, negative fixtures, tempfiles, JWKS builder, PGP keys, tokens, adapter integration, gRPC TLS
