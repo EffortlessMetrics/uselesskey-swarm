@@ -1193,9 +1193,33 @@ jobs:
 
           if [[ -n "$shared_cache_unreadable" ]]; then
             echo "::warning::shared Cargo cache is not readable at ${shared_cache_unreadable}; using isolated per-run Cargo cache"
-            echo "CARGO_CACHE_MODE=isolated" >> "$GITHUB_ENV"
+            echo "CARGO_CACHE_READABLE=false" >> "$GITHUB_ENV"
           else
-            echo "CARGO_CACHE_MODE=shared" >> "$GITHUB_ENV"
+            echo "CARGO_CACHE_READABLE=true" >> "$GITHUB_ENV"
+          fi
+
+      - name: Repair main full gate workspace ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to inspect unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          workspace_uid="$(id -u)"
+          workspace_gid="$(id -g)"
+          foreign_entry="$(find "${GITHUB_WORKSPACE}" -xdev \( ! -uid "${workspace_uid}" -o ! -gid "${workspace_gid}" \) -print -quit)"
+          if [[ -n "${foreign_entry}" ]]; then
+            echo "::warning::repairing foreign-owned workspace entry: ${foreign_entry}"
+            docker image inspect em-ci-rust:1.95 >/dev/null
+            docker run --rm \
+              --user 0:0 \
+              -v "${GITHUB_WORKSPACE}:/workspace" \
+              em-ci-rust:1.95 \
+              chown -R "${workspace_uid}:${workspace_gid}" /workspace
           fi
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
@@ -1218,8 +1242,15 @@ jobs:
           test -w "$CARGO_TARGET_DIR"
           df -h /mnt/ci-scratch /mnt/ci-cache
           docker image inspect uselesskey-ci-rust:1.95 >/dev/null
+          container_uid="$(id -u)"
+          container_gid="$(id -g)"
           docker run --rm \
+            --user "${container_uid}:${container_gid}" \
+            -e HOME=/cargo-home \
+            -e CARGO_HOME=/cargo-home \
             -v "${CARGO_HOME}:/cargo-home" \
+            -v "${CARGO_CACHE_HOME}/registry:/cargo-cache/registry" \
+            -v "${CARGO_CACHE_HOME}/git:/cargo-cache/git" \
             -v "${CARGO_TARGET_DIR}:/cargo-target" \
             -v "${TMPDIR}:/tmp/jobtmp" \
             uselesskey-ci-rust:1.95 \
@@ -1237,6 +1268,35 @@ jobs:
               test -w /tmp/jobtmp
             '
 
+          cache_mode=isolated
+          if [[ "${CARGO_CACHE_READABLE}" == "true" ]]; then
+            if docker run --rm \
+              --user "${container_uid}:${container_gid}" \
+              -e HOME=/cargo-home \
+              -e CARGO_HOME=/cargo-home \
+              -v "${CARGO_HOME}:/cargo-home" \
+              -v "${CARGO_CACHE_HOME}/registry:/cargo-cache/registry" \
+              -v "${CARGO_CACHE_HOME}/git:/cargo-cache/git" \
+              uselesskey-ci-rust:1.95 \
+              bash -eu -o pipefail -c '
+                registry_probe="$(mktemp /cargo-cache/registry/.uselesskey-write-probe.XXXXXX)"
+                git_probe="$(mktemp /cargo-cache/git/.uselesskey-write-probe.XXXXXX)"
+                cleanup() { rm -f "$registry_probe" "$git_probe"; }
+                trap cleanup EXIT
+                expected_identity="$(id -u):$(id -g)"
+                test "$(stat -c "%u:%g" "$registry_probe")" = "$expected_identity"
+                test "$(stat -c "%u:%g" "$git_probe")" = "$expected_identity"
+              '
+            then
+              cache_mode=shared
+            else
+              echo "::warning::shared Cargo cache is not writable by the container identity; using isolated per-run Cargo cache"
+            fi
+          else
+            echo "::warning::shared Cargo cache readability check failed; using isolated per-run Cargo cache"
+          fi
+          echo "CARGO_CACHE_MODE=${cache_mode}" >> "$GITHUB_ENV"
+
       - name: xtask ci
         shell: bash
         env:
@@ -1246,8 +1306,10 @@ jobs:
 
           docker_args=(
             --rm
+            --user "$(id -u):$(id -g)"
             --cpus="14"
             --memory="28g"
+            -e HOME=/cargo-home
             -e CARGO_HOME=/cargo-home
             -e CARGO_CACHE_MODE="${CARGO_CACHE_MODE}"
             -e CARGO_TERM_COLOR="${CARGO_TERM_COLOR}"

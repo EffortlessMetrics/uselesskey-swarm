@@ -3209,8 +3209,18 @@ jobs:
             "ci-disk-guard /mnt/ci-cache 10",
             "Prepare main full gate scratch",
             "shared Cargo cache is not readable",
-            "CARGO_CACHE_MODE=isolated",
-            "CARGO_CACHE_MODE=shared",
+            "CARGO_CACHE_READABLE=false",
+            "CARGO_CACHE_READABLE=true",
+            "cache_mode=isolated",
+            "cache_mode=shared",
+            "Repair main full gate workspace ownership",
+            "refusing to inspect unexpected workspace",
+            "workspace_uid=\"$(id -u)\"",
+            "workspace_gid=\"$(id -g)\"",
+            "-xdev",
+            "docker image inspect em-ci-rust:1.95",
+            "--user 0:0",
+            "chown -R \"${workspace_uid}:${workspace_gid}\" /workspace",
             "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
             "persist-credentials: false",
             "docker build --pull=false -t uselesskey-ci-rust:1.95",
@@ -3218,9 +3228,20 @@ jobs:
             "test -x \"$(command -v ci-disk-guard)\"",
             "test -x \"$(command -v docker)\"",
             "docker image inspect uselesskey-ci-rust:1.95",
+            "--user \"${container_uid}:${container_gid}\"",
+            "-e HOME=/cargo-home",
+            "-e CARGO_HOME=/cargo-home",
+            "-v \"${CARGO_CACHE_HOME}/registry:/cargo-cache/registry\"",
+            "-v \"${CARGO_CACHE_HOME}/git:/cargo-cache/git\"",
             "cargo +nightly -vV",
             "nasm -v",
+            "registry_probe=\"$(mktemp /cargo-cache/registry/.uselesskey-write-probe.XXXXXX)\"",
+            "git_probe=\"$(mktemp /cargo-cache/git/.uselesskey-write-probe.XXXXXX)\"",
+            "expected_identity=\"$(id -u):$(id -g)\"",
+            "stat -c \"%u:%g\"",
+            "CARGO_CACHE_MODE=${cache_mode}",
             "docker_args=(",
+            "--user \"$(id -u):$(id -g)\"",
             "docker_args+=(",
             "--cpus=\"14\"",
             "--memory=\"28g\"",
@@ -3238,10 +3259,24 @@ jobs:
                 "main-full-gate missing pinned contract: {expected}"
             );
         }
+        let preflight_start = main_full_gate
+            .find("Preflight runner and container")
+            .ok_or_else(|| anyhow::anyhow!("main-full preflight step missing"))?;
+        let cache_probe_start = main_full_gate
+            .find("registry_probe=\"$(mktemp")
+            .ok_or_else(|| anyhow::anyhow!("main-full cache write probe missing"))?;
+        let cache_mode_export = main_full_gate
+            .find("CARGO_CACHE_MODE=${cache_mode}")
+            .ok_or_else(|| anyhow::anyhow!("main-full cache mode export missing"))?;
+        assert!(
+            preflight_start < cache_probe_start && cache_probe_start < cache_mode_export,
+            "main-full cache write probes must run before selecting shared-cache mode"
+        );
         for mutable_ref in [
             "runs-on: ubuntu-latest",
             "Swatinem/rust-cache@",
             "sudo apt-get",
+            "sudo -n chown",
         ] {
             assert!(
                 !main_full_gate.contains(mutable_ref),
