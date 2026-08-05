@@ -1,6 +1,9 @@
 # Test Architecture Overview
 
-> **Note:** Historical planning snapshot; counts and gaps may no longer match the current repository.
+> **Note:** This is a historical planning snapshot. Labels such as
+> `historical gap` describe the state recorded when the diagram was written,
+> not the current repository inventory. For current test surfaces and bounded
+> claims, see [`summary.md`](summary.md).
 
 ```mermaid
 graph TB
@@ -19,10 +22,10 @@ graph TB
         BDD12[cross_key.feature]
     end
 
-    subgraph Proposed BDD Tests
-        PBDD1[jwt.feature - NEW]
-        PBDD2[tls.feature - NEW]
-        PBDD3[edge_cases.feature - NEW]
+    subgraph Historical BDD Proposals
+        PBDD1[jwt.feature - proposed at snapshot]
+        PBDD2[tls.feature - proposed at snapshot]
+        PBDD3[edge_cases.feature - proposed at snapshot]
     end
 
     subgraph Unit Tests
@@ -30,12 +33,12 @@ graph TB
         UT2[uselesskey-rsa]
         UT3[uselesskey-ecdsa]
         UT4[uselesskey-ed25519]
-        UT5[uselesskey-x509 - MISSING]
-        UT6[uselesskey-hmac - MISSING]
-        UT7[uselesskey-jwk - MISSING]
+        UT5[uselesskey-x509 - added after snapshot]
+        UT6[uselesskey-hmac - added after snapshot]
+        UT7[uselesskey-jwk - added after snapshot]
     end
 
-    subgraph Adapter Tests - MISSING
+    subgraph Adapter Tests (historical gap)
         AT1[uselesskey-jsonwebtoken]
         AT2[uselesskey-rustls]
         AT3[uselesskey-ring]
@@ -43,7 +46,7 @@ graph TB
         AT5[uselesskey-rustcrypto]
     end
 
-    subgraph Integration Tests - MISSING
+    subgraph Integration Tests (historical gap)
         IT1[JWT End-to-End]
         IT2[TLS Handshake]
         IT3[mTLS Scenarios]
@@ -147,7 +150,7 @@ graph LR
     subgraph Coverage Status
         C1[Complete]
         C2[Partial]
-        C3[Missing]
+        C3[Historical gap]
     end
 
     K1 --> T1
@@ -315,6 +318,7 @@ graph TD
 
 - **Green boxes**: Existing tests (complete)
 - **Yellow boxes**: Proposed new tests
-- **Red boxes**: Missing tests
+- **Red boxes**: Historical gaps in this snapshot; consult `summary.md` for
+  current inventory and claims.
 - **Solid lines**: Direct dependencies
 - **Dashed lines**: Indirect relationships
