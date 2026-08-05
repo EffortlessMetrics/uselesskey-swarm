@@ -12,10 +12,11 @@ This analysis provides a comprehensive review of the BDD test structure and cove
 
 ## Key Findings
 
-### Current State (updated 2026-02-15)
+### Current State
 - **15 BDD feature files** with 250+ scenarios
-- **10 crates** have unit/integration tests (uselesskey-core, uselesskey-rsa, uselesskey-ecdsa, uselesskey-ed25519, uselesskey-jsonwebtoken, uselesskey-ring, uselesskey-aws-lc-rs, uselesskey-x509, uselesskey-hmac, uselesskey-jwk)
-- **2 crates** still need unit tests (uselesskey-rustls, uselesskey-rustcrypto)
+- **12 crates** have unit/integration tests, including the rustls and RustCrypto adapters
+  ([rustls tests](../../crates/uselesskey-rustls/tests/),
+  [RustCrypto tests](../../crates/uselesskey-rustcrypto/tests/))
 - **BDD features cover** JWT, TLS, and edge case integration scenarios
 - **Cross-adapter compatibility tests** verify ring/RustCrypto interoperability
 - **Key rotation workflow tests** cover JWT, JWKS, and TLS rotation scenarios
@@ -39,6 +40,10 @@ This analysis provides a comprehensive review of the BDD test structure and cove
 - uselesskey-x509: 14 external unit tests added (spec, chain, tempfile, negative fixtures) ✓
 - uselesskey-hmac: 10 external unit tests added (secret lengths, JWK, determinism, debug safety) ✓
 - uselesskey-jwk: 7 external unit tests added (serde rename, Display, Debug, kid delegation) ✓
+- uselesskey-rustls: config-builder unit tests plus integration, handshake, property,
+  and negative tests are present ✓
+- uselesskey-rustcrypto: inline, integration, property, cross-verification, and
+  snapshot tests are present ✓
 
 #### Integration Test Gaps — Resolved
 - Key rotation workflows: 10 tests (JWT, HMAC, JWKS, TLS rotation) ✓
@@ -46,9 +51,11 @@ This analysis provides a comprehensive review of the BDD test structure and cove
 
 ### Remaining Gaps
 
-#### Unit Test Gaps
-- uselesskey-rustls: No unit tests (config builders covered by TLS BDD)
-- uselesskey-rustcrypto: Comprehensive inline tests exist; no external test suite
+#### Remaining Test Risks
+
+The current inventory does not support an untested-adapter claim. Remaining
+test-quality work is narrower: concurrent factory usage, cache eviction, and
+derivation-version migration behavior.
 
 ## Proposed Improvements
 
@@ -69,9 +76,9 @@ This analysis provides a comprehensive review of the BDD test structure and cove
 - ~~uselesskey-hmac unit tests (secret generation, JWK conversion)~~ ✓
 - ~~uselesskey-jwk unit tests (JWKS builder, kid generation)~~ ✓
 - ~~uselesskey-jsonwebtoken tests~~ ✓
-- uselesskey-rustls unit tests (config builders) — covered by TLS BDD + integration tests
+- uselesskey-rustls unit tests (config builders), integration tests, and TLS BDD coverage ✓
 - ~~uselesskey-ring tests~~ ✓
-- uselesskey-rustcrypto tests — comprehensive inline tests (10+) exist
+- uselesskey-rustcrypto inline and external tests — comprehensive coverage exists ✓
 - ~~uselesskey-aws-lc-rs tests~~ ✓
 
 ### Phase 4: Integration Tests — DONE
@@ -84,11 +91,9 @@ This analysis provides a comprehensive review of the BDD test structure and cove
 ## Remaining Priority
 
 ### Low Priority
-1. uselesskey-rustls external unit tests (well-covered by TLS integration tests and BDD)
-2. uselesskey-rustcrypto external test suite (comprehensive inline tests already exist)
-3. Concurrent factory usage tests (basic coverage in edge_cases.feature)
-4. Cache eviction tests
-5. Derivation version migration tests
+1. Concurrent factory usage tests (basic coverage in edge_cases.feature)
+2. Cache eviction tests
+3. Derivation version migration tests
 
 ## Test Coverage Goals
 
@@ -96,8 +101,8 @@ This analysis provides a comprehensive review of the BDD test structure and cove
 |--------|---------|---------|--------|
 | BDD Scenarios | ~150 | 250+ | 250+ ✓ |
 | BDD Feature Files | 12 | 15 | 15+ ✓ |
-| Crates with Unit Tests | 4/12 | 10/12 | 12/12 |
-| Adapter Crate Tests | 0/5 | 3/5 | 5/5 |
+| Crates with Unit Tests | 4/12 | 12/12 | 12/12 ✓ |
+| Adapter Crate Tests | 0/5 | 5/5 | 5/5 ✓ |
 | Integration Test Scenarios | 0 | 38+ | 20+ ✓ |
 | Cross-Adapter Tests | 0 | 8 | 8 ✓ |
 | Key Rotation Tests | 0 | 10 | 10 ✓ |
@@ -109,3 +114,5 @@ This analysis provides a comprehensive review of the BDD test structure and cove
 - Integration tests should verify cross-crate compatibility
 - Property-based tests should complement deterministic tests
 - Negative fixtures should be first-class citizens in testing
+- Test inventory proves that test surfaces exist; it does not by itself prove
+  complete provider compatibility, production security, or release readiness.
