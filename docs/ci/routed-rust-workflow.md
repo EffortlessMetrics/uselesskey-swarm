@@ -133,11 +133,17 @@ CI infrastructure error.
 
 ## Hosted Fallback
 
-Use the `allow-github-hosted` PR label only when hosted fallback is acceptable
-for the specific PR. The label allows fallback for workflow changes, unavailable
-self-hosted readiness, or no idle self-hosted runner. It does not move the
-release/source boundary and does not authorize release, publish, signing, tag,
-GitHub release, crates.io, or source-sync work.
+Use the `allow-github-hosted` PR label only when hosted proof is acceptable for
+the specific PR. For same-repository Rust PRs, the label is an explicit hosted
+route choice made before self-hosted runner discovery. This avoids selecting an
+idle but unhealthy runner that will fail its capacity guard before proof starts.
+It does not move the release/source boundary and does not authorize release,
+publish, signing, tag, GitHub release, crates.io, or source-sync work.
+
+Hosted routing can cost more or provide less machine-specific coverage than the
+self-hosted fleet, so keep the label scoped to PRs where that tradeoff is
+acceptable. PRs without the label retain the normal self-hosted routing and
+no-idle failure behavior.
 
 Dependabot PRs receive this hosted fallback automatically. Dependabot-triggered
 workflow runs cannot read the `EM_RUNNER_READ_TOKEN` runner-discovery secret, so
@@ -148,10 +154,12 @@ workflow-only Dependabot updates still take their light routes; only Dependabot
 changes that would otherwise need a self-hosted runner fall back to hosted.
 
 If the router fails with one of these reasons, inspect the PR scope before
-adding the label:
+adding the label. A fresh labeled event records
+`github_hosted_allowlisted` instead of waiting for one of these failures:
 
 | Reason | Meaning | Normal response |
 | --- | --- | --- |
+| `github_hosted_allowlisted` | The PR explicitly selected hosted proof before self-hosted discovery. | Keep the label only when the hosted cost and coverage tradeoff is acceptable. |
 | `self_hosted_not_marked_ready` | Repo variable says self-hosted runners are not ready. | Add the label only for a PR that can safely use hosted fallback. |
 | `no_idle_runner` | No matching idle self-hosted runner was found. | Add the label when waiting for a self-hosted runner is not necessary. |
 | `runner_token_missing`, `runner_token_unauthorized`, `runner_token_forbidden`, `runner_api_failed`, `parse_failed` | Runner discovery failed. | Treat as CI infrastructure triage; do not paper over repeated discovery failures without recording the reason. |
