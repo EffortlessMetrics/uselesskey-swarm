@@ -53,9 +53,18 @@ This analysis provides a comprehensive review of the BDD test structure and cove
 
 #### Remaining Test Risks
 
-The current inventory does not support an untested-adapter claim. Remaining
-test-quality work is narrower: concurrent factory usage, cache eviction, and
-derivation-version migration behavior.
+The current inventory does not support an untested-adapter claim. Core
+concurrency and cache behavior are exercised by
+[`concurrency_stress.rs`](../../crates/uselesskey-core/tests/concurrency_stress.rs),
+[`edge_cases.rs`](../../crates/uselesskey-core/tests/edge_cases.rs),
+[`determinism_regression.rs`](../../crates/uselesskey-core/tests/determinism_regression.rs),
+and the cache unit tests in
+[`cache.rs`](../../crates/uselesskey-core/src/srp/cache.rs).
+
+Derivation-version migration is not listed as a current gap because the
+repository has no migration contract or active compatibility requirement for
+it. If that requirement is introduced, define the contract and proof in a
+builder-ready issue before adding tests.
 
 ## Proposed Improvements
 
@@ -88,12 +97,11 @@ derivation-version migration behavior.
 - ~~Key rotation workflows~~ ✓ (10 tests in tests/key_rotation.rs)
 - ~~Cross-adapter compatibility~~ ✓ (8 tests in tests/cross_adapter.rs)
 
-## Remaining Priority
+## Future Work Intake
 
-### Low Priority
-1. Concurrent factory usage tests (basic coverage in edge_cases.feature)
-2. Cache eviction tests
-3. Derivation version migration tests
+This historical analysis is not a live backlog. New test gaps should be based
+on current source and contract evidence, then captured in a builder-ready
+issue with a focused proof path.
 
 ## Test Coverage Goals
 
