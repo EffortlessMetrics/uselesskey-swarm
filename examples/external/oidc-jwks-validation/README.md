@@ -53,7 +53,6 @@ NegativeJwks::EmptyKeys         -> EmptyKeys
 NegativeJwks::MissingKid        -> MissingKid
 NegativeJwks::DuplicateKid      -> DuplicateKid
 NegativeJwks::DuplicateKey      -> DuplicateKey
-NegativeJwks::MixedValidInvalid -> MalformedMaterial
 NegativeJwk::WrongKty           -> WrongKty
 NegativeJwk::UnsupportedAlg     -> UnsupportedAlg
 ```
