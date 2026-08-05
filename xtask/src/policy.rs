@@ -3218,7 +3218,9 @@ jobs:
             "workspace_uid=\"$(id -u)\"",
             "workspace_gid=\"$(id -g)\"",
             "-xdev",
-            "sudo -n chown -R \"${workspace_uid}:${workspace_gid}\" \"${GITHUB_WORKSPACE}\"",
+            "docker image inspect em-ci-rust:1.95",
+            "--user 0:0",
+            "chown -R \"${workspace_uid}:${workspace_gid}\" /workspace",
             "actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0",
             "persist-credentials: false",
             "docker build --pull=false -t uselesskey-ci-rust:1.95",
@@ -3274,6 +3276,7 @@ jobs:
             "runs-on: ubuntu-latest",
             "Swatinem/rust-cache@",
             "sudo apt-get",
+            "sudo -n chown",
         ] {
             assert!(
                 !main_full_gate.contains(mutable_ref),

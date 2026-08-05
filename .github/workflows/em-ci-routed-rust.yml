@@ -1214,7 +1214,12 @@ jobs:
           foreign_entry="$(find "${GITHUB_WORKSPACE}" -xdev \( ! -uid "${workspace_uid}" -o ! -gid "${workspace_gid}" \) -print -quit)"
           if [[ -n "${foreign_entry}" ]]; then
             echo "::warning::repairing foreign-owned workspace entry: ${foreign_entry}"
-            sudo -n chown -R "${workspace_uid}:${workspace_gid}" "${GITHUB_WORKSPACE}"
+            docker image inspect em-ci-rust:1.95 >/dev/null
+            docker run --rm \
+              --user 0:0 \
+              -v "${GITHUB_WORKSPACE}:/workspace" \
+              em-ci-rust:1.95 \
+              chown -R "${workspace_uid}:${workspace_gid}" /workspace
           fi
 
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
