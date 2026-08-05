@@ -321,3 +321,18 @@ commands = [
   "cargo xtask pr",
   "git diff --check",
 ]
+
+[[work_item]]
+id = "materialize-example-utf8-test-no-panic"
+status = "done"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+commands = [
+  "cargo xtask check-no-panic-family",
+  "cargo xtask no-panic baseline",
+  "cargo test -p materialize-buildrs-example -p materialize-shape-buildrs-example",
+  "cargo clippy -p materialize-buildrs-example -p materialize-shape-buildrs-example --all-targets -- -D warnings",
+  "cargo xtask pr",
+  "git diff --check",
+]

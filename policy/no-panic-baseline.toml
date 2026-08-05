@@ -16,46 +16,14 @@ generated_at = "2026-08-05"
 generated_by = "cargo xtask no-panic baseline"
 
 [summary]
-total = 3426
+total = 3422
 
 [summary.by_family]
-expect = 2045
+expect = 2041
 get_unwrap = 1
 panic_macro = 110
 unreachable = 4
 unwrap = 1266
-
-[[entry]]
-path = "crates/materialize-buildrs-example/src/lib.rs"
-family = "expect"
-selector_kind = "method_call"
-selector_callee = "expect"
-snippet = 'let jwt = std::str::from_utf8(TOKEN).expect("                           ");'
-count = 1
-
-[[entry]]
-path = "crates/materialize-shape-buildrs-example/src/lib.rs"
-family = "expect"
-selector_kind = "method_call"
-selector_callee = "expect"
-snippet = 'let jwt = std::str::from_utf8(TOKEN).expect("                           ");'
-count = 1
-
-[[entry]]
-path = "crates/materialize-shape-buildrs-example/src/lib.rs"
-family = "expect"
-selector_kind = "method_call"
-selector_callee = "expect"
-snippet = 'let pem = std::str::from_utf8(PEM_SHAPE).expect("                         ");'
-count = 1
-
-[[entry]]
-path = "crates/materialize-shape-buildrs-example/src/lib.rs"
-family = "expect"
-selector_kind = "method_call"
-selector_callee = "expect"
-snippet = 'let ssh = std::str::from_utf8(SSH_SHAPE).expect("                           ");'
-count = 1
 
 [[entry]]
 path = "crates/uselesskey-aws-lc-rs/src/lib.rs"
