@@ -1,16 +1,24 @@
-# BDD Test Coverage Analysis & Improvement Plan
+# Historical BDD Test Coverage Analysis & Improvement Plan
 
-> **Note:** Historical planning snapshot; counts and gaps may no longer match the current repository.
+> **Note:** This is a historical planning snapshot. Its counts, gap lists,
+> priorities, and proposed work describe the repository when the analysis was
+> written; they are not a current coverage report or live backlog. For the
+> current inventory and bounded claims, see
+> [`summary.md`](summary.md).
 
 ## Executive Summary
 
-This document analyzes the current BDD test structure in the uselesskey project, identifies gaps in test coverage, and provides a comprehensive plan for expanding the BDD matrix and improving overall test coverage.
+This document records an earlier analysis of the BDD test structure in the
+uselesskey project, the gaps observed at that time, and the plan that was
+proposed for expanding the BDD matrix. It is retained for historical context;
+it does not supersede the current inventory in [`summary.md`](summary.md).
 
-## Current BDD Test Structure
+## Snapshot BDD Test Structure
 
 ### Feature Files Overview
 
-The project has 12 BDD feature files in [`crates/uselesskey-bdd/features/`](../../crates/uselesskey-bdd/features/):
+At the time of this snapshot, the project had 12 BDD feature files in
+[`crates/uselesskey-bdd/features/`](../../crates/uselesskey-bdd/features/):
 
 | Feature File | Scenarios | Key Coverage Areas |
 |-------------|------------|-------------------|
@@ -27,9 +35,9 @@ The project has 12 BDD feature files in [`crates/uselesskey-bdd/features/`](../.
 | [`chain.feature`](../../crates/uselesskey-bdd/features/chain.feature) | 15 | Certificate chains (Root → Intermediate → Leaf), SANs, private key matching, negative variants |
 | [`cross_key.feature`](../../crates/uselesskey-bdd/features/cross_key.feature) | 11 | Key type differences, kid uniqueness, algorithm mismatches, key size differences, JWKS mixing |
 
-**Total BDD Scenarios: ~150**
+**Total BDD Scenarios at snapshot: ~150**
 
-### BDD Implementation
+### Snapshot BDD Implementation
 
 The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../crates/uselesskey-bdd/tests/bdd.rs) using the Cucumber framework:
 
@@ -37,7 +45,7 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 - **Step Definitions**: Given/When/Then steps for each key type and operation
 - **Execution**: Run via `cargo xtask bdd`
 
-### Unit Test Coverage
+### Snapshot Unit Test Coverage
 
 | Crate | Test Files | Coverage Focus |
 |-------|------------|----------------|
@@ -52,9 +60,13 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 | [`uselesskey-rustls`](../../crates/uselesskey-rustls/tests/) | 0 files | **No unit tests** |
 | Adapter crates | 0 files | **No integration tests** |
 
-## Identified Gaps
+## Historical Gaps Recorded at Snapshot
 
-### 1. Missing BDD Scenarios
+The following gaps and examples are historical observations. They must not be
+treated as a live backlog; new work requires current source and contract
+evidence plus a builder-ready issue.
+
+### 1. BDD Scenarios Missing at Snapshot
 
 #### RSA Feature Gaps
 - **RSA-384 and RSA-512 variants**: Only RS256 (2048-bit) is tested
@@ -93,7 +105,7 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 - **Cache eviction**: No tests for cache size limits
 - **Derivation version changes**: No tests for version migration
 
-### 2. Missing Unit Tests
+### 2. Unit Tests Missing at Snapshot
 
 | Crate | Missing Tests |
 |-------|---------------|
@@ -103,16 +115,16 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 | [`uselesskey-jsonwebtoken`](../../crates/uselesskey-jsonwebtoken/) | Encoding/decoding key conversion, algorithm matching |
 | [`uselesskey-rustls`](../../crates/uselesskey-rustls/) | DER conversion, config building, mTLS scenarios |
 
-### 3. Missing Integration Tests
+### 3. Integration Tests Missing at Snapshot
 
 - **JWT signing/verification with jsonwebtoken**: End-to-end tests
 - **TLS handshake with rustls**: Server/client config tests
 - **Multi-key JWKS rotation**: Key rollover scenarios
 - **Cross-crate compatibility**: Ensuring adapters work together
 
-### 4. Missing Negative Fixture Coverage
+### 4. Negative Fixture Coverage Gaps at Snapshot
 
-| Negative Type | Current Coverage | Missing |
+| Negative Type | Coverage at Snapshot | Gap at Snapshot |
 |---------------|------------------|---------|
 | PEM Corruption | BadHeader, BadFooter, BadBase64, Truncate, ExtraBlankLine | Missing for HMAC, X.509 specific variants |
 | DER Truncation | Tested for all key types | Edge cases (0 bytes, 1 byte, exact length) |
@@ -122,7 +134,7 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 | Revoked Certs | Defined in code | No BDD tests |
 | Unknown CA | Tested in chain.feature | Could expand |
 
-## Proposed Improvements
+## Historical Proposed Improvements
 
 ### Phase 1: Expand Existing BDD Features
 
@@ -214,7 +226,7 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 - Adapter interoperability tests
 - Multi-adapter scenarios
 
-## Implementation Priority
+## Historical Implementation Priority
 
 ### High Priority (Core Functionality)
 1. RSA RS384/RS512 variant BDD tests
@@ -237,9 +249,9 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 14. Derivation version migration tests
 15. Cross-crate compatibility tests
 
-## Test Coverage Goals
+## Historical Test Coverage Goals
 
-| Metric | Current | Target |
+| Metric | At Snapshot | Historical Target |
 |--------|----------|--------|
 | BDD Scenarios | ~150 | 250+ |
 | BDD Feature Files | 12 | 15+ |
@@ -247,7 +259,7 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 | Adapter Crate Tests | 0 | 100% |
 | Integration Test Scenarios | 0 | 20+ |
 
-## Success Criteria
+## Historical Success Criteria
 
 1. All new BDD scenarios pass with `cargo xtask bdd`
 2. All unit tests pass with `cargo xtask test`
@@ -255,7 +267,7 @@ The BDD tests are implemented in [`crates/uselesskey-bdd/tests/bdd.rs`](../../cr
 4. Integration tests demonstrate real-world usage
 5. Test coverage report shows >90% line coverage for core crates
 
-## Notes
+## Historical Planning Notes
 
 - BDD tests should remain focused on user-facing behavior
 - Unit tests should cover implementation details and edge cases
