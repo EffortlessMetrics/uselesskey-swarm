@@ -1193,9 +1193,9 @@ jobs:
 
           if [[ -n "$shared_cache_unreadable" ]]; then
             echo "::warning::shared Cargo cache is not readable at ${shared_cache_unreadable}; using isolated per-run Cargo cache"
-            echo "CARGO_CACHE_MODE=isolated" >> "$GITHUB_ENV"
+            echo "CARGO_CACHE_READABLE=false" >> "$GITHUB_ENV"
           else
-            echo "CARGO_CACHE_MODE=shared" >> "$GITHUB_ENV"
+            echo "CARGO_CACHE_READABLE=true" >> "$GITHUB_ENV"
           fi
 
       - name: Repair main full gate workspace ownership
@@ -1242,7 +1242,10 @@ jobs:
           docker run --rm \
             --user "${container_uid}:${container_gid}" \
             -e HOME=/cargo-home \
+            -e CARGO_HOME=/cargo-home \
             -v "${CARGO_HOME}:/cargo-home" \
+            -v "${CARGO_CACHE_HOME}/registry:/cargo-cache/registry" \
+            -v "${CARGO_CACHE_HOME}/git:/cargo-cache/git" \
             -v "${CARGO_TARGET_DIR}:/cargo-target" \
             -v "${TMPDIR}:/tmp/jobtmp" \
             uselesskey-ci-rust:1.95 \
@@ -1259,6 +1262,35 @@ jobs:
               test -w /cargo-target
               test -w /tmp/jobtmp
             '
+
+          cache_mode=isolated
+          if [[ "${CARGO_CACHE_READABLE}" == "true" ]]; then
+            if docker run --rm \
+              --user "${container_uid}:${container_gid}" \
+              -e HOME=/cargo-home \
+              -e CARGO_HOME=/cargo-home \
+              -v "${CARGO_HOME}:/cargo-home" \
+              -v "${CARGO_CACHE_HOME}/registry:/cargo-cache/registry" \
+              -v "${CARGO_CACHE_HOME}/git:/cargo-cache/git" \
+              uselesskey-ci-rust:1.95 \
+              bash -eu -o pipefail -c '
+                registry_probe="$(mktemp /cargo-cache/registry/.uselesskey-write-probe.XXXXXX)"
+                git_probe="$(mktemp /cargo-cache/git/.uselesskey-write-probe.XXXXXX)"
+                cleanup() { rm -f "$registry_probe" "$git_probe"; }
+                trap cleanup EXIT
+                expected_identity="$(id -u):$(id -g)"
+                test "$(stat -c "%u:%g" "$registry_probe")" = "$expected_identity"
+                test "$(stat -c "%u:%g" "$git_probe")" = "$expected_identity"
+              '
+            then
+              cache_mode=shared
+            else
+              echo "::warning::shared Cargo cache is not writable by the container identity; using isolated per-run Cargo cache"
+            fi
+          else
+            echo "::warning::shared Cargo cache readability check failed; using isolated per-run Cargo cache"
+          fi
+          echo "CARGO_CACHE_MODE=${cache_mode}" >> "$GITHUB_ENV"
 
       - name: xtask ci
         shell: bash
