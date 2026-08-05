@@ -2,19 +2,29 @@
 
 ## Overview
 
-This analysis provides a comprehensive review of the BDD test structure and coverage in the uselesskey project, identifying gaps and proposing improvements.
+This document is the current inventory and claim-boundary summary for the
+repository's BDD and related test surfaces. The linked analysis, architecture
+diagram, and scenario plan are historical planning artifacts; they provide
+context for how the current surfaces were built, but they are not a live
+backlog or an exhaustive coverage report.
 
 ## Documents Created
 
-1. **[`bdd-test-coverage-analysis.md`](bdd-test-coverage-analysis.md)** - Executive summary with gap analysis and improvement plan
-2. **[`bdd-scenarios-implementation-plan.md`](bdd-scenarios-implementation-plan.md)** - Detailed BDD scenarios to implement
-3. **[`test-architecture-diagram.md`](test-architecture-diagram.md)** - Visual diagrams of test architecture
+1. **[`bdd-test-coverage-analysis.md`](bdd-test-coverage-analysis.md)** - Historical snapshot with gap analysis and improvement plan
+2. **[`bdd-scenarios-implementation-plan.md`](bdd-scenarios-implementation-plan.md)** - Historical BDD scenario design context
+3. **[`test-architecture-diagram.md`](test-architecture-diagram.md)** - Historical snapshot of the test architecture
 
 ## Key Findings
 
 ### Current State
-- **15 BDD feature files** with 250+ scenarios
-- **12 crates** have unit/integration tests, including the rustls and RustCrypto adapters
+- **38 BDD feature files** contain **523 declared scenarios and scenario outlines**.
+  This is a repository declaration count, not an execution-coverage or semantic
+  completeness claim.
+- **24 workspace crates** expose a `tests/` directory in the current checkout;
+  this directory inventory includes test-support and integration crates, so it
+  is not a claim that every test surface has equal user-facing depth.
+- **5/5 adapter crates** have external test directories, including rustls and
+  RustCrypto
   ([rustls tests](../../crates/uselesskey-rustls/tests/),
   [RustCrypto tests](../../crates/uselesskey-rustcrypto/tests/))
 - **BDD features cover** JWT, TLS, and edge case integration scenarios
@@ -66,7 +76,7 @@ repository has no migration contract or active compatibility requirement for
 it. If that requirement is introduced, define the contract and proof in a
 builder-ready issue before adding tests.
 
-## Proposed Improvements
+## Historical Improvement Plan (Completed)
 
 ### Phase 1: Expand Existing BDD Features — DONE
 - ~~Add RSA RS384/RS512 variant scenarios~~ ✓
@@ -85,9 +95,9 @@ builder-ready issue before adding tests.
 - ~~uselesskey-hmac unit tests (secret generation, JWK conversion)~~ ✓
 - ~~uselesskey-jwk unit tests (JWKS builder, kid generation)~~ ✓
 - ~~uselesskey-jsonwebtoken tests~~ ✓
-- uselesskey-rustls unit tests (config builders), integration tests, and TLS BDD coverage ✓
+- ~~uselesskey-rustls unit tests (config builders), integration tests, and TLS BDD coverage~~ ✓
 - ~~uselesskey-ring tests~~ ✓
-- uselesskey-rustcrypto inline and external tests — comprehensive coverage exists ✓
+- ~~uselesskey-rustcrypto inline and external tests~~ ✓
 - ~~uselesskey-aws-lc-rs tests~~ ✓
 
 ### Phase 4: Integration Tests — DONE
@@ -103,17 +113,16 @@ This historical analysis is not a live backlog. New test gaps should be based
 on current source and contract evidence, then captured in a builder-ready
 issue with a focused proof path.
 
-## Test Coverage Goals
+## Current Inventory Snapshot
 
-| Metric | Initial | Current | Target |
-|--------|---------|---------|--------|
-| BDD Scenarios | ~150 | 250+ | 250+ ✓ |
-| BDD Feature Files | 12 | 15 | 15+ ✓ |
-| Crates with Unit Tests | 4/12 | 12/12 | 12/12 ✓ |
-| Adapter Crate Tests | 0/5 | 5/5 | 5/5 ✓ |
-| Integration Test Scenarios | 0 | 38+ | 20+ ✓ |
-| Cross-Adapter Tests | 0 | 8 | 8 ✓ |
-| Key Rotation Tests | 0 | 10 | 10 ✓ |
+| Metric | Current repository evidence | Claim boundary |
+|--------|-----------------------------|----------------|
+| BDD feature files | 38 | Files under `crates/uselesskey-bdd/features/`; not a semantic coverage claim |
+| BDD scenario declarations | 523 | `Scenario` and `Scenario Outline` declarations; not executed-case coverage |
+| Workspace crates with `tests/` directories | 24 | Directory inventory, including test-support and integration crates |
+| Adapter crates with external tests | 5/5 | The five adapter crates listed in the workspace architecture |
+| Cross-adapter tests | 8 | Existing integration-test inventory; not all provider combinations |
+| Key rotation tests | 10 | Existing integration-test inventory; not production workflow validation |
 
 ## Notes
 
