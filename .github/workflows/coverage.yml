@@ -77,6 +77,9 @@ jobs:
             "$TMPDIR" \
             "$CARGO_TARGET_DIR" \
             "$CARGO_HOME"
+          for path in "$TMPDIR" "$CARGO_HOME" "$CARGO_TARGET_DIR"; do
+            test -w "$path"
+          done
           shared_cache_unreadable=""
           if ! mkdir -p "$CARGO_CACHE_HOME/registry" "$CARGO_CACHE_HOME/git"; then
             shared_cache_unreadable="$CARGO_CACHE_HOME (prepare failed)"
