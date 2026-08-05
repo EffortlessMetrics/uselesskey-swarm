@@ -1317,6 +1317,10 @@ jobs:
             -e CARGO_BUILD_JOBS="${CARGO_BUILD_JOBS}"
             -e CARGO_TARGET_DIR=/cargo-target
             -e TMPDIR=/tmp/jobtmp
+            -e GITHUB_RUN_ID="${GITHUB_RUN_ID}"
+            -e GITHUB_RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT}"
+            -e GITHUB_SHA="${GITHUB_SHA}"
+            -e GITHUB_REF="${GITHUB_REF}"
             -v "${GITHUB_WORKSPACE}:/workspace"
             -v "${CARGO_HOME}:/cargo-home"
             -v "${CARGO_TARGET_DIR}:/cargo-target"
