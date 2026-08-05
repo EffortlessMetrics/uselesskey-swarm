@@ -1198,6 +1198,25 @@ jobs:
             echo "CARGO_CACHE_MODE=shared" >> "$GITHUB_ENV"
           fi
 
+      - name: Repair main full gate workspace ownership
+        shell: bash
+        run: |
+          set -euo pipefail
+          case "${GITHUB_WORKSPACE}" in
+            /mnt/actions/_work/*/*) ;;
+            *)
+              echo "refusing to inspect unexpected workspace: ${GITHUB_WORKSPACE}" >&2
+              exit 1
+              ;;
+          esac
+          workspace_uid="$(id -u)"
+          workspace_gid="$(id -g)"
+          foreign_entry="$(find "${GITHUB_WORKSPACE}" -xdev \( ! -uid "${workspace_uid}" -o ! -gid "${workspace_gid}" \) -print -quit)"
+          if [[ -n "${foreign_entry}" ]]; then
+            echo "::warning::repairing foreign-owned workspace entry: ${foreign_entry}"
+            sudo -n chown -R "${workspace_uid}:${workspace_gid}" "${GITHUB_WORKSPACE}"
+          fi
+
       - uses: actions/checkout@9c091bb21b7c1c1d1991bb908d89e4e9dddfe3e0
         with:
           fetch-depth: 0
@@ -1218,7 +1237,11 @@ jobs:
           test -w "$CARGO_TARGET_DIR"
           df -h /mnt/ci-scratch /mnt/ci-cache
           docker image inspect uselesskey-ci-rust:1.95 >/dev/null
+          container_uid="$(id -u)"
+          container_gid="$(id -g)"
           docker run --rm \
+            --user "${container_uid}:${container_gid}" \
+            -e HOME=/cargo-home \
             -v "${CARGO_HOME}:/cargo-home" \
             -v "${CARGO_TARGET_DIR}:/cargo-target" \
             -v "${TMPDIR}:/tmp/jobtmp" \
@@ -1246,8 +1269,10 @@ jobs:
 
           docker_args=(
             --rm
+            --user "$(id -u):$(id -g)"
             --cpus="14"
             --memory="28g"
+            -e HOME=/cargo-home
             -e CARGO_HOME=/cargo-home
             -e CARGO_CACHE_MODE="${CARGO_CACHE_MODE}"
             -e CARGO_TERM_COLOR="${CARGO_TERM_COLOR}"
