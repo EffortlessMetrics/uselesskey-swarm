@@ -3129,6 +3129,7 @@ jobs:
             "name: proof-route",
             "echo \"fallback_allowed=$fallback_allowed\"",
             "emit \"github\" \"fork_pr\" \"false\" \"true\"",
+            "emit \"github\" \"github_hosted_allowlisted\" \"false\" \"true\"",
             "emit \"workflow\" \"workflow_validation\" \"false\" \"false\"",
             "emit \"route-fail\" \"mixed_workflow_and_rust_requires_split\" \"true\" \"false\"",
             "emit \"route-fail\" \"runner_token_missing\" \"true\" \"false\"",
