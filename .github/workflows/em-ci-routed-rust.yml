@@ -108,6 +108,10 @@ jobs:
               ROUTE_REASON="$reason" \
               ROUTE_ERROR="$error" \
               ROUTE_FALLBACK_ALLOWED="$fallback_allowed" \
+              ROUTE_RUN_ID="${GITHUB_RUN_ID}" \
+              ROUTE_RUN_ATTEMPT="${GITHUB_RUN_ATTEMPT}" \
+              ROUTE_SHA="${GITHUB_SHA}" \
+              ROUTE_REF="${GITHUB_REF}" \
               CHANGED_FILES_PATH="$changed_files_path" \
               python3 <<'PY'
           import fnmatch
@@ -305,6 +309,10 @@ jobs:
           receipt = {
               "schema_version": "1.0",
               "workflow": "EM CI Routed Rust",
+              "run_id": os.environ["ROUTE_RUN_ID"],
+              "run_attempt": os.environ["ROUTE_RUN_ATTEMPT"],
+              "sha": os.environ["ROUTE_SHA"],
+              "ref": os.environ["ROUTE_REF"],
               "event_name": os.environ.get("EVENT_NAME", ""),
               "target": target,
               "reason": reason,
