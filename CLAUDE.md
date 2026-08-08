@@ -49,14 +49,13 @@ Path ignores exist but require ongoing maintenance. This crate replaces "securit
 ## Build Commands
 
 ```bash
-cargo xtask ci              # Main CI pipeline: fmt + clippy + tests + matrix + guard + bdd + no-blob + mutants + fuzz
+cargo xtask ci              # Main CI pipeline: fmt + clippy + tests + matrix + guard + bdd + no-blob + fuzz
 cargo xtask pr              # PR-scoped tests based on git diff (emits JSON receipt)
 cargo xtask test            # Run all tests with all features
 cargo xtask fmt --fix       # Fix formatting
 cargo xtask clippy          # Run clippy with -D warnings
 cargo xtask bdd             # Run Cucumber BDD tests
 cargo xtask fuzz            # Fuzz testing (requires cargo-fuzz)
-cargo xtask mutants         # Mutation testing (requires cargo-mutants)
 cargo xtask deny            # License/advisory checks (requires cargo-deny)
 cargo xtask feature-matrix  # Run feature matrix checks (default, no-default, each feature, all-features)
 cargo xtask publish-check   # Run publish dry-runs in dependency order
@@ -162,7 +161,6 @@ Adapter crates (e.g. `uselesskey-jsonwebtoken`) are separate crates, not feature
 - `rustfmt.toml` - Formatting: Unix newlines, crate-level imports
 - `clippy.toml` - MSRV 1.95
 - `deny.toml` - Allowed licenses: MIT, Apache-2.0, BSD-3-Clause, ISC, CC0-1.0
-- `mutants.toml` - Mutation testing exclusions
 
 ## Policy stack
 

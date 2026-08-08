@@ -26,9 +26,8 @@ A mature policy ledger can define:
 
 - Keep ordinary PRs below the default budget by avoiding duplicated feature-tier
   test work.
-- Move coverage, broad mutation, Miri, fuzzing, and release readiness to main,
-  nightly, manual, release, or labelled lanes unless a PR risk pack selects
-  them.
+- Move coverage, Miri, fuzzing, and release readiness to main, nightly,
+  manual, release, or labelled lanes unless a PR risk pack selects them.
 - Use receipts to show both selected and skipped lanes.
 - Treat label changes as proof/spend decisions; avoid cancelling useful runs
   just because a label changed.

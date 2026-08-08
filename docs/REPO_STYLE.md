@@ -10,15 +10,14 @@ and receipted.
 Static evidence runs first:
 
 - source-exception policy for visible retained exceptions;
-- `ripr` for static mutation-exposure analysis when available;
+- `ripr` for static weak-oracle exposure analysis when available;
 - `unsafe-review` for unsafe-contract review when unsafe seams exist;
 - rustc and Clippy for code-shape policy.
 
 Runtime evidence runs where it pays:
 
 - focused tests on PRs;
-- targeted mutation for risk PRs;
-- broader mutation, Miri, fuzzing, and coverage on nightly, main, release, or
+- Miri, fuzzing, and coverage on nightly, main, release, or
   explicitly labelled lanes.
 
 CI is designed for proof per Linux-equivalent minute. Default PRs are cheap,
@@ -39,9 +38,8 @@ own the signal.
 | Tool or lane | Role |
 | --- | --- |
 | Source-exception policy | Durable ledger for visible source exceptions: panic-family calls, lint suppressions, generated files, scripts, workflow surfaces, non-Rust files, and other retained policy exceptions. |
-| `ripr` | Static mutation-exposure analysis: cheap PR-time weak-oracle signal before runtime mutation. |
+| `ripr` | Static weak-oracle exposure analysis: cheap PR-time signal for where focused tests are missing. |
 | `unsafe-review` | Unsafe-contract reviewability: safety contract, guard, test reach, and witness route for unsafe seams. |
-| `cargo-mutants` | Runtime mutation backstop where static exposure or risk routing says it pays. |
 | Miri | Concrete undefined-behavior execution witness for relevant unsafe or layout-sensitive surfaces. |
 | Codecov / coverage | Execution-surface telemetry, not a correctness proof. |
 | `xtask` | Orchestration, receipts, reports, CI planning, release readiness, and repo-local policy glue. |

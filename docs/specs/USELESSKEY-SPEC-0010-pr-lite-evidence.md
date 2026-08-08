@@ -22,13 +22,11 @@ local path to that evidence can be too coarse for ordinary PR work.
 
 Agents and contributors need a bounded local command that approximates hosted PR
 CI closely enough to catch common orchestration and drift failures before a
-push. They also need heavy evidence routing to explain itself: why targeted
-mutation, fuzz, bundle proof, or deeper release proof ran, skipped, or fell
-back.
+push. They also need heavy evidence routing to explain itself: why fuzz, bundle
+proof, or deeper release proof ran, skipped, or fell back.
 
-Without that contract, contributors can overclaim local validation, hosted CI
-can spend time on avoidable failures, and targeted mutation can feel surprising
-instead of traceable.
+Without that contract, contributors can overclaim local validation and hosted CI
+can spend time on avoidable failures.
 
 ## Behavior
 
@@ -68,8 +66,7 @@ BDD/check paths when touched
 fuzz build when touched
 ```
 
-Heavy evidence routing must be receipt-backed. Mutation routing receipts should
-show:
+Heavy evidence routing must be receipt-backed. Routing receipts should show:
 
 ```text
 changed files
@@ -78,18 +75,9 @@ public owner surfaces touched
 ripr severity
 labels considered
 release-risk decision
-selected mutation command
-whether diff-scoped mutation is available
-fallback reason when crate-scope mutation is used
 ```
 
-Diff-scoped mutation may be used only when the tool support and changed-file
-mapping are reliable. If diff generation or command support fails, the command
-must fall back to the existing crate-scope mutation route and record why.
-
 ## Non-goals
-
-This spec does not weaken mutation requirements.
 
 This spec does not make PR-lite equivalent to hosted CI, `cargo xtask pr`, or
 release evidence.
@@ -98,8 +86,8 @@ This spec does not add new public product claims, fixture profiles, README
 badges, release execution, dependency churn, shipper migration work, no-panic
 burndown, or TLS mTLS/revocation/CT/browser trust-store behavior.
 
-This spec does not require full mutation, fuzzing, or full release evidence in
-PR-lite by default.
+This spec does not require fuzzing or full release evidence in PR-lite by
+default.
 
 ## Required Evidence
 
@@ -123,12 +111,11 @@ cargo xtask pr
 git diff --check
 ```
 
-Mutation-routing changes should run:
+Evidence-routing changes should run:
 
 ```bash
 cargo test -p xtask impacted_evidence
 cargo xtask impacted-evidence
-cargo xtask mutants-pr --changed --explain
 cargo xtask pr-lite
 git diff --check
 ```
@@ -140,16 +127,14 @@ This spec is accepted when:
 - it defines PR-lite as a bounded local approximation of hosted PR CI;
 - it defines Markdown and JSON PR-lite receipts;
 - it defines heavy evidence routing receipts;
-- it keeps PR-lite separate from full PR, hosted CI, and release proof;
-- it states that diff-scoped mutation must fall back without hiding evidence.
+- it keeps PR-lite separate from full PR, hosted CI, and release proof.
 
 This spec is implemented when:
 
 - `cargo xtask pr-lite` emits `target/pr-lite/pr-lite.json` and
   `target/pr-lite/pr-lite.md`;
 - PR-lite receipts distinguish run, skipped, failed, and hosted-only proof;
-- mutation routing receipts explain targeted mutation decisions;
-- diff-scoped mutation is used only where safe and records fallback reasons;
+- routing receipts explain evidence owner-crate decisions;
 - agent docs explain how to report partial local evidence honestly.
 
 ## Acceptance Examples
@@ -169,11 +154,11 @@ skipped:
 - fuzz build: no fuzz-owned paths changed
 
 heavy routing:
-- targeted mutation: not required
+- targeted evidence: not required
 - reason: no public-owner crate changes and no severe ripr gap
 ```
 
-Valid targeted mutation routing receipt:
+Valid evidence routing receipt, carrying every field the contract above lists:
 
 ```json
 {
@@ -181,11 +166,10 @@ Valid targeted mutation routing receipt:
   "reason": "public-owner crate changed",
   "changed_files": ["crates/uselesskey-x509/src/chain.rs"],
   "owner_crates": ["uselesskey-x509"],
-  "selected_command": "cargo xtask mutants-pr --changed",
-  "diff_scoped": {
-    "available": false,
-    "fallback": "diff mapping not reliable for generated test harness"
-  }
+  "public_owner_surfaces": ["uselesskey-x509::chain"],
+  "ripr_severity": "none",
+  "labels_considered": ["release-risk"],
+  "release_risk": false
 }
 ```
 
@@ -219,13 +203,12 @@ PR-lite maps to:
   signals;
 - `cargo xtask ripr-pr --check` and `cargo xtask ripr-review-comments --check`
   for PR-scoped `ripr` artifact contracts;
-- `cargo xtask mutants-pr --changed --explain` for mutation routing receipts.
 
 ## Implementation Mapping
 
 PR-lite evidence is owned by:
 
-- `xtask` PR, impacted-evidence, mutation, and receipt code;
+- `xtask` PR, impacted-evidence, and receipt code;
 - `target/pr-lite/` local receipts;
 - `.github/workflows/ci.yml` only where hosted PR summaries need matching
   terminology;
@@ -254,11 +237,11 @@ cargo xtask pr
 git diff --check
 ```
 
-Mutation routing changes:
+Evidence routing changes:
 
 ```bash
 cargo test -p xtask impacted_evidence
-cargo xtask mutants-pr --changed --explain
+cargo xtask impacted-evidence
 cargo xtask pr-lite
 git diff --check
 ```
@@ -267,6 +250,6 @@ git diff --check
 
 This spec remains `accepted` while the lane is implemented.
 
-It can move to `implemented` when PR-lite receipts, heavy-routing receipts,
-safe diff-scoped mutation fallback, and local-validation docs are merged and
-validated by `cargo xtask spec-check --strict`.
+It can move to `implemented` when PR-lite receipts, heavy-routing receipts, and
+local-validation docs are merged and validated by
+`cargo xtask spec-check --strict`.

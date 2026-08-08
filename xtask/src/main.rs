@@ -49,7 +49,7 @@ mod verification_pack;
 #[derive(Parser)]
 #[command(
     name = "xtask",
-    about = "Repo automation (fmt, clippy, tests, fuzz, mutants, bdd).",
+    about = "Repo automation (fmt, clippy, tests, fuzz, bdd).",
     version
 )]
 struct Cli {
@@ -145,11 +145,7 @@ enum Cmd {
     /// Run publish dry-runs for crates in dependency order.
     PublishCheck,
     /// Run PR-scoped tests based on git diff.
-    Pr {
-        /// Include the targeted mutation step in the PR gate.
-        #[arg(long)]
-        with_mutants: bool,
-    },
+    Pr,
     /// Run a bounded local approximation of hosted PR evidence and write receipts.
     PrLite {
         /// Output format.
@@ -182,37 +178,7 @@ enum Cmd {
     },
     /// Generate the repo-scoped RIPR test-efficiency report used by ripr+ badge output.
     TestEfficiencyReport,
-    /// Run PR-scoped mutation testing explicitly.
-    MutantsPr {
-        /// Run mutation testing for mutation-eligible crates changed against the PR base.
-        #[arg(long)]
-        changed: bool,
-        /// Run mutation testing for an explicit crate. Can be supplied multiple times.
-        #[arg(long = "crate", value_name = "CRATE")]
-        crates: Vec<String>,
-        /// Run mutation testing for all publish crates.
-        #[arg(long)]
-        all: bool,
-        /// Document that the selected owner crate(s) should receive full-owner mutation proof.
-        #[arg(long)]
-        full_owner: bool,
-        /// Explain changed-path mutation routing and write receipts without running mutants.
-        #[arg(long)]
-        explain: bool,
-    },
-    /// Run scheduled/manual mutation evidence scopes.
-    MutantsNightly {
-        /// Mutation evidence scope.
-        #[arg(long, value_enum, default_value_t = MutationNightlyScope::Public)]
-        scope: MutationNightlyScope,
-        /// Crate to test when `--scope crate` is selected.
-        #[arg(long = "crate", value_name = "CRATE")]
-        crate_name: Option<String>,
-        /// Write planned artifacts without running cargo-mutants.
-        #[arg(long)]
-        dry_run: bool,
-    },
-    /// Report changed-path evidence owners and targeted mutation routing.
+    /// Report changed-path evidence owners and targeted evidence routing.
     ImpactedEvidence {
         /// Base ref to compare against. Defaults to XTASK_BASE_REF, GITHUB_BASE_REF, or origin/main.
         #[arg(long)]
@@ -232,7 +198,7 @@ enum Cmd {
         /// Also write a release-manager summary page.
         #[arg(long)]
         summary: bool,
-        /// Run the patch-release evidence lane (publish-system + user-path smoke only, no full mutation).
+        /// Run the patch-release evidence lane (publish-system + user-path smoke only).
         #[arg(long)]
         patch: bool,
     },
@@ -382,8 +348,6 @@ enum Cmd {
     Bdd,
     /// Run cucumber BDD matrix with feature sets.
     BddMatrix,
-    /// Run mutation testing (requires `cargo-mutants` installed).
-    Mutants,
     /// Run code coverage via cargo-llvm-cov (requires `cargo-llvm-cov` installed).
     Coverage,
     /// Validate publish metadata and run `cargo package --no-verify` for all crates.
@@ -570,15 +534,6 @@ enum PrBundlesCmd {
     },
 }
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, ValueEnum, serde::Serialize)]
-#[serde(rename_all = "kebab-case")]
-enum MutationNightlyScope {
-    Public,
-    Adapters,
-    All,
-    Crate,
-}
-
 #[derive(Clone, Debug, ValueEnum)]
 enum SpecCheckFormat {
     Human,
@@ -675,17 +630,6 @@ impl From<ExternalAdoptionSmokeFormat> for external_adoption_smoke::OutputFormat
     }
 }
 
-impl MutationNightlyScope {
-    fn as_str(self) -> &'static str {
-        match self {
-            Self::Public => "public",
-            Self::Adapters => "adapters",
-            Self::All => "all",
-            Self::Crate => "crate",
-        }
-    }
-}
-
 fn main() -> Result<()> {
     let cli = Cli::parse();
 
@@ -733,25 +677,13 @@ fn main() -> Result<()> {
             },
         ),
         Cmd::PublishCheck => publish_check(),
-        Cmd::Pr { with_mutants } => pr(with_mutants),
+        Cmd::Pr => pr(),
         Cmd::PrLite { format } => pr_lite(format),
         Cmd::Doctor { format } => doctor::run(&workspace_root_path(), format.into()),
         Cmd::RiprPr { check } => ripr_pr(check),
         Cmd::RiprReviewComments { check } => ripr_review_comments(check),
         Cmd::RiprPrSummary { check } => ripr_pr_summary(check),
         Cmd::TestEfficiencyReport => test_efficiency::test_efficiency_report_cmd(),
-        Cmd::MutantsPr {
-            changed,
-            crates,
-            all,
-            full_owner,
-            explain,
-        } => mutants_pr(changed, crates, all, full_owner, explain),
-        Cmd::MutantsNightly {
-            scope,
-            crate_name,
-            dry_run,
-        } => mutants_nightly(scope, crate_name, dry_run),
         Cmd::ImpactedEvidence { base } => impacted_evidence(base),
         Cmd::ReleaseEvidence {
             version,
@@ -830,7 +762,6 @@ fn main() -> Result<()> {
         Cmd::Coverage => coverage(),
         Cmd::PublishPreflight { allow_dirty } => publish_preflight(allow_dirty),
         Cmd::Publish { from, resume } => publish(from, resume),
-        Cmd::Mutants => run_mutants(PUBLISH_CRATES, None),
         Cmd::Fuzz {
             target,
             all,
@@ -1066,7 +997,6 @@ fn install_hint(program: &str) -> Option<&'static str> {
         "cargo-deny" => Some("cargo install cargo-deny"),
         "cargo-fuzz" => Some("cargo install cargo-fuzz"),
         "cargo-llvm-cov" => Some("cargo install cargo-llvm-cov"),
-        "cargo-mutants" => Some("cargo install cargo-mutants"),
         "cargo-nextest" => Some("cargo install cargo-nextest"),
         _ => None,
     }
@@ -1297,7 +1227,6 @@ fn run_ci_plan(runner: &mut receipt::Runner) -> Result<()> {
     runner.set_bdd_counts(counts);
 
     runner.step("no-blob", None, no_blob_gate)?;
-    runner.step("mutants", None, || run_mutants(MUTANT_CRATES, None))?;
     runner.step("fuzz", None, fuzz_pr)?;
 
     if is_llvm_cov_installed() {
@@ -1364,49 +1293,6 @@ const PUBLISH_CRATES: &[&str] = &[
     // Facade (dev-depends on adapters above)
     "uselesskey",
 ];
-
-/// Subset of `PUBLISH_CRATES` for CI-wide mutation testing.
-///
-/// Excludes algorithm and adapter crates whose tests involve key generation
-/// (RSA, ECDSA, Ed25519, PGP, X.509, adapters). These are still
-/// mutant-tested when directly impacted in PR-scoped runs.
-const MUTANT_CRATES: &[&str] = &[
-    "uselesskey-jwk",
-    "uselesskey-core",
-    "uselesskey-hmac",
-    "uselesskey-token",
-];
-
-const NIGHTLY_PUBLIC_MUTATION_CRATES: &[&str] = &[
-    "uselesskey-core",
-    "uselesskey-jwk",
-    "uselesskey-token",
-    "uselesskey-x509",
-    "uselesskey-rsa",
-    "uselesskey-ecdsa",
-    "uselesskey-ed25519",
-    "uselesskey-hmac",
-    "uselesskey-cli",
-];
-
-const NIGHTLY_ADAPTER_MUTATION_CRATES: &[&str] = &[
-    "uselesskey-jsonwebtoken",
-    "uselesskey-rustls",
-    "uselesskey-tonic",
-    "uselesskey-axum",
-    "uselesskey-ring",
-    "uselesskey-rustcrypto",
-    "uselesskey-aws-lc-rs",
-];
-
-const MUTATION_EVIDENCE_CLAIM_BOUNDARY: &[&str] = &[
-    "mutation testing is scoped by lane and crate set",
-    "mutation testing does not prove cryptographic correctness",
-    "mutation testing does not replace deterministic fixture regression tests",
-];
-
-const MUTATION_SURVIVOR_LEDGER_PATH: &str = "policy/mutation-survivors.toml";
-const MUTATION_SURVIVOR_CLASSIFICATIONS: &[&str] = &["equivalent", "accepted-risk", "pending-test"];
 
 /// Verify that `PUBLISH_CRATES` is in a valid topological order with respect to
 /// workspace dependencies.
@@ -2307,730 +2193,6 @@ fn collect_dependency_version_snippet_errors(
     Ok(errors)
 }
 
-fn run_mutants(crates: &[&str], in_diff: Option<&Path>) -> Result<()> {
-    ensure_cargo_mutants_installed()?;
-
-    eprintln!("mutants targets: {crates:?}");
-    if let Some(in_diff) = in_diff {
-        eprintln!("mutants diff filter: {}", in_diff.display());
-    }
-
-    let tool_env = MutationToolEnv::detect();
-
-    for name in crates {
-        let Some(mut cmd) = mutation_command_for_crate(name, None, &tool_env, in_diff)? else {
-            continue;
-        };
-        run(&mut cmd)?;
-    }
-
-    Ok(())
-}
-
-struct MutationToolEnv {
-    all_features_requested: bool,
-    nasm_available: bool,
-}
-
-impl MutationToolEnv {
-    fn detect() -> Self {
-        Self {
-            all_features_requested: env::var("CI").is_ok()
-                || env::var("XTASK_MUTANTS_ALL_FEATURES").is_ok(),
-            nasm_available: !cfg!(windows)
-                || Command::new("nasm")
-                    .arg("-v")
-                    .stdout(Stdio::null())
-                    .stderr(Stdio::null())
-                    .status()
-                    .is_ok_and(|s| s.success()),
-        }
-    }
-}
-
-fn ensure_cargo_mutants_installed() -> Result<()> {
-    let have = Command::new("cargo")
-        .args(["mutants", "--version"])
-        .stdout(Stdio::null())
-        .stderr(Stdio::null())
-        .status()
-        .is_ok_and(|s| s.success());
-
-    if !have {
-        bail!("cargo-mutants is not installed. Install with: cargo install cargo-mutants");
-    }
-
-    Ok(())
-}
-
-fn mutation_command_for_crate(
-    name: &str,
-    output_dir: Option<&Path>,
-    tool_env: &MutationToolEnv,
-    in_diff: Option<&Path>,
-) -> Result<Option<Command>> {
-    let mut cmd = Command::new("cargo");
-    cmd.arg("mutants");
-
-    let needs_aws_lc_features = name == "uselesskey-aws-lc-rs";
-    let use_all_features = if needs_aws_lc_features {
-        tool_env.all_features_requested || tool_env.nasm_available
-    } else {
-        true
-    };
-
-    // For aws-lc-rs specifically, all-features on Windows requires NASM.
-    // For all other crates, run with all features to avoid false misses from
-    // feature-gated APIs (e.g. JWK helpers).
-    if needs_aws_lc_features && !use_all_features {
-        eprintln!("skipping mutants for {name}: set XTASK_MUTANTS_ALL_FEATURES=1 or install NASM");
-        return Ok(None);
-    }
-
-    if use_all_features {
-        cmd.arg("--all-features");
-    }
-
-    if name == "uselesskey-cli" {
-        // The CLI crate carries a layer of orchestration and export plumbing
-        // that is already covered by integration tests and receipt checks, but
-        // cargo-mutants generates a large amount of low-signal mutations in
-        // those boundary helpers. Keep mutation testing focused on the
-        // fixture semantics rather than path/format glue.
-        for exclude_re in [
-            "fallback_label",
-            "normalize_pem_label",
-            "normalize_ssh_comment",
-            "fixture_const_name",
-            "preferred_bundle_format",
-            "generate_artifact",
-            "artifact_bytes",
-            "write_artifact_to_path",
-            "read_input",
-            "format_extension",
-            "file_name_string",
-        ] {
-            cmd.args(["--exclude-re", exclude_re]);
-        }
-    }
-
-    if let Some(output_dir) = output_dir {
-        cmd.args(["--output", &output_dir.display().to_string()]);
-    }
-
-    if let Some(in_diff) = in_diff {
-        cmd.arg("--in-diff").arg(in_diff);
-    }
-
-    cmd.args(["--manifest-path", &format!("crates/{name}/Cargo.toml")]);
-    Ok(Some(cmd))
-}
-
-#[derive(Debug, serde::Serialize)]
-struct MutationNightlySummary {
-    schema_version: u32,
-    lane: &'static str,
-    scope: MutationNightlyScope,
-    dry_run: bool,
-    crates: Vec<String>,
-    survivor_ledger: MutationSurvivorLedgerSummary,
-    claim_boundary: Vec<&'static str>,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-struct MutationEvidenceReceipt {
-    schema_version: u32,
-    lane: &'static str,
-    scope: MutationNightlyScope,
-    dry_run: bool,
-    crate_results: Vec<MutationEvidenceCrateResult>,
-    survivor_ledger: MutationSurvivorLedgerSummary,
-    claim_boundary: Vec<&'static str>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-struct MutationEvidenceCrateResult {
-    #[serde(rename = "crate")]
-    crate_name: String,
-    status: String,
-    mutants_found: usize,
-    caught: usize,
-    survived: usize,
-    unviable: usize,
-    timeouts: usize,
-    other: usize,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    outcomes_path: Option<String>,
-}
-
-#[derive(Debug, Default, serde::Deserialize)]
-struct MutationSurvivorLedger {
-    schema_version: Option<String>,
-    #[serde(default)]
-    survivor: Vec<MutationSurvivorEntry>,
-}
-
-#[derive(Debug, Clone, serde::Deserialize, serde::Serialize)]
-struct MutationSurvivorEntry {
-    #[serde(rename = "crate")]
-    crate_name: String,
-    function: String,
-    classification: String,
-    owner: String,
-    reason: String,
-    expires: String,
-    #[serde(default)]
-    issue: Option<String>,
-}
-
-#[derive(Debug, Clone, serde::Serialize)]
-struct MutationSurvivorLedgerSummary {
-    path: String,
-    known_survivors: usize,
-    expired_classifications: usize,
-    pending_tests: usize,
-    accepted_risks: usize,
-    equivalent_mutants: usize,
-    unviable_mutants: usize,
-}
-
-#[derive(Debug, serde::Serialize)]
-struct MutationSurvivorLedgerReport {
-    summary: MutationSurvivorLedgerSummary,
-    known_survivors: Vec<MutationSurvivorEntry>,
-    expired_classifications: Vec<MutationSurvivorEntry>,
-    classification_counts: BTreeMap<String, usize>,
-    notes: Vec<&'static str>,
-}
-
-fn mutants_nightly(
-    scope: MutationNightlyScope,
-    crate_name: Option<String>,
-    dry_run: bool,
-) -> Result<()> {
-    let crates = mutation_nightly_crates(scope, crate_name.as_deref())?;
-    let survivor_report = mutation_survivor_report(
-        Path::new(MUTATION_SURVIVOR_LEDGER_PATH),
-        chrono::Utc::now().date_naive(),
-    )?;
-    let planned_results = planned_mutation_results(&crates);
-    write_mutation_nightly_artifacts(scope, dry_run, &crates, &survivor_report, &planned_results)?;
-
-    println!(
-        "mutants-nightly: scope={}, crates={}, dry_run={dry_run}",
-        scope.as_str(),
-        crates.join(",")
-    );
-
-    if dry_run {
-        return Ok(());
-    }
-
-    let crate_refs = crates.iter().map(String::as_str).collect::<Vec<_>>();
-    let mutation_run = run_mutants_with_outputs(&crate_refs, Path::new("target/mutation/runs"))?;
-    write_mutation_evidence_receipt(
-        Path::new("target/mutation"),
-        scope,
-        false,
-        &mutation_run.crate_results,
-        &survivor_report,
-    )?;
-    if !mutation_run.failed_crates.is_empty() {
-        bail!(
-            "mutation evidence failed for crates: {}",
-            mutation_run.failed_crates.join(", ")
-        );
-    }
-
-    Ok(())
-}
-
-fn mutation_nightly_crates(
-    scope: MutationNightlyScope,
-    crate_name: Option<&str>,
-) -> Result<Vec<String>> {
-    let crates = match scope {
-        MutationNightlyScope::Public => NIGHTLY_PUBLIC_MUTATION_CRATES
-            .iter()
-            .map(|name| (*name).to_string())
-            .collect(),
-        MutationNightlyScope::Adapters => NIGHTLY_ADAPTER_MUTATION_CRATES
-            .iter()
-            .map(|name| (*name).to_string())
-            .collect(),
-        MutationNightlyScope::All => PUBLISH_CRATES
-            .iter()
-            .map(|name| (*name).to_string())
-            .collect(),
-        MutationNightlyScope::Crate => {
-            let Some(name) = crate_name.filter(|name| !name.trim().is_empty()) else {
-                bail!("--scope crate requires --crate <CRATE>");
-            };
-            if !PUBLISH_CRATES.contains(&name) {
-                bail!("unknown publish crate for mutation scope: {name}");
-            }
-            vec![name.to_string()]
-        }
-    };
-
-    Ok(crates)
-}
-
-fn write_mutation_nightly_artifacts(
-    scope: MutationNightlyScope,
-    dry_run: bool,
-    crates: &[String],
-    survivor_report: &MutationSurvivorLedgerReport,
-    crate_results: &[MutationEvidenceCrateResult],
-) -> Result<()> {
-    let out_dir = Path::new("target/mutation");
-    fs::create_dir_all(out_dir)
-        .with_context(|| format!("failed to create {}", out_dir.display()))?;
-
-    let summary = MutationNightlySummary {
-        schema_version: 1,
-        lane: "mutation-nightly",
-        scope,
-        dry_run,
-        crates: crates.to_vec(),
-        survivor_ledger: survivor_report.summary.clone(),
-        claim_boundary: MUTATION_EVIDENCE_CLAIM_BOUNDARY.to_vec(),
-    };
-
-    write_json_pretty(&out_dir.join("nightly-summary.json"), &summary)?;
-    write_json_pretty(&out_dir.join("survivors.json"), &survivor_report)?;
-    write_mutation_evidence_receipt(out_dir, scope, dry_run, crate_results, survivor_report)?;
-    fs::write(
-        out_dir.join("nightly-summary.md"),
-        render_mutation_nightly_markdown(&summary),
-    )
-    .with_context(|| {
-        format!(
-            "failed to write {}",
-            out_dir.join("nightly-summary.md").display()
-        )
-    })?;
-    fs::write(
-        out_dir.join("survivors.md"),
-        render_mutation_survivors_markdown(survivor_report),
-    )
-    .with_context(|| format!("failed to write {}", out_dir.join("survivors.md").display()))?;
-
-    Ok(())
-}
-
-fn render_mutation_nightly_markdown(summary: &MutationNightlySummary) -> String {
-    let mut md = String::new();
-    md.push_str("# Nightly Mutation Evidence\n\n");
-    md.push_str(&format!("- Lane: `{}`\n", summary.lane));
-    md.push_str(&format!("- Scope: `{}`\n", summary.scope.as_str()));
-    md.push_str(&format!("- Dry run: `{}`\n", summary.dry_run));
-    md.push_str(&format!(
-        "- Known survivor classifications: `{}`\n",
-        summary.survivor_ledger.known_survivors
-    ));
-    md.push_str(&format!(
-        "- Expired survivor classifications: `{}`\n",
-        summary.survivor_ledger.expired_classifications
-    ));
-    md.push_str("\n## Crates\n\n");
-    for crate_name in &summary.crates {
-        md.push_str(&format!("- `{crate_name}`\n"));
-    }
-    md.push_str("\n## Claim Boundary\n\n");
-    for claim in &summary.claim_boundary {
-        md.push_str(&format!("- {claim}\n"));
-    }
-    md
-}
-
-fn planned_mutation_results(crates: &[String]) -> Vec<MutationEvidenceCrateResult> {
-    crates
-        .iter()
-        .map(|crate_name| MutationEvidenceCrateResult {
-            crate_name: crate_name.clone(),
-            status: "planned".to_string(),
-            mutants_found: 0,
-            caught: 0,
-            survived: 0,
-            unviable: 0,
-            timeouts: 0,
-            other: 0,
-            outcomes_path: None,
-        })
-        .collect()
-}
-
-struct MutationRunEvidence {
-    crate_results: Vec<MutationEvidenceCrateResult>,
-    failed_crates: Vec<String>,
-}
-
-fn run_mutants_with_outputs(crates: &[&str], output_root: &Path) -> Result<MutationRunEvidence> {
-    ensure_cargo_mutants_installed()?;
-    fs::create_dir_all(output_root)
-        .with_context(|| format!("failed to create {}", output_root.display()))?;
-
-    let tool_env = MutationToolEnv::detect();
-    let mut results = Vec::new();
-    let mut failed_crates = Vec::new();
-
-    for name in crates {
-        let output_dir = output_root.join(name);
-        if output_dir.exists() {
-            fs::remove_dir_all(&output_dir)
-                .with_context(|| format!("failed to remove {}", output_dir.display()))?;
-        }
-
-        let Some(mut cmd) = mutation_command_for_crate(name, Some(&output_dir), &tool_env, None)?
-        else {
-            results.push(MutationEvidenceCrateResult {
-                crate_name: (*name).to_string(),
-                status: "skipped".to_string(),
-                mutants_found: 0,
-                caught: 0,
-                survived: 0,
-                unviable: 0,
-                timeouts: 0,
-                other: 0,
-                outcomes_path: None,
-            });
-            continue;
-        };
-
-        eprintln!("{} {:?}", " RUN ".on_blue().black().bold(), cmd);
-        let status = cmd
-            .status()
-            .with_context(|| format!("failed to run cargo-mutants for {name}"))?;
-        let mut result = match read_mutation_evidence_result(name, &output_dir) {
-            Ok(result) => result,
-            Err(err) if status.success() => return Err(err),
-            Err(_) => MutationEvidenceCrateResult {
-                crate_name: (*name).to_string(),
-                status: "failed-no-outcomes".to_string(),
-                mutants_found: 0,
-                caught: 0,
-                survived: 0,
-                unviable: 0,
-                timeouts: 0,
-                other: 0,
-                outcomes_path: None,
-            },
-        };
-        if !status.success() {
-            result.status = "failed".to_string();
-            failed_crates.push((*name).to_string());
-        }
-        results.push(result);
-    }
-
-    Ok(MutationRunEvidence {
-        crate_results: results,
-        failed_crates,
-    })
-}
-
-fn read_mutation_evidence_result(
-    crate_name: &str,
-    output_dir: &Path,
-) -> Result<MutationEvidenceCrateResult> {
-    let outcomes_path = mutation_outcomes_path(output_dir);
-    let raw = fs::read_to_string(&outcomes_path)
-        .with_context(|| format!("failed to read {}", outcomes_path.display()))?;
-    let outcomes: CargoMutantsOutcomes = serde_json::from_str(&raw)
-        .with_context(|| format!("failed to parse {}", outcomes_path.display()))?;
-    Ok(mutation_evidence_result_from_outcomes(
-        crate_name,
-        Some(outcomes_path.display().to_string()),
-        &outcomes,
-    ))
-}
-
-fn mutation_outcomes_path(output_dir: &Path) -> PathBuf {
-    let nested = output_dir.join("mutants.out/outcomes.json");
-    if nested.is_file() {
-        nested
-    } else {
-        output_dir.join("outcomes.json")
-    }
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct CargoMutantsOutcomes {
-    #[serde(default)]
-    outcomes: Vec<CargoMutantsOutcome>,
-}
-
-#[derive(Debug, serde::Deserialize)]
-struct CargoMutantsOutcome {
-    scenario: serde_json::Value,
-    summary: String,
-}
-
-fn mutation_evidence_result_from_outcomes(
-    crate_name: &str,
-    outcomes_path: Option<String>,
-    outcomes: &CargoMutantsOutcomes,
-) -> MutationEvidenceCrateResult {
-    let mut result = MutationEvidenceCrateResult {
-        crate_name: crate_name.to_string(),
-        status: "completed".to_string(),
-        mutants_found: 0,
-        caught: 0,
-        survived: 0,
-        unviable: 0,
-        timeouts: 0,
-        other: 0,
-        outcomes_path,
-    };
-
-    for outcome in &outcomes.outcomes {
-        if outcome.scenario.get("Mutant").is_none() {
-            continue;
-        }
-
-        result.mutants_found += 1;
-        match outcome.summary.as_str() {
-            "CaughtMutant" => result.caught += 1,
-            "MissedMutant" => result.survived += 1,
-            "Unviable" => result.unviable += 1,
-            summary if summary.contains("Timeout") => result.timeouts += 1,
-            _ => result.other += 1,
-        }
-    }
-
-    result
-}
-
-fn write_mutation_evidence_receipt(
-    out_dir: &Path,
-    scope: MutationNightlyScope,
-    dry_run: bool,
-    crate_results: &[MutationEvidenceCrateResult],
-    survivor_report: &MutationSurvivorLedgerReport,
-) -> Result<()> {
-    let receipt = MutationEvidenceReceipt {
-        schema_version: 1,
-        lane: "mutation-nightly",
-        scope,
-        dry_run,
-        crate_results: crate_results.to_vec(),
-        survivor_ledger: survivor_report.summary.clone(),
-        claim_boundary: MUTATION_EVIDENCE_CLAIM_BOUNDARY.to_vec(),
-    };
-
-    write_json_pretty(&out_dir.join("nightly-receipt.json"), &receipt)?;
-    fs::write(
-        out_dir.join("nightly-receipt.md"),
-        render_mutation_evidence_receipt_markdown(&receipt),
-    )
-    .with_context(|| {
-        format!(
-            "failed to write {}",
-            out_dir.join("nightly-receipt.md").display()
-        )
-    })?;
-    Ok(())
-}
-
-fn render_mutation_evidence_receipt_markdown(receipt: &MutationEvidenceReceipt) -> String {
-    let mut md = String::new();
-    md.push_str("# Mutation Evidence Receipt\n\n");
-    md.push_str(&format!("- Lane: `{}`\n", receipt.lane));
-    md.push_str(&format!("- Scope: `{}`\n", receipt.scope.as_str()));
-    md.push_str(&format!("- Dry run: `{}`\n", receipt.dry_run));
-    md.push_str(&format!(
-        "- Known survivor classifications: `{}`\n",
-        receipt.survivor_ledger.known_survivors
-    ));
-    md.push_str("\n## Crate Results\n\n");
-    md.push_str("| Crate | Status | Found | Caught | Survived | Unviable | Timeouts | Other |\n");
-    md.push_str("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: |\n");
-    for result in &receipt.crate_results {
-        md.push_str(&format!(
-            "| `{}` | `{}` | {} | {} | {} | {} | {} | {} |\n",
-            result.crate_name,
-            result.status,
-            result.mutants_found,
-            result.caught,
-            result.survived,
-            result.unviable,
-            result.timeouts,
-            result.other
-        ));
-    }
-    md.push_str("\n## Claim Boundary\n\n");
-    for claim in &receipt.claim_boundary {
-        md.push_str(&format!("- {claim}\n"));
-    }
-    md
-}
-
-fn mutation_survivor_report(
-    path: &Path,
-    today: chrono::NaiveDate,
-) -> Result<MutationSurvivorLedgerReport> {
-    let ledger = read_mutation_survivor_ledger(path)?;
-    mutation_survivor_report_from_ledger(path, ledger, today)
-}
-
-fn read_mutation_survivor_ledger(path: &Path) -> Result<MutationSurvivorLedger> {
-    let raw = fs::read_to_string(path)
-        .with_context(|| format!("failed to read mutation survivor ledger {}", path.display()))?;
-    toml::from_str(&raw).with_context(|| {
-        format!(
-            "failed to parse mutation survivor ledger {}",
-            path.display()
-        )
-    })
-}
-
-fn mutation_survivor_report_from_ledger(
-    path: &Path,
-    ledger: MutationSurvivorLedger,
-    today: chrono::NaiveDate,
-) -> Result<MutationSurvivorLedgerReport> {
-    if ledger.schema_version.as_deref() != Some("0.1") {
-        bail!("mutation survivor ledger must set schema_version = \"0.1\"");
-    }
-
-    let mut classification_counts = BTreeMap::new();
-    let mut expired_classifications = Vec::new();
-
-    for entry in &ledger.survivor {
-        validate_mutation_survivor_entry(entry)?;
-        *classification_counts
-            .entry(entry.classification.clone())
-            .or_insert(0) += 1;
-
-        let expires = chrono::NaiveDate::parse_from_str(&entry.expires, "%Y-%m-%d")
-            .with_context(|| format!("invalid mutation survivor expiry {}", entry.expires))?;
-        if expires < today {
-            expired_classifications.push(entry.clone());
-        }
-    }
-
-    let summary = MutationSurvivorLedgerSummary {
-        path: path.display().to_string(),
-        known_survivors: ledger.survivor.len(),
-        expired_classifications: expired_classifications.len(),
-        pending_tests: *classification_counts.get("pending-test").unwrap_or(&0),
-        accepted_risks: *classification_counts.get("accepted-risk").unwrap_or(&0),
-        equivalent_mutants: *classification_counts.get("equivalent").unwrap_or(&0),
-        unviable_mutants: 0,
-    };
-
-    Ok(MutationSurvivorLedgerReport {
-        summary,
-        known_survivors: ledger.survivor,
-        expired_classifications,
-        classification_counts,
-        notes: vec![
-            "new survivor detection will be added with mutation result receipts",
-            "unviable mutants are counted from cargo-mutants output in a later lane",
-        ],
-    })
-}
-
-fn validate_mutation_survivor_entry(entry: &MutationSurvivorEntry) -> Result<()> {
-    for (field, value) in [
-        ("crate", entry.crate_name.as_str()),
-        ("function", entry.function.as_str()),
-        ("classification", entry.classification.as_str()),
-        ("owner", entry.owner.as_str()),
-        ("reason", entry.reason.as_str()),
-        ("expires", entry.expires.as_str()),
-    ] {
-        if value.trim().is_empty() {
-            bail!("mutation survivor entry has empty {field}");
-        }
-    }
-
-    if !PUBLISH_CRATES.contains(&entry.crate_name.as_str()) {
-        bail!(
-            "mutation survivor entry references unknown publish crate: {}",
-            entry.crate_name
-        );
-    }
-
-    if !MUTATION_SURVIVOR_CLASSIFICATIONS.contains(&entry.classification.as_str()) {
-        bail!(
-            "mutation survivor entry has unsupported classification {}",
-            entry.classification
-        );
-    }
-
-    chrono::NaiveDate::parse_from_str(&entry.expires, "%Y-%m-%d")
-        .with_context(|| format!("invalid mutation survivor expiry {}", entry.expires))?;
-
-    if entry
-        .issue
-        .as_deref()
-        .is_some_and(|issue| issue.trim().is_empty())
-    {
-        bail!("mutation survivor entry has empty issue");
-    }
-
-    Ok(())
-}
-
-fn render_mutation_survivors_markdown(report: &MutationSurvivorLedgerReport) -> String {
-    let mut md = String::new();
-    md.push_str("# Mutation Survivors\n\n");
-    md.push_str(&format!("- Ledger: `{}`\n", report.summary.path));
-    md.push_str(&format!(
-        "- Known survivor classifications: `{}`\n",
-        report.summary.known_survivors
-    ));
-    md.push_str(&format!(
-        "- Expired survivor classifications: `{}`\n",
-        report.summary.expired_classifications
-    ));
-    md.push_str(&format!(
-        "- Pending tests: `{}`\n",
-        report.summary.pending_tests
-    ));
-    md.push_str(&format!(
-        "- Accepted risks: `{}`\n",
-        report.summary.accepted_risks
-    ));
-    md.push_str(&format!(
-        "- Equivalent mutants: `{}`\n",
-        report.summary.equivalent_mutants
-    ));
-    md.push_str("\n## Known Survivors\n\n");
-    if report.known_survivors.is_empty() {
-        md.push_str("None classified.\n");
-    } else {
-        for survivor in &report.known_survivors {
-            md.push_str(&format!(
-                "- `{}` `{}`: {} ({}, expires `{}`)\n",
-                survivor.crate_name,
-                survivor.function,
-                survivor.classification,
-                survivor.owner,
-                survivor.expires
-            ));
-        }
-    }
-    md.push_str("\n## Expired Classifications\n\n");
-    if report.expired_classifications.is_empty() {
-        md.push_str("None.\n");
-    } else {
-        for survivor in &report.expired_classifications {
-            md.push_str(&format!(
-                "- `{}` `{}` expired `{}`\n",
-                survivor.crate_name, survivor.function, survivor.expires
-            ));
-        }
-    }
-    md.push_str("\n## Notes\n\n");
-    for note in &report.notes {
-        md.push_str(&format!("- {note}\n"));
-    }
-    md
-}
-
 fn fuzz(target: Option<&str>, all: bool, list: bool, extra: &[String]) -> Result<()> {
     let targets = if list || all {
         list_fuzz_targets()?
@@ -3075,7 +2237,7 @@ fn ensure_cargo_fuzz_available() -> Result<()> {
     }
 }
 
-fn pr(with_mutants: bool) -> Result<()> {
+fn pr() -> Result<()> {
     let base_ref = resolve_base_ref();
     let changed_files = pr_changed_files(&base_ref)?;
     let plan = plan::build_plan(&changed_files);
@@ -3086,7 +2248,7 @@ fn pr(with_mutants: bool) -> Result<()> {
     }
     runner.set_crate_set(format!("pr:{}", plan.impacted_crates.len()));
 
-    let result = run_pr_plan(&base_ref, &changed_files, &plan, &mut runner, with_mutants);
+    let result = run_pr_plan(&base_ref, &changed_files, &plan, &mut runner);
     runner.summary();
     if let Err(err) = runner.write() {
         eprintln!("failed to write receipt: {err}");
@@ -3115,7 +2277,7 @@ const PR_LITE_LOCK_DIR: &str = "target/pr-lite.lock";
 const PR_LITE_CLAIM_BOUNDARY: &[&str] = &[
     "pr-lite is a bounded local approximation of hosted PR CI, not full hosted proof",
     "pr-lite receipts distinguish local proof from skipped or hosted-only evidence",
-    "heavy evidence routing explains mutation decisions but does not weaken mutation requirements",
+    "heavy evidence routing explains targeted evidence decisions but does not weaken them",
     "release evidence remains the shipped-truth proof for public version handoff",
 ];
 
@@ -3128,7 +2290,6 @@ struct PrLiteReceipt {
     base: String,
     changed_paths: Vec<String>,
     owner_crates: Vec<String>,
-    requires_targeted_mutation: bool,
     steps: Vec<PrLiteStepReceipt>,
     heavy_routing: PrLiteHeavyRouting,
     artifacts: Vec<String>,
@@ -3147,11 +2308,9 @@ struct PrLiteStepReceipt {
 
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 struct PrLiteHeavyRouting {
-    requires_targeted_mutation: bool,
     reasons: Vec<String>,
     ripr_requires_targeted_evidence: bool,
     ripr_severe_gap_count: usize,
-    selected_mutation_command: Option<String>,
     hosted_only: Vec<String>,
 }
 
@@ -3196,8 +2355,6 @@ fn pr_lite_receipt(
         base: base_ref.to_string(),
         changed_paths,
         owner_crates: impacted.owner_crates.clone(),
-        requires_targeted_mutation: impacted.requires_targeted_mutation
-            || impacted.ripr.requires_targeted_evidence,
         steps: Vec::new(),
         heavy_routing: pr_lite_heavy_routing(impacted),
         artifacts: vec![
@@ -3210,20 +2367,15 @@ fn pr_lite_receipt(
 }
 
 fn pr_lite_heavy_routing(impacted: &ImpactedEvidenceReport) -> PrLiteHeavyRouting {
-    let requires_targeted_mutation =
-        impacted.requires_targeted_mutation || impacted.ripr.requires_targeted_evidence;
     let mut reasons = impacted.reasons.clone();
     reasons.extend(impacted.ripr.reasons.clone());
     reasons.sort();
     reasons.dedup();
 
     PrLiteHeavyRouting {
-        requires_targeted_mutation,
         reasons,
         ripr_requires_targeted_evidence: impacted.ripr.requires_targeted_evidence,
         ripr_severe_gap_count: impacted.ripr.severe_gap_count,
-        selected_mutation_command: requires_targeted_mutation
-            .then(|| "cargo xtask mutants-pr --changed".to_string()),
         hosted_only: vec![
             "full hosted PR matrix".to_string(),
             "CodeRabbit review".to_string(),
@@ -3559,10 +2711,10 @@ fn write_pr_lite_receipts(root: &Path, receipt: &PrLiteReceipt) -> Result<()> {
 
 fn print_pr_lite_human(receipt: &PrLiteReceipt) {
     println!(
-        "pr-lite: {} (steps={}, targeted_mutation={})",
+        "pr-lite: {} (steps={}, targeted_evidence={})",
         receipt.status,
         receipt.steps.len(),
-        receipt.heavy_routing.requires_targeted_mutation
+        receipt.heavy_routing.ripr_requires_targeted_evidence
     );
     println!("pr-lite: wrote target/pr-lite/pr-lite.json and target/pr-lite/pr-lite.md");
 }
@@ -3594,12 +2746,9 @@ fn render_pr_lite_markdown(receipt: &PrLiteReceipt) -> String {
 
     md.push_str("\n## Heavy Evidence Routing\n\n");
     md.push_str(&format!(
-        "- Targeted mutation required: `{}`\n",
-        receipt.heavy_routing.requires_targeted_mutation
+        "- Targeted evidence required: `{}`\n",
+        receipt.heavy_routing.ripr_requires_targeted_evidence
     ));
-    if let Some(command) = &receipt.heavy_routing.selected_mutation_command {
-        md.push_str(&format!("- Selected mutation command: `{command}`\n"));
-    }
     if receipt.heavy_routing.reasons.is_empty() {
         md.push_str("- Reasons: none\n");
     } else {
@@ -3626,71 +2775,12 @@ fn render_pr_lite_markdown(receipt: &PrLiteReceipt) -> String {
     md
 }
 
-fn mutants_pr(
-    changed: bool,
-    crates: Vec<String>,
-    all: bool,
-    full_owner: bool,
-    explain: bool,
-) -> Result<()> {
-    let selector_count = usize::from(changed) + usize::from(!crates.is_empty()) + usize::from(all);
-    if selector_count != 1 {
-        bail!("select exactly one of --changed, --crate <CRATE>, or --all");
-    }
-
-    if explain && !changed {
-        bail!("mutants-pr --explain is only supported with --changed");
-    }
-
-    if full_owner {
-        eprintln!("mutants-pr: full-owner proof requested for selected target(s)");
-    }
-
-    if all {
-        return run_mutants(PUBLISH_CRATES, None);
-    }
-
-    if !crates.is_empty() {
-        let crate_refs = crates.iter().map(String::as_str).collect::<Vec<_>>();
-        return run_mutants(&crate_refs, None);
-    }
-
-    let base_ref = resolve_base_ref();
-    let changed_files = pr_lite_changed_files(&base_ref)?;
-    let mut routing = mutation_routing_receipt(&base_ref, &changed_files, full_owner)?;
-    let prepared_diff_filter = prepare_mutation_diff_filter(
-        &base_ref,
-        &changed_files,
-        &routing.target_crates,
-        full_owner,
-    );
-    routing.diff_filter = prepared_diff_filter.routing.clone();
-    write_mutation_routing_receipt(&workspace_root_path(), &routing)?;
-    if explain {
-        println!("{}", render_mutation_routing_markdown(&routing));
-        return Ok(());
-    }
-
-    if routing.target_crates.is_empty() {
-        println!("mutants-pr: no mutant-eligible behavior changes");
-        return Ok(());
-    }
-
-    let pr_crate_refs = routing
-        .target_crates
-        .iter()
-        .map(String::as_str)
-        .collect::<Vec<_>>();
-    run_mutants(&pr_crate_refs, prepared_diff_filter.path.as_deref())
-}
-
 #[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
 struct ImpactedEvidenceReport {
     schema_version: u32,
     base: String,
     changed_paths: Vec<String>,
     owner_crates: Vec<String>,
-    requires_targeted_mutation: bool,
     reasons: Vec<String>,
     ripr: RiprEvidenceRouting,
 }
@@ -3705,43 +2795,10 @@ struct RiprEvidenceRouting {
     suggested_actions: Vec<String>,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-struct MutationRoutingReceipt {
-    schema_version: u32,
-    generated_at: String,
-    base: String,
-    changed_files: Vec<String>,
-    owner_crates: Vec<String>,
-    target_crates: Vec<String>,
-    requires_targeted_mutation: bool,
-    reasons: Vec<String>,
-    ripr: RiprEvidenceRouting,
-    labels_considered: Vec<String>,
-    release_risk_decision: String,
-    full_owner_requested: bool,
-    selected_command: Option<String>,
-    diff_filter: MutationDiffFilterRouting,
-    artifacts: Vec<String>,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, serde::Serialize)]
-struct MutationDiffFilterRouting {
-    available: bool,
-    path: Option<String>,
-    reason: String,
-}
-
-#[derive(Debug, Clone)]
-struct PreparedMutationDiffFilter {
-    path: Option<PathBuf>,
-    routing: MutationDiffFilterRouting,
-}
-
 #[derive(Debug, Clone)]
 struct ImpactedEvidenceRule {
     owner_crate: String,
     reason: &'static str,
-    requires_targeted_mutation: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -3778,7 +2835,7 @@ struct ReleaseEvidenceReceipt {
 const RELEASE_EVIDENCE_CLAIM_BOUNDARY: &[&str] = &[
     "release evidence proves fixture-platform readiness for a candidate, not cryptographic correctness",
     "release evidence does not make uselesskey production key management",
-    "ripr and mutation evidence are lane-scoped and complement deterministic regression tests",
+    "ripr evidence is lane-scoped and complements deterministic regression tests",
     "scanner-safe evidence covers checked profiles and committed artifacts, not scanner evasion",
 ];
 
@@ -3985,36 +3042,19 @@ fn release_evidence_steps_minor() -> Vec<ReleaseEvidenceStep> {
             command: &["cargo", "xtask", "perf", "--compare"],
             artifacts: &["target/xtask/perf/latest.json"],
         },
-        ReleaseEvidenceStep {
-            name: "mutants-nightly-public",
-            command: &["cargo", "xtask", "mutants-nightly", "--scope", "public"],
-            artifacts: &[
-                "target/mutation/nightly-summary.json",
-                "target/mutation/nightly-summary.md",
-                "target/mutation/nightly-receipt.json",
-                "target/mutation/nightly-receipt.md",
-                "target/mutation/survivors.json",
-                "target/mutation/survivors.md",
-            ],
-        },
     ]
 }
 
 /// Patch-release evidence lane: publish-system gates + user-path smoke.
 ///
 /// Patch releases don't need the full minor-release evidence pack
-/// (no `mutants-nightly`, no broad perf suite, no new product profile proofs).
+/// (no broad perf suite, no new product profile proofs).
 /// They need confidence that release tooling and the user install path still work,
 /// plus the standard scanner/no-blob/docs sanity checks.
 ///
 /// `cratesio-smoke` is invoked with `--path .` and `--skip-install-cli`
 /// to keep patch evidence fast in CI; full install smoke remains available
 /// via `cargo xtask cratesio-smoke` on demand.
-///
-/// Targeted mutation (e.g. `mutants-pr`) is intentionally not run here.
-/// `cargo xtask pr` and `impacted-evidence` already gate targeted mutation
-/// when changed paths require it; full `mutants-nightly --scope public` is
-/// reserved for the minor lane.
 fn release_evidence_steps_patch() -> Vec<ReleaseEvidenceStep> {
     vec![
         ReleaseEvidenceStep {
@@ -4116,8 +3156,6 @@ fn release_evidence_steps_patch() -> Vec<ReleaseEvidenceStep> {
             ],
             artifacts: &["target/xtask/impacted-evidence/latest.json"],
         },
-        // Note: mutants-nightly is intentionally omitted from patch mode.
-        // Targeted mutation runs only if `impacted-evidence` requires it
         // (handled by `cargo xtask pr` already).
     ]
 }
@@ -4378,7 +3416,7 @@ fn render_release_evidence_summary_markdown(receipt: &ReleaseEvidenceReceipt) ->
     md.push_str(" Release Evidence Summary\n\n");
 
     if receipt.lane_mode == "patch" {
-        md.push_str("> Patch-mode evidence lane: publish-system gates and user-path smoke only. Full nightly mutation, broad perf, and new product profile proofs are intentionally omitted; use the minor lane (`cargo xtask release-evidence --version <V> --summary`) for those.\n\n");
+        md.push_str("> Patch-mode evidence lane: publish-system gates and user-path smoke only. Broad perf and new product profile proofs are intentionally omitted; use the minor lane (`cargo xtask release-evidence --version <V> --summary`) for those.\n\n");
         md.push_str("## Release Claim\n\n");
         md.push_str(
             "Patch releases harden release tooling and the user install path without changing public behavior. This summary records the publish-system and scanner gates that prove the candidate is safe to ship as a patch.\n\n",
@@ -4439,7 +3477,6 @@ fn render_release_evidence_summary_markdown(receipt: &ReleaseEvidenceReceipt) ->
             ),
             ("RIPR exposure", &["ripr-pr", "impacted-evidence"][..]),
             ("Verification pack", &["verification-pack"][..]),
-            ("Nightly mutation scope", &["mutants-nightly-public"][..]),
             ("Performance evidence", &["perf"][..]),
             (
                 "Docs, examples, and scanner guard",
@@ -5056,10 +4093,6 @@ fn acquire_impacted_evidence_output_lock(root: &Path) -> Result<target_output::T
     target_output::acquire_lock(root, IMPACTED_EVIDENCE_LOCK_DIR, "impacted-evidence")
 }
 
-fn impacted_evidence_report(base_ref: &str, changed_paths: &[String]) -> ImpactedEvidenceReport {
-    impacted_evidence_report_with_ripr(base_ref, changed_paths, None)
-}
-
 fn impacted_evidence_report_with_ripr(
     base_ref: &str,
     changed_paths: &[String],
@@ -5067,7 +4100,6 @@ fn impacted_evidence_report_with_ripr(
 ) -> ImpactedEvidenceReport {
     let mut owner_crates = BTreeSet::new();
     let mut reasons = BTreeSet::new();
-    let mut requires_targeted_mutation = false;
     let changed_paths = changed_paths
         .iter()
         .map(|path| path.replace('\\', "/"))
@@ -5077,7 +4109,6 @@ fn impacted_evidence_report_with_ripr(
         if let Some(rule) = impacted_evidence_rule(path) {
             owner_crates.insert(rule.owner_crate.to_string());
             reasons.insert(rule.reason.to_string());
-            requires_targeted_mutation |= rule.requires_targeted_mutation;
         }
     }
 
@@ -5087,7 +4118,6 @@ fn impacted_evidence_report_with_ripr(
         ripr: ripr_evidence_routing(&changed_paths, ripr_json),
         changed_paths,
         owner_crates: owner_crates.into_iter().collect(),
-        requires_targeted_mutation,
         reasons: reasons.into_iter().collect(),
     }
 }
@@ -5175,9 +4205,8 @@ fn ripr_evidence_routing(
     let mut suggested_actions = Vec::new();
     if requires_targeted_evidence {
         suggested_actions.push("Add focused tests for severe ripr exposure gaps".to_string());
-        suggested_actions.push("Run cargo xtask mutants-pr --changed".to_string());
         for owner in &owner_crates {
-            suggested_actions.push(format!("Run cargo xtask mutants-pr --crate {owner}"));
+            suggested_actions.push(format!("Add focused tests for {owner}"));
         }
     }
 
@@ -5244,7 +4273,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
         return Some(ImpactedEvidenceRule {
             owner_crate: "uselesskey-core".to_string(),
             reason: "core-derivation",
-            requires_targeted_mutation: true,
         });
     }
 
@@ -5252,7 +4280,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
         return Some(ImpactedEvidenceRule {
             owner_crate: "uselesskey-core".to_string(),
             reason: "core-cache",
-            requires_targeted_mutation: true,
         });
     }
 
@@ -5260,7 +4287,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
         return Some(ImpactedEvidenceRule {
             owner_crate: "uselesskey-core".to_string(),
             reason: "core-sink",
-            requires_targeted_mutation: true,
         });
     }
 
@@ -5270,7 +4296,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
         return Some(ImpactedEvidenceRule {
             owner_crate: "uselesskey-core".to_string(),
             reason: "core-key-material",
-            requires_targeted_mutation: true,
         });
     }
 
@@ -5280,7 +4305,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
         return Some(ImpactedEvidenceRule {
             owner_crate: "uselesskey-core".to_string(),
             reason: "negative-helper",
-            requires_targeted_mutation: true,
         });
     }
 
@@ -5288,7 +4312,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
         return Some(ImpactedEvidenceRule {
             owner_crate: "uselesskey-core".to_string(),
             reason: "core-foundation",
-            requires_targeted_mutation: true,
         });
     }
 
@@ -5323,7 +4346,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
             return Some(ImpactedEvidenceRule {
                 owner_crate: owner.to_string(),
                 reason,
-                requires_targeted_mutation: true,
             });
         }
     }
@@ -5332,7 +4354,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
         return Some(ImpactedEvidenceRule {
             owner_crate: "uselesskey-cli".to_string(),
             reason: "cli-bundle-or-receipt",
-            requires_targeted_mutation: true,
         });
     }
 
@@ -5350,7 +4371,6 @@ fn impacted_evidence_rule(path: &str) -> Option<ImpactedEvidenceRule> {
         return Some(ImpactedEvidenceRule {
             owner_crate: crate_name.to_string(),
             reason,
-            requires_targeted_mutation: true,
         });
     }
 
@@ -5375,7 +4395,6 @@ fn run_pr_plan(
     changed_files: &[String],
     plan: &plan::Plan,
     runner: &mut receipt::Runner,
-    with_mutants: bool,
 ) -> Result<()> {
     runner.step(
         "detect-changes",
@@ -5409,7 +4428,6 @@ fn run_pr_plan(
         record_feature_matrix_skipped(runner);
         runner.skip("dep-guard", reason.clone());
         runner.skip("bdd", reason.clone());
-        runner.skip("mutants", reason.clone());
         runner.skip("fuzz", reason.clone());
         runner.skip("no-blob", reason.clone());
         runner.skip("coverage", reason.clone());
@@ -5468,30 +4486,6 @@ fn run_pr_plan(
             "bdd",
             Some("no crate source or bdd feature changes".to_string()),
         );
-    }
-
-    if plan.run_mutants && with_mutants {
-        let pr_crates = mutation_target_crates(base_ref, changed_files)?;
-        if pr_crates.is_empty() {
-            runner.skip(
-                "mutants",
-                Some("no mutant-eligible behavior changes".into()),
-            );
-        } else {
-            let pr_crate_refs = pr_crates.iter().map(String::as_str).collect::<Vec<_>>();
-            let diff_filter =
-                prepare_mutation_diff_filter(base_ref, changed_files, &pr_crates, false);
-            runner.step("mutants", None, || {
-                run_mutants(&pr_crate_refs, diff_filter.path.as_deref())
-            })?;
-        }
-    } else if plan.run_mutants {
-        runner.skip(
-            "mutants",
-            Some("split from default pr gate; run cargo xtask pr --with-mutants or cargo xtask mutants-pr --changed".to_string()),
-        );
-    } else {
-        runner.skip("mutants", Some("no crate source changes".to_string()));
     }
 
     if plan.run_fuzz {
@@ -5597,8 +4591,8 @@ const RIPR_REVIEW_LOCK_DIR: &str = "target/ripr-review.lock";
 
 const RIPR_CLAIM_BOUNDARY: &[&str] = &[
     "ripr is static oracle-exposure evidence for changed behavior",
-    "ripr does not run mutants and does not replace mutation testing",
-    "advisory PR evidence should route targeted mutation, not suppress it",
+    "ripr is advisory and does not replace deterministic regression tests",
+    "advisory PR evidence should route targeted tests, not suppress them",
 ];
 
 fn ripr_pr(check: bool) -> Result<()> {
@@ -5792,10 +4786,9 @@ fn render_pr_evidence_summary(
     let ripr_actions = json_string_vec(ripr_routing, "suggested_actions");
     let owner_crates = json_string_vec(impacted, "owner_crates");
     let ripr_owner_crates = json_string_vec(ripr_routing, "owner_crates");
-    let requires_targeted_mutation = json_bool(impacted, "requires_targeted_mutation")
-        || json_bool(ripr_routing, "requires_targeted_evidence");
+    let requires_targeted_evidence = json_bool(ripr_routing, "requires_targeted_evidence");
     let routing_reason =
-        pr_summary_routing_reason(requires_targeted_mutation, &impacted_reasons, &ripr_reasons);
+        pr_summary_routing_reason(requires_targeted_evidence, &impacted_reasons, &ripr_reasons);
 
     let mut md = String::new();
     md.push_str("# PR Evidence Summary\n\n");
@@ -5876,10 +4869,10 @@ fn render_pr_evidence_summary(
     }
     md.push('\n');
 
-    md.push_str("## Targeted Mutation\n\n");
+    md.push_str("## Targeted Evidence\n\n");
     md.push_str(&format!(
         "- Required by artifacts: `{}`\n",
-        yes_no(requires_targeted_mutation)
+        yes_no(requires_targeted_evidence)
     ));
     md.push_str(&format!("- Routing reason: `{routing_reason}`\n"));
     if !owner_crates.is_empty() {
@@ -5912,7 +4905,7 @@ fn render_pr_evidence_summary(
 }
 
 fn pr_summary_routing_reason(
-    requires_targeted_mutation: bool,
+    requires_targeted_evidence: bool,
     impacted_reasons: &[String],
     ripr_reasons: &[String],
 ) -> String {
@@ -5921,8 +4914,8 @@ fn pr_summary_routing_reason(
         reasons.extend(ripr_reasons.iter().cloned());
         return reasons.join(", ");
     }
-    if requires_targeted_mutation {
-        "targeted mutation routed by artifact policy".to_string()
+    if requires_targeted_evidence {
+        "targeted evidence routed by artifact policy".to_string()
     } else {
         "fast PR evidence only".to_string()
     }
@@ -6134,7 +5127,7 @@ fn render_ripr_markdown(base_ref: &str, json: &serde_json::Value) -> String {
     md.push_str("# RIPR PR Evidence\n\n");
     md.push_str("Status: advisory\n\n");
     md.push_str(&format!("Base: `{base_ref}`\n\n"));
-    md.push_str("`ripr` estimates whether changed Rust behavior appears to reach a meaningful test oracle. It does not run mutants.\n\n");
+    md.push_str("`ripr` estimates whether changed Rust behavior appears to reach a meaningful test oracle.\n\n");
     md.push_str("## Summary\n\n");
     md.push_str("| Metric | Count |\n");
     md.push_str("| --- | ---: |\n");
@@ -6365,485 +5358,6 @@ fn parse_changed_files(stdout: &[u8]) -> Result<Vec<String>> {
         .filter(|line| !line.is_empty())
         .collect::<Vec<_>>();
     Ok(files)
-}
-
-fn mutation_target_crates(base_ref: &str, changed_files: &[String]) -> Result<Vec<String>> {
-    let report = impacted_evidence_report(base_ref, changed_files);
-    if !report.requires_targeted_mutation {
-        if report.reasons.is_empty() {
-            println!("mutants-pr: targeted mutation not required by impacted evidence");
-        } else {
-            println!(
-                "mutants-pr: targeted mutation not required by impacted evidence ({})",
-                report.reasons.join(", ")
-            );
-        }
-        return Ok(Vec::new());
-    }
-
-    let mut targets = Vec::new();
-    for name in mutation_target_owners(changed_files) {
-        let owner_paths = mutation_target_paths_for_owner(&name, changed_files);
-        let rust_paths = owner_paths
-            .iter()
-            .filter(|path| path.ends_with(".rs"))
-            .cloned()
-            .collect::<Vec<_>>();
-        if rust_paths.is_empty() {
-            targets.push(name.clone());
-            continue;
-        }
-
-        let diff = git_diff_for_paths(base_ref, &rust_paths)?;
-        if diff_is_lint_allow_reason_only(&diff) {
-            eprintln!(
-                "xtask pr: skipping mutants for {name}: only lint allow reason metadata changed"
-            );
-            continue;
-        }
-
-        targets.push(name.clone());
-    }
-    Ok(targets)
-}
-
-fn mutation_routing_receipt(
-    base_ref: &str,
-    changed_files: &[String],
-    full_owner_requested: bool,
-) -> Result<MutationRoutingReceipt> {
-    let impacted = impacted_evidence_report(base_ref, changed_files);
-    let target_crates = mutation_target_crates(base_ref, changed_files)?;
-    let requires_targeted_mutation =
-        impacted.requires_targeted_mutation || impacted.ripr.requires_targeted_evidence;
-    let mut reasons = impacted.reasons.clone();
-    reasons.extend(impacted.ripr.reasons.clone());
-    reasons.sort();
-    reasons.dedup();
-
-    let diff_filter = mutation_diff_filter_routing(changed_files, &target_crates);
-    let selected_command = if target_crates.is_empty() {
-        None
-    } else if full_owner_requested {
-        Some("cargo xtask mutants-pr --changed --full-owner".to_string())
-    } else {
-        Some("cargo xtask mutants-pr --changed".to_string())
-    };
-
-    Ok(MutationRoutingReceipt {
-        schema_version: 1,
-        generated_at: chrono::Utc::now().to_rfc3339(),
-        base: base_ref.to_string(),
-        changed_files: changed_files
-            .iter()
-            .map(|path| path.replace('\\', "/"))
-            .collect(),
-        owner_crates: impacted.owner_crates,
-        target_crates,
-        requires_targeted_mutation,
-        reasons,
-        ripr: impacted.ripr,
-        labels_considered: vec![
-            "mutation".to_string(),
-            "release-risk".to_string(),
-            "mutation/full-owner".to_string(),
-        ],
-        release_risk_decision:
-            "local command cannot inspect PR labels; hosted CI adds label routing".to_string(),
-        full_owner_requested,
-        selected_command,
-        diff_filter,
-        artifacts: vec![
-            "target/xtask/mutation-routing/latest.json".to_string(),
-            "target/xtask/mutation-routing/latest.md".to_string(),
-        ],
-    })
-}
-
-fn mutation_diff_filter_routing(
-    changed_files: &[String],
-    target_crates: &[String],
-) -> MutationDiffFilterRouting {
-    if target_crates.is_empty() {
-        return MutationDiffFilterRouting {
-            available: false,
-            path: None,
-            reason: "no mutation target crates selected".to_string(),
-        };
-    }
-
-    match mutation_diff_filter_paths(changed_files, target_crates) {
-        Some(paths) => MutationDiffFilterRouting {
-            available: true,
-            path: Some("target/xtask/mutants-pr.diff".to_string()),
-            reason: format!(
-                "{} changed Rust path(s) can be used as a diff filter",
-                paths.len()
-            ),
-        },
-        None => MutationDiffFilterRouting {
-            available: false,
-            path: None,
-            reason: "changed owner paths include non-Rust files or no owner Rust paths".to_string(),
-        },
-    }
-}
-
-fn prepare_mutation_diff_filter(
-    base_ref: &str,
-    changed_files: &[String],
-    target_crates: &[String],
-    full_owner_requested: bool,
-) -> PreparedMutationDiffFilter {
-    if target_crates.is_empty() {
-        return PreparedMutationDiffFilter {
-            path: None,
-            routing: MutationDiffFilterRouting {
-                available: false,
-                path: None,
-                reason: "no mutation target crates selected".to_string(),
-            },
-        };
-    }
-
-    if full_owner_requested {
-        return PreparedMutationDiffFilter {
-            path: None,
-            routing: MutationDiffFilterRouting {
-                available: false,
-                path: None,
-                reason: "full-owner mutation requested; using crate-scope mutation".to_string(),
-            },
-        };
-    }
-
-    let Some(paths) = mutation_diff_filter_paths(changed_files, target_crates) else {
-        return PreparedMutationDiffFilter {
-            path: None,
-            routing: MutationDiffFilterRouting {
-                available: false,
-                path: None,
-                reason: "changed owner paths include non-Rust files or no owner Rust paths"
-                    .to_string(),
-            },
-        };
-    };
-
-    let diff = match git_diff_for_paths(base_ref, &paths) {
-        Ok(diff) => diff,
-        Err(err) => {
-            return PreparedMutationDiffFilter {
-                path: None,
-                routing: MutationDiffFilterRouting {
-                    available: false,
-                    path: None,
-                    reason: format!(
-                        "failed to generate diff filter ({err}); using crate-scope mutation"
-                    ),
-                },
-            };
-        }
-    };
-
-    if diff.trim().is_empty() {
-        return PreparedMutationDiffFilter {
-            path: None,
-            routing: MutationDiffFilterRouting {
-                available: false,
-                path: None,
-                reason: "git diff produced no changed hunks for owner Rust paths; using crate-scope mutation"
-                    .to_string(),
-            },
-        };
-    }
-
-    let path = PathBuf::from("target/xtask/mutants-pr.diff");
-    if let Some(parent) = path.parent()
-        && let Err(err) = fs::create_dir_all(parent)
-    {
-        return PreparedMutationDiffFilter {
-            path: None,
-            routing: MutationDiffFilterRouting {
-                available: false,
-                path: None,
-                reason: format!(
-                    "failed to create diff filter directory {} ({err}); using crate-scope mutation",
-                    parent.display()
-                ),
-            },
-        };
-    }
-
-    if let Err(err) = fs::write(&path, diff) {
-        return PreparedMutationDiffFilter {
-            path: None,
-            routing: MutationDiffFilterRouting {
-                available: false,
-                path: None,
-                reason: format!(
-                    "failed to write diff filter {} ({err}); using crate-scope mutation",
-                    path.display()
-                ),
-            },
-        };
-    }
-
-    eprintln!(
-        "mutants-pr: limiting mutation candidates to changed Rust hunks via {}",
-        path.display()
-    );
-
-    PreparedMutationDiffFilter {
-        path: Some(path),
-        routing: MutationDiffFilterRouting {
-            available: true,
-            path: Some("target/xtask/mutants-pr.diff".to_string()),
-            reason: format!(
-                "{} changed Rust path(s) can be used as a diff filter",
-                paths.len()
-            ),
-        },
-    }
-}
-
-const MUTATION_ROUTING_LOCK_DIR: &str = "target/mutation-routing.lock";
-
-fn acquire_mutation_routing_output_lock(root: &Path) -> Result<target_output::TargetOutputLock> {
-    target_output::acquire_lock(root, MUTATION_ROUTING_LOCK_DIR, "mutation-routing")
-}
-
-fn write_mutation_routing_receipt(root: &Path, receipt: &MutationRoutingReceipt) -> Result<()> {
-    let _output_lock = acquire_mutation_routing_output_lock(root)?;
-    let out_dir = root.join("target/xtask/mutation-routing");
-    write_json_pretty(&out_dir.join("latest.json"), receipt)?;
-    fs::write(
-        out_dir.join("latest.md"),
-        render_mutation_routing_markdown(receipt),
-    )
-    .with_context(|| format!("failed to write {}", out_dir.join("latest.md").display()))
-}
-
-fn render_mutation_routing_markdown(receipt: &MutationRoutingReceipt) -> String {
-    let mut md = String::new();
-    md.push_str("# Mutation Routing Receipt\n\n");
-    md.push_str(&format!("Base: `{}`\n\n", receipt.base));
-    md.push_str(&format!(
-        "Targeted mutation required: `{}`\n\n",
-        receipt.requires_targeted_mutation
-    ));
-
-    md.push_str("## Changed Files\n\n");
-    if receipt.changed_files.is_empty() {
-        md.push_str("- none\n");
-    } else {
-        for path in &receipt.changed_files {
-            md.push_str(&format!("- `{path}`\n"));
-        }
-    }
-
-    md.push_str("\n## Target Crates\n\n");
-    if receipt.target_crates.is_empty() {
-        md.push_str("- none\n");
-    } else {
-        for name in &receipt.target_crates {
-            md.push_str(&format!("- `{name}`\n"));
-        }
-    }
-
-    md.push_str("\n## Decision\n\n");
-    if let Some(command) = &receipt.selected_command {
-        md.push_str(&format!("- Selected command: `{command}`\n"));
-    } else {
-        md.push_str("- Selected command: none\n");
-    }
-    md.push_str(&format!(
-        "- Diff filter available: `{}`\n",
-        receipt.diff_filter.available
-    ));
-    md.push_str(&format!(
-        "- Diff filter reason: {}\n",
-        receipt.diff_filter.reason
-    ));
-    md.push_str(&format!(
-        "- RIPR severe gap count: `{}`\n",
-        receipt.ripr.severe_gap_count
-    ));
-    md.push_str(&format!(
-        "- Release-risk decision: {}\n",
-        receipt.release_risk_decision
-    ));
-
-    md.push_str("\n## Reasons\n\n");
-    if receipt.reasons.is_empty() {
-        md.push_str("- none\n");
-    } else {
-        for reason in &receipt.reasons {
-            md.push_str(&format!("- {reason}\n"));
-        }
-    }
-
-    md
-}
-
-fn mutation_diff_filter_paths(
-    changed_files: &[String],
-    target_crates: &[String],
-) -> Option<Vec<String>> {
-    let mut paths = BTreeSet::new();
-    for name in target_crates {
-        let owner_paths = mutation_target_paths_for_owner(name, changed_files);
-        if owner_paths.iter().any(|path| !path.ends_with(".rs")) {
-            return None;
-        }
-        paths.extend(owner_paths.into_iter().filter(|path| path.ends_with(".rs")));
-    }
-
-    if paths.is_empty() {
-        None
-    } else {
-        Some(paths.into_iter().collect())
-    }
-}
-
-fn mutation_target_owners(changed_files: &[String]) -> Vec<String> {
-    let mut owners = BTreeSet::new();
-    for path in changed_files {
-        let normalized = path.replace('\\', "/");
-        let Some(rule) = impacted_evidence_rule(&normalized) else {
-            continue;
-        };
-        if rule.requires_targeted_mutation && PUBLISH_CRATES.contains(&rule.owner_crate.as_str()) {
-            owners.insert(rule.owner_crate);
-        }
-    }
-    owners.into_iter().collect()
-}
-
-fn mutation_target_paths_for_owner(owner: &str, changed_files: &[String]) -> Vec<String> {
-    changed_files
-        .iter()
-        .map(|path| path.replace('\\', "/"))
-        .filter(|path| {
-            impacted_evidence_rule(path)
-                .is_some_and(|rule| rule.requires_targeted_mutation && rule.owner_crate == owner)
-        })
-        .collect()
-}
-
-fn git_diff_for_paths(base_ref: &str, paths: &[String]) -> Result<String> {
-    let mut attempts = Vec::new();
-    for candidate in base_ref_candidates(base_ref) {
-        let revspec = format!("{candidate}...HEAD");
-        let mut cmd = Command::new("git");
-        cmd.args(["diff", "--unified=0", "--no-ext-diff", &revspec, "--"]);
-        for path in paths {
-            cmd.arg(path);
-        }
-        let output = cmd.output().context("failed to run git diff")?;
-        if output.status.success() {
-            return String::from_utf8(output.stdout).context("git diff output was not valid UTF-8");
-        }
-
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        attempts.push(format!(
-            "{revspec} (status {}): {stderr}",
-            output.status.code().unwrap_or(-1)
-        ));
-    }
-
-    bail!(
-        "git diff failed for mutation target paths: {}",
-        attempts.join("; ")
-    )
-}
-
-fn diff_is_lint_allow_reason_only(diff: &str) -> bool {
-    let mut saw_changed_line = false;
-    let mut saw_changed_hunk = false;
-    let mut hunk_lines = Vec::new();
-
-    for line in diff.lines() {
-        if line.starts_with("@@") {
-            if !hunk_lines.is_empty() {
-                saw_changed_hunk = true;
-                if !lint_allow_reason_hunk_only(&hunk_lines) {
-                    return false;
-                }
-                hunk_lines.clear();
-            }
-            continue;
-        }
-
-        if line.starts_with("diff --git ")
-            || line.starts_with("index ")
-            || line.starts_with("new file mode ")
-            || line.starts_with("deleted file mode ")
-            || line.starts_with("similarity index ")
-            || line.starts_with("rename from ")
-            || line.starts_with("rename to ")
-            || line.starts_with("--- ")
-            || line.starts_with("+++ ")
-        {
-            continue;
-        }
-
-        if let Some(rest) = line.strip_prefix('+') {
-            saw_changed_line = true;
-            hunk_lines.push(rest);
-        } else if let Some(rest) = line.strip_prefix('-') {
-            saw_changed_line = true;
-            hunk_lines.push(rest);
-        }
-    }
-
-    if !hunk_lines.is_empty() {
-        saw_changed_hunk = true;
-        if !lint_allow_reason_hunk_only(&hunk_lines) {
-            return false;
-        }
-    }
-
-    saw_changed_line && saw_changed_hunk
-}
-
-fn lint_allow_reason_hunk_only(lines: &[&str]) -> bool {
-    let mut saw_allow = false;
-    let mut saw_reason = false;
-
-    for line in lines {
-        let trimmed = line.trim();
-        if trimmed.is_empty() {
-            return false;
-        }
-        if trimmed.starts_with("#[allow(") || trimmed.starts_with("#![allow(") {
-            saw_allow = true;
-            if trimmed.contains("reason") {
-                saw_reason = true;
-            }
-            continue;
-        }
-        if trimmed.starts_with("reason = ") {
-            saw_reason = true;
-            continue;
-        }
-        if trimmed == ")]" {
-            continue;
-        }
-        if lint_name_fragment(trimmed) {
-            continue;
-        }
-        return false;
-    }
-
-    saw_allow && saw_reason
-}
-
-fn lint_name_fragment(line: &str) -> bool {
-    let lint = line.trim_end_matches(',');
-    lint == "dead_code"
-        || lint == "unused"
-        || lint.starts_with("unused_")
-        || lint.starts_with("clippy::")
 }
 
 /// Compute the per-crate test targets for `cargo xtask pr`.
@@ -8206,7 +6720,6 @@ mod tests {
         assert!(rendered.contains("Status: advisory"));
         assert!(rendered.contains("| changed rust files | 1 |"));
         assert!(rendered.contains("`finding-1` at `crates/example/src/lib.rs:42`"));
-        assert!(rendered.contains("ripr does not run mutants"));
     }
 
     #[test]
@@ -8292,7 +6805,7 @@ mod tests {
             report
                 .ripr
                 .suggested_actions
-                .contains(&"Run cargo xtask mutants-pr --changed".to_string())
+                .contains(&"Add focused tests for severe ripr exposure gaps".to_string())
         );
     }
 
@@ -8340,18 +6853,17 @@ mod tests {
     }
 
     #[test]
-    fn impacted_evidence_core_derivation_requires_mutation() {
+    fn impacted_evidence_core_derivation_routes_owner_crate() {
         let paths = vec![
             "crates/uselesskey-core/src/srp/hash.rs".to_string(),
             "docs/ci/test-evidence-lanes.md".to_string(),
         ];
 
-        let report = impacted_evidence_report("origin/main", &paths);
+        let report = impacted_evidence_report_with_ripr("origin/main", &paths, None);
 
         assert_eq!(report.schema_version, 1);
         assert_eq!(report.base, "origin/main");
         assert_eq!(report.owner_crates, vec!["uselesskey-core".to_string()]);
-        assert!(report.requires_targeted_mutation);
         assert_eq!(report.reasons, vec!["core-derivation".to_string()]);
     }
 
@@ -8372,7 +6884,7 @@ mod tests {
             "crates/uselesskey-jwk/src/srp/builder.rs".to_string(),
         ];
 
-        let report = impacted_evidence_report("origin/main", &paths);
+        let report = impacted_evidence_report_with_ripr("origin/main", &paths, None);
 
         assert_eq!(
             report.owner_crates,
@@ -8382,7 +6894,6 @@ mod tests {
                 "uselesskey-x509".to_string()
             ]
         );
-        assert!(report.requires_targeted_mutation);
         assert_eq!(
             report.reasons,
             vec![
@@ -8397,10 +6908,9 @@ mod tests {
     fn impacted_evidence_docs_only_has_no_owner() {
         let paths = vec!["docs/ci/test-evidence-lanes.md".to_string()];
 
-        let report = impacted_evidence_report("origin/main", &paths);
+        let report = impacted_evidence_report_with_ripr("origin/main", &paths, None);
 
         assert!(report.owner_crates.is_empty());
-        assert!(!report.requires_targeted_mutation);
         assert!(report.reasons.is_empty());
     }
 
@@ -8408,243 +6918,14 @@ mod tests {
     fn impacted_evidence_normalizes_windows_paths() {
         let paths = vec!["crates\\uselesskey-token\\src\\srp\\shape.rs".to_string()];
 
-        let report = impacted_evidence_report("origin/main", &paths);
+        let report = impacted_evidence_report_with_ripr("origin/main", &paths, None);
 
         assert_eq!(
             report.changed_paths[0],
             "crates/uselesskey-token/src/srp/shape.rs"
         );
         assert_eq!(report.owner_crates, vec!["uselesskey-token".to_string()]);
-        assert!(report.requires_targeted_mutation);
         assert_eq!(report.reasons, vec!["token-owner-internal".to_string()]);
-    }
-
-    #[test]
-    fn mutation_target_owners_use_impacted_evidence() {
-        let paths = vec![
-            "crates/uselesskey-token/src/srp/shape.rs".to_string(),
-            "docs/ci/test-evidence-lanes.md".to_string(),
-        ];
-
-        assert_eq!(
-            mutation_target_owners(&paths),
-            vec!["uselesskey-token".to_string()]
-        );
-    }
-
-    #[test]
-    fn mutation_target_owners_skip_docs() {
-        let paths = vec!["docs/ci/test-evidence-lanes.md".to_string()];
-
-        assert!(mutation_target_owners(&paths).is_empty());
-    }
-
-    #[test]
-    fn mutation_target_paths_follow_owner_mapping() {
-        let paths = vec![
-            "crates/uselesskey-rustls/src/config.rs".to_string(),
-            "crates/uselesskey-x509/src/srp/spec/chain_spec.rs".to_string(),
-        ];
-
-        assert_eq!(
-            mutation_target_paths_for_owner("uselesskey-rustls", &paths),
-            vec!["crates/uselesskey-rustls/src/config.rs".to_string()]
-        );
-        assert_eq!(
-            mutation_target_paths_for_owner("uselesskey-x509", &paths),
-            vec!["crates/uselesskey-x509/src/srp/spec/chain_spec.rs".to_string()]
-        );
-    }
-
-    #[test]
-    fn mutation_diff_filter_paths_keep_changed_owner_rust_paths() {
-        let paths = vec![
-            "crates/uselesskey-x509/src/chain.rs".to_string(),
-            "crates/uselesskey-x509/src/chain/params.rs".to_string(),
-            "docs/ci/test-evidence-lanes.md".to_string(),
-        ];
-        let target_crates = vec!["uselesskey-x509".to_string()];
-
-        assert_eq!(
-            mutation_diff_filter_paths(&paths, &target_crates),
-            Some(vec![
-                "crates/uselesskey-x509/src/chain.rs".to_string(),
-                "crates/uselesskey-x509/src/chain/params.rs".to_string(),
-            ])
-        );
-    }
-
-    #[test]
-    fn mutation_diff_filter_paths_skip_when_no_owner_rust_paths() {
-        let paths = vec!["docs/ci/test-evidence-lanes.md".to_string()];
-        let target_crates = vec!["uselesskey-x509".to_string()];
-
-        assert!(mutation_diff_filter_paths(&paths, &target_crates).is_none());
-    }
-
-    #[test]
-    fn mutation_nightly_public_scope_uses_public_owner_crates() {
-        let crates = mutation_nightly_crates(MutationNightlyScope::Public, None).unwrap();
-
-        assert!(crates.contains(&"uselesskey-core".to_string()));
-        assert!(crates.contains(&"uselesskey-jwk".to_string()));
-        assert!(crates.contains(&"uselesskey-token".to_string()));
-        assert!(crates.contains(&"uselesskey-x509".to_string()));
-        assert!(crates.contains(&"uselesskey-cli".to_string()));
-    }
-
-    #[test]
-    fn mutation_nightly_adapter_scope_uses_adapter_crates() {
-        let crates = mutation_nightly_crates(MutationNightlyScope::Adapters, None).unwrap();
-
-        assert_eq!(
-            crates,
-            vec![
-                "uselesskey-jsonwebtoken".to_string(),
-                "uselesskey-rustls".to_string(),
-                "uselesskey-tonic".to_string(),
-                "uselesskey-axum".to_string(),
-                "uselesskey-ring".to_string(),
-                "uselesskey-rustcrypto".to_string(),
-                "uselesskey-aws-lc-rs".to_string(),
-            ]
-        );
-    }
-
-    #[test]
-    fn mutation_nightly_crate_scope_requires_known_crate() {
-        assert_eq!(
-            mutation_nightly_crates(MutationNightlyScope::Crate, Some("uselesskey-token")).unwrap(),
-            vec!["uselesskey-token".to_string()]
-        );
-        assert!(mutation_nightly_crates(MutationNightlyScope::Crate, None).is_err());
-        assert!(mutation_nightly_crates(MutationNightlyScope::Crate, Some("not-a-crate")).is_err());
-    }
-
-    #[test]
-    fn mutation_survivor_ledger_reports_expired_and_counts() {
-        let ledger: MutationSurvivorLedger = toml::from_str(
-            r#"
-schema_version = "0.1"
-
-[[survivor]]
-crate = "uselesskey-x509"
-function = "encode_optional_not_before"
-classification = "pending-test"
-owner = "fixtures/x509"
-reason = "Needs a focused stable-bytes assertion."
-expires = "2026-01-01"
-issue = "https://github.com/EffortlessMetrics/uselesskey/issues/1"
-
-[[survivor]]
-crate = "uselesskey-token"
-function = "near_miss_api_key"
-classification = "equivalent"
-owner = "fixtures/token"
-reason = "Equivalent mutant under current parser boundary."
-expires = "2026-12-01"
-"#,
-        )
-        .unwrap();
-        let report = mutation_survivor_report_from_ledger(
-            Path::new("policy/mutation-survivors.toml"),
-            ledger,
-            chrono::NaiveDate::from_ymd_opt(2026, 5, 9).unwrap(),
-        )
-        .unwrap();
-
-        assert_eq!(report.summary.known_survivors, 2);
-        assert_eq!(report.summary.expired_classifications, 1);
-        assert_eq!(report.summary.pending_tests, 1);
-        assert_eq!(report.summary.equivalent_mutants, 1);
-        assert_eq!(
-            report.expired_classifications[0].function,
-            "encode_optional_not_before"
-        );
-    }
-
-    #[test]
-    fn mutation_survivor_ledger_rejects_unknown_classification() {
-        let ledger = MutationSurvivorLedger {
-            schema_version: Some("0.1".to_string()),
-            survivor: vec![MutationSurvivorEntry {
-                crate_name: "uselesskey-token".to_string(),
-                function: "token_shape".to_string(),
-                classification: "ignored".to_string(),
-                owner: "fixtures/token".to_string(),
-                reason: "unsupported classification should fail".to_string(),
-                expires: "2026-12-01".to_string(),
-                issue: None,
-            }],
-        };
-
-        assert!(
-            mutation_survivor_report_from_ledger(
-                Path::new("policy/mutation-survivors.toml"),
-                ledger,
-                chrono::NaiveDate::from_ymd_opt(2026, 5, 9).unwrap(),
-            )
-            .is_err()
-        );
-    }
-
-    #[test]
-    fn mutation_evidence_counts_cargo_mutants_outcomes() {
-        let outcomes: CargoMutantsOutcomes = serde_json::from_str(
-            r#"
-{
-  "outcomes": [
-    { "scenario": "Baseline", "summary": "Success" },
-    {
-      "scenario": { "Mutant": { "name": "caught" } },
-      "summary": "CaughtMutant"
-    },
-    {
-      "scenario": { "Mutant": { "name": "missed" } },
-      "summary": "MissedMutant"
-    },
-    {
-      "scenario": { "Mutant": { "name": "unviable" } },
-      "summary": "Unviable"
-    },
-    {
-      "scenario": { "Mutant": { "name": "timeout" } },
-      "summary": "Timeout"
-    },
-    {
-      "scenario": { "Mutant": { "name": "unknown" } },
-      "summary": "Unknown"
-    }
-  ]
-}
-"#,
-        )
-        .unwrap();
-        let result = mutation_evidence_result_from_outcomes(
-            "uselesskey-token",
-            Some("target/mutation/runs/uselesskey-token/outcomes.json".to_string()),
-            &outcomes,
-        );
-
-        assert_eq!(result.mutants_found, 5);
-        assert_eq!(result.caught, 1);
-        assert_eq!(result.survived, 1);
-        assert_eq!(result.unviable, 1);
-        assert_eq!(result.timeouts, 1);
-        assert_eq!(result.other, 1);
-        assert_eq!(result.status, "completed");
-    }
-
-    #[test]
-    fn planned_mutation_results_mark_crates_as_planned() {
-        let results = planned_mutation_results(&[
-            "uselesskey-core".to_string(),
-            "uselesskey-token".to_string(),
-        ]);
-
-        assert_eq!(results.len(), 2);
-        assert!(results.iter().all(|result| result.status == "planned"));
-        assert!(results.iter().all(|result| result.mutants_found == 0));
     }
 
     #[test]
@@ -8742,75 +7023,6 @@ expires = "2026-12-01"
         );
 
         Ok(())
-    }
-
-    #[test]
-    fn diff_is_lint_allow_reason_only_accepts_multiline_reason() {
-        let diff = "\
-diff --git a/crates/example/src/lib.rs b/crates/example/src/lib.rs
-index 1111111..2222222 100644
---- a/crates/example/src/lib.rs
-+++ b/crates/example/src/lib.rs
-@@ -1 +1,4 @@
--#[allow(dead_code)]
-+#[allow(
-+    dead_code,
-+    reason = \"reserved for a feature-gated fixture path\"
-+)]
-";
-
-        assert!(diff_is_lint_allow_reason_only(diff));
-    }
-
-    #[test]
-    fn diff_is_lint_allow_reason_only_accepts_single_line_reason() {
-        let diff = "\
-diff --git a/crates/example/src/lib.rs b/crates/example/src/lib.rs
-index 1111111..2222222 100644
---- a/crates/example/src/lib.rs
-+++ b/crates/example/src/lib.rs
-@@ -1 +1 @@
--#[allow(clippy::clone_on_copy)]
-+#[allow(clippy::clone_on_copy, reason = \"explicit clone is under test\")]
-";
-
-        assert!(diff_is_lint_allow_reason_only(diff));
-    }
-
-    #[test]
-    fn diff_is_lint_allow_reason_only_rejects_bare_allow_change() {
-        let diff = "\
-diff --git a/crates/example/src/lib.rs b/crates/example/src/lib.rs
-index 1111111..2222222 100644
---- a/crates/example/src/lib.rs
-+++ b/crates/example/src/lib.rs
-@@ -1 +1 @@
--#[allow(dead_code)]
-+#[allow(dead_code)]
-";
-
-        assert!(!diff_is_lint_allow_reason_only(diff));
-    }
-
-    #[test]
-    fn diff_is_lint_allow_reason_only_rejects_behavior_change() {
-        let diff = "\
-diff --git a/crates/example/src/lib.rs b/crates/example/src/lib.rs
-index 1111111..2222222 100644
---- a/crates/example/src/lib.rs
-+++ b/crates/example/src/lib.rs
-@@ -1 +1,4 @@
--#[allow(dead_code)]
-+#[allow(
-+    dead_code,
-+    reason = \"reserved for a feature-gated fixture path\"
-+)]
-@@ -10 +13 @@
--let timeout = 20;
-+let timeout = 40;
-";
-
-        assert!(!diff_is_lint_allow_reason_only(diff));
     }
 
     #[test]
@@ -9166,7 +7378,6 @@ index 1111111..2222222 100644
             "economics",
             "audit-surface",
             "perf",
-            "mutants-nightly-public",
         ] {
             assert!(names.contains(expected), "missing release gate {expected}");
         }
@@ -9207,11 +7418,6 @@ index 1111111..2222222 100644
         assert!(receipt.artifacts.contains(
             &"target/release-evidence/webhook/webhook-contract-pack-proof.md".to_string()
         ));
-        assert!(
-            receipt
-                .artifacts
-                .contains(&"target/mutation/nightly-receipt.md".to_string())
-        );
     }
 
     #[test]
@@ -9222,7 +7428,6 @@ index 1111111..2222222 100644
 
         assert!(markdown.contains("Version: `0.7.0`"));
         assert!(markdown.contains("Mode: `minor`"));
-        assert!(markdown.contains("cargo xtask mutants-nightly --scope public"));
         assert!(
             markdown
                 .contains("release evidence does not make uselesskey production key management")
@@ -9241,39 +7446,8 @@ index 1111111..2222222 100644
         assert!(markdown.contains("OIDC contract-pack proof"));
         assert!(markdown.contains("TLS contract-pack proof"));
         assert!(markdown.contains("Webhook contract-pack proof"));
-        assert!(markdown.contains("Nightly mutation scope"));
         assert!(markdown.contains("Pending RC execution"));
         assert!(markdown.contains("not production key management"));
-    }
-
-    #[test]
-    fn release_evidence_patch_step_list_excludes_mutants_nightly() {
-        let steps = release_evidence_steps_patch();
-        for step in &steps {
-            assert!(
-                !(step.command.len() >= 3
-                    && step.command[0] == "cargo"
-                    && step.command[1] == "xtask"
-                    && step.command[2] == "mutants-nightly"),
-                "patch lane must not include mutants-nightly, found step {}",
-                step.name,
-            );
-        }
-    }
-
-    #[test]
-    fn release_evidence_minor_step_list_includes_mutants_nightly() {
-        let steps = release_evidence_steps_minor();
-        let has_mutants_nightly = steps.iter().any(|step| {
-            step.command.len() >= 3
-                && step.command[0] == "cargo"
-                && step.command[1] == "xtask"
-                && step.command[2] == "mutants-nightly"
-        });
-        assert!(
-            has_mutants_nightly,
-            "minor lane must still include mutants-nightly"
-        );
     }
 
     #[test]
@@ -9415,7 +7589,6 @@ index 1111111..2222222 100644
         assert!(markdown.contains("Patch-mode evidence lane"));
         assert!(markdown.contains("Crates.io install smoke"));
         assert!(markdown.contains("Scanner-safe reference"));
-        assert!(!markdown.contains("Nightly mutation scope"));
     }
 
     #[test]
@@ -11220,7 +9393,6 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
             base: "origin/main".to_string(),
             changed_paths: vec!["crates/uselesskey-x509/src/chain.rs".to_string()],
             owner_crates: vec!["uselesskey-x509".to_string()],
-            requires_targeted_mutation: true,
             reasons: vec!["public owner crate changed".to_string()],
             ripr: RiprEvidenceRouting {
                 status: "available".to_string(),
@@ -11234,15 +9406,10 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
     }
 
     #[test]
-    fn pr_lite_heavy_routing_selects_mutants_when_required() {
+    fn pr_lite_heavy_routing_carries_owner_reasons() {
         let impacted = pr_lite_test_impacted_report();
         let routing = pr_lite_heavy_routing(&impacted);
 
-        assert!(routing.requires_targeted_mutation);
-        assert_eq!(
-            routing.selected_mutation_command.as_deref(),
-            Some("cargo xtask mutants-pr --changed"),
-        );
         assert!(
             routing
                 .reasons
@@ -11266,8 +9433,6 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
         let markdown = render_pr_lite_markdown(&receipt);
 
         assert!(markdown.contains("Status: `pass`"));
-        assert!(markdown.contains("Targeted mutation required: `true`"));
-        assert!(markdown.contains("cargo xtask mutants-pr --changed"));
         assert!(markdown.contains("Hosted-Only Evidence"));
         assert!(markdown.contains("not full hosted proof"));
     }
@@ -11321,7 +9486,6 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
         let impacted = serde_json::json!({
             "base": "origin/main",
             "owner_crates": ["uselesskey-x509"],
-            "requires_targeted_mutation": false,
             "reasons": [],
             "ripr": {
                 "requires_targeted_evidence": true,
@@ -11329,7 +9493,7 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
                 "owner_crates": ["uselesskey-x509"],
                 "reasons": ["no-static-path"],
                 "suggested_actions": [
-                    "Run cargo xtask mutants-pr --crate uselesskey-x509"
+                    "Add focused tests for uselesskey-x509"
                 ]
             }
         });
@@ -11341,7 +9505,7 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
         assert!(markdown.contains("- Summary-only guidance: `1`"));
         assert!(markdown.contains("- Severe gap routed: `yes`"));
         assert!(markdown.contains("- Routing reason: `no-static-path`"));
-        assert!(markdown.contains("Run cargo xtask mutants-pr --crate uselesskey-x509"));
+        assert!(markdown.contains("Add focused tests for uselesskey-x509"));
     }
 
     #[test]
@@ -11365,159 +9529,6 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
                 "xtask/src/main.rs".to_string(),
             ],
         );
-    }
-
-    #[test]
-    fn mutation_diff_filter_routing_reports_available_rust_filter() {
-        let routing = mutation_diff_filter_routing(
-            &["crates/uselesskey-x509/src/lib.rs".to_string()],
-            &["uselesskey-x509".to_string()],
-        );
-
-        assert!(routing.available);
-        assert_eq!(
-            routing.path.as_deref(),
-            Some("target/xtask/mutants-pr.diff"),
-        );
-        assert!(routing.reason.contains("changed Rust path"));
-    }
-
-    #[test]
-    fn mutation_diff_filter_routing_records_fallback_reason() {
-        let routing = mutation_diff_filter_routing(
-            &["crates/uselesskey-x509/Cargo.toml".to_string()],
-            &["uselesskey-x509".to_string()],
-        );
-
-        assert!(!routing.available);
-        assert!(routing.path.is_none());
-        assert!(routing.reason.contains("non-Rust"));
-    }
-
-    #[test]
-    fn prepare_mutation_diff_filter_keeps_full_owner_crate_scoped() {
-        let prepared = prepare_mutation_diff_filter(
-            "origin/main",
-            &["crates/uselesskey-x509/src/lib.rs".to_string()],
-            &["uselesskey-x509".to_string()],
-            true,
-        );
-
-        assert!(prepared.path.is_none());
-        assert!(!prepared.routing.available);
-        assert!(
-            prepared
-                .routing
-                .reason
-                .contains("full-owner mutation requested")
-        );
-    }
-
-    #[test]
-    fn prepare_mutation_diff_filter_falls_back_for_non_rust_owner_paths() {
-        let prepared = prepare_mutation_diff_filter(
-            "origin/main",
-            &["crates/uselesskey-x509/Cargo.toml".to_string()],
-            &["uselesskey-x509".to_string()],
-            false,
-        );
-
-        assert!(prepared.path.is_none());
-        assert!(!prepared.routing.available);
-        assert!(prepared.routing.reason.contains("non-Rust"));
-    }
-
-    #[test]
-    fn mutation_command_for_crate_passes_diff_filter_to_cargo_mutants() -> Result<()> {
-        let tool_env = MutationToolEnv {
-            all_features_requested: true,
-            nasm_available: true,
-        };
-        let diff_path = Path::new("target/xtask/mutants-pr.diff");
-        let cmd = mutation_command_for_crate("uselesskey-x509", None, &tool_env, Some(diff_path))
-            .context("build mutation command")?
-            .context("uselesskey-x509 has a mutation command")?;
-        let args = cmd
-            .get_args()
-            .map(|arg| arg.to_string_lossy().into_owned())
-            .collect::<Vec<_>>();
-        let in_diff = args
-            .iter()
-            .position(|arg| arg == "--in-diff")
-            .context("cargo-mutants command includes --in-diff")?;
-
-        assert_eq!(
-            args.get(in_diff + 1),
-            Some(&diff_path.display().to_string())
-        );
-        Ok(())
-    }
-
-    #[test]
-    fn mutation_routing_markdown_includes_command_and_reasons() {
-        let receipt = MutationRoutingReceipt {
-            schema_version: 1,
-            generated_at: "2026-05-13T00:00:00Z".to_string(),
-            base: "origin/main".to_string(),
-            changed_files: vec!["crates/uselesskey-x509/src/lib.rs".to_string()],
-            owner_crates: vec!["uselesskey-x509".to_string()],
-            target_crates: vec!["uselesskey-x509".to_string()],
-            requires_targeted_mutation: true,
-            reasons: vec!["public owner crate changed".to_string()],
-            ripr: RiprEvidenceRouting {
-                status: "available".to_string(),
-                requires_targeted_evidence: false,
-                severe_gap_count: 0,
-                owner_crates: Vec::new(),
-                reasons: Vec::new(),
-                suggested_actions: Vec::new(),
-            },
-            labels_considered: vec!["mutation".to_string(), "release-risk".to_string()],
-            release_risk_decision: "hosted CI adds label routing".to_string(),
-            full_owner_requested: false,
-            selected_command: Some("cargo xtask mutants-pr --changed".to_string()),
-            diff_filter: MutationDiffFilterRouting {
-                available: true,
-                path: Some("target/xtask/mutants-pr.diff".to_string()),
-                reason: "1 changed Rust path(s) can be used as a diff filter".to_string(),
-            },
-            artifacts: vec![
-                "target/xtask/mutation-routing/latest.json".to_string(),
-                "target/xtask/mutation-routing/latest.md".to_string(),
-            ],
-        };
-
-        let markdown = render_mutation_routing_markdown(&receipt);
-
-        assert!(markdown.contains("Targeted mutation required: `true`"));
-        assert!(markdown.contains("cargo xtask mutants-pr --changed"));
-        assert!(markdown.contains("public owner crate changed"));
-        assert!(markdown.contains("Diff filter available: `true`"));
-    }
-
-    #[test]
-    fn mutation_routing_output_lock_is_target_local() -> Result<()> {
-        let dir = tempfile::tempdir()?;
-        let _lock = acquire_mutation_routing_output_lock(dir.path())?;
-
-        assert!(dir.path().join(MUTATION_ROUTING_LOCK_DIR).is_dir());
-        Ok(())
-    }
-
-    #[test]
-    fn mutants_pr_explain_flag_parses_with_changed() -> Result<()> {
-        let parsed = Cli::try_parse_from(["xtask", "mutants-pr", "--changed", "--explain"])?;
-
-        match parsed.cmd {
-            Cmd::MutantsPr {
-                changed, explain, ..
-            } => {
-                assert!(changed);
-                assert!(explain);
-            }
-            _ => bail!("expected mutants-pr command"),
-        }
-        Ok(())
     }
 
     #[test]

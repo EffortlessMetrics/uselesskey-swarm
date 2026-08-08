@@ -5,7 +5,6 @@ SHELL ["/bin/bash", "-euxo", "pipefail", "-c"]
 ARG RUST_STABLE=1.95.0
 ARG CARGO_DENY_VERSION=0.19.6
 ARG CARGO_FUZZ_VERSION=0.13.1
-ARG CARGO_MUTANTS_VERSION=27.0.0
 ARG TYPOS_VERSION=1.46.2
 
 RUN apt-get update \
@@ -43,13 +42,11 @@ RUN install_archive() { \
       "https://github.com/crate-ci/typos/releases/download/v${TYPOS_VERSION}/typos-v${TYPOS_VERSION}-x86_64-unknown-linux-musl.tar.gz" \
       "d68c1a9c5abd8de11f7749edfa414087c8bc828e89064714487d23c89f36b06e" \
       "typos"; \
-    cargo install cargo-mutants --version "${CARGO_MUTANTS_VERSION}" --locked; \
     rustc --version; \
     cargo --version; \
     cargo +nightly --version; \
     cargo deny --version; \
     cargo fuzz --version; \
-    cargo mutants --version; \
     typos --version; \
     nasm -v; \
     sccache --version || true

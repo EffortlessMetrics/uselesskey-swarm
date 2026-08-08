@@ -24,10 +24,9 @@ labels, main, nightly, or release lanes justify the spend.
 | --- | --- | --- |
 | Fast Rust gate | Yes | Formatting, compile/lint, and focused tests for ordinary Rust changes. |
 | Source-of-truth advisory | Yes when relevant | Detect policy, docs, goals, claim, and receipt drift. |
-| Static mutation exposure (`ripr`) | Advisory / risk-routed | Surface weak-oracle risk earlier than runtime mutation. |
+| Static weak-oracle exposure (`ripr`) | Advisory / risk-routed | Surface weak-oracle risk at PR time. |
 | Unsafe review | Advisory / unsafe-routed | Check changed unsafe seams for reviewable contracts and witness routes. |
 | Coverage | No | Measure execution surface on main, manual, release, or labelled runs. |
-| Runtime mutation | No | Calibrate and backstop test adequacy on risk, nightly, or release lanes. |
 | Miri / fuzz | No | Run concrete UB or robustness witnesses where the changed surface warrants it. |
 
 ## Aggregate gate doctrine
