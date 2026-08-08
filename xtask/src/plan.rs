@@ -10,7 +10,6 @@ pub struct Plan {
     pub run_feature_matrix: bool,
     pub run_dep_guard: bool,
     pub run_bdd: bool,
-    pub run_mutants: bool,
     pub run_fuzz: bool,
     pub run_no_blob: bool,
     pub run_coverage: bool,
@@ -103,7 +102,6 @@ pub fn build_plan(paths: &[String]) -> Plan {
         });
     let run_dep_guard = cargo_changed;
     let run_bdd = crate_rust_changed || bdd_feature_changed;
-    let run_mutants = crate_rust_changed;
     let run_fuzz = crate_rust_changed || fuzz_changed;
     let run_no_blob = no_blob_trigger;
     let run_coverage = crate_rust_changed;
@@ -117,7 +115,6 @@ pub fn build_plan(paths: &[String]) -> Plan {
         || run_feature_matrix
         || run_dep_guard
         || run_bdd
-        || run_mutants
         || run_fuzz
         || run_no_blob
         || run_coverage
@@ -134,7 +131,6 @@ pub fn build_plan(paths: &[String]) -> Plan {
         run_feature_matrix,
         run_dep_guard,
         run_bdd,
-        run_mutants,
         run_fuzz,
         run_no_blob,
         run_coverage,
@@ -286,7 +282,6 @@ mod tests {
         assert!(!plan.run_tests);
         assert!(!plan.run_feature_matrix);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_mutants);
         assert!(!plan.run_fuzz);
         assert!(!plan.run_no_blob);
         assert!(!plan.run_coverage);
@@ -310,7 +305,6 @@ mod tests {
         assert!(impacted.contains("uselesskey"));
         assert!(impacted.contains("uselesskey-bdd"));
         assert!(plan.run_bdd);
-        assert!(plan.run_mutants);
         assert!(plan.run_fuzz);
     }
 
@@ -332,7 +326,6 @@ mod tests {
         assert!(plan.run_clippy);
         assert!(!plan.run_tests);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_mutants);
         assert!(!plan.run_fuzz);
         assert!(!plan.run_coverage);
         assert!(!plan.run_root_tests);
@@ -355,13 +348,12 @@ mod tests {
     }
 
     #[test]
-    fn fuzz_only_change_runs_fuzz_but_not_mutants() {
+    fn fuzz_only_change_runs_fuzz() {
         let paths = vec!["fuzz/fuzz_targets/pem_corrupt.rs".to_string()];
         let plan = build_plan(&paths);
         assert!(plan.run_fmt);
         assert!(plan.run_clippy);
         assert!(plan.run_fuzz);
-        assert!(!plan.run_mutants);
         assert!(!plan.run_bdd);
         assert!(!plan.run_coverage);
     }
@@ -375,7 +367,6 @@ mod tests {
         assert!(plan.run_tests);
         assert!(plan.run_root_tests);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_mutants);
         assert!(!plan.run_fuzz);
         assert!(!plan.run_coverage);
     }
@@ -386,7 +377,6 @@ mod tests {
         let plan = build_plan(&paths);
         assert!(plan.run_root_tests);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_mutants);
         assert!(!plan.run_fuzz);
         assert!(!plan.run_coverage);
     }
@@ -405,7 +395,6 @@ mod tests {
         assert!(plan.run_dep_guard);
         assert!(plan.run_publish_preflight);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_mutants);
         assert!(!plan.run_fuzz);
         assert!(!plan.run_coverage);
         assert!(!plan.run_root_tests);
@@ -599,7 +588,6 @@ mod tests {
         assert!(!plan.run_feature_matrix);
         assert!(!plan.run_dep_guard);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_mutants);
         assert!(!plan.run_fuzz);
         assert!(!plan.run_no_blob);
         assert!(!plan.run_coverage);
@@ -619,7 +607,6 @@ mod tests {
         assert!(plan.run_clippy, "crate .rs change should trigger clippy");
         assert!(plan.run_fmt, "crate .rs change should trigger fmt");
         assert!(plan.run_bdd, "crate .rs change should trigger bdd");
-        assert!(plan.run_mutants, "crate .rs change should trigger mutants");
         assert!(plan.run_fuzz, "crate .rs change should trigger fuzz");
         assert!(
             plan.run_coverage,
@@ -666,10 +653,6 @@ mod tests {
         );
         assert!(!plan.run_bdd, "xtask-only change should not trigger bdd");
         assert!(
-            !plan.run_mutants,
-            "xtask-only change should not trigger mutants"
-        );
-        assert!(
             !plan.run_coverage,
             "xtask-only change should not trigger coverage"
         );
@@ -684,10 +667,6 @@ mod tests {
         assert!(
             plan.run_feature_matrix,
             ".feature file under uselesskey-bdd should trigger feature_matrix"
-        );
-        assert!(
-            !plan.run_mutants,
-            "bdd feature-only change should not trigger mutants"
         );
         assert!(
             !plan.run_fuzz,
@@ -719,10 +698,6 @@ mod tests {
             "Cargo.toml change should trigger feature_matrix"
         );
         assert!(
-            !plan.run_mutants,
-            "Cargo.toml-only change should not trigger mutants"
-        );
-        assert!(
             !plan.run_coverage,
             "Cargo.toml-only change should not trigger coverage"
         );
@@ -736,10 +711,6 @@ mod tests {
         assert!(plan.run_fuzz, "fuzz .rs change should trigger fuzz");
         assert!(plan.run_fmt, "fuzz .rs change should trigger fmt");
         assert!(plan.run_clippy, "fuzz .rs change should trigger clippy");
-        assert!(
-            !plan.run_mutants,
-            "fuzz-only change should not trigger mutants"
-        );
         assert!(!plan.run_bdd, "fuzz-only change should not trigger bdd");
         assert!(
             !plan.run_coverage,
@@ -767,10 +738,6 @@ mod tests {
         assert!(
             !plan.run_bdd,
             "root tests-only change should not trigger bdd"
-        );
-        assert!(
-            !plan.run_mutants,
-            "root tests-only change should not trigger mutants"
         );
         assert!(
             !plan.run_coverage,
@@ -827,7 +794,6 @@ mod tests {
         // Crate .rs change flags
         assert!(plan.run_tests);
         assert!(plan.run_bdd);
-        assert!(plan.run_mutants);
         assert!(plan.run_coverage);
         // Fuzz change
         assert!(plan.run_fuzz);

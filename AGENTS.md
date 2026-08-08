@@ -92,22 +92,18 @@ Path ignores exist but require ongoing maintenance. This crate replaces "securit
 ## Build Commands
 
 ```bash
-cargo xtask ci              # Full receipt-backed CI: fmt, clippy, typos, deny, tests, matrix, docs, public surface, BDD, no-blob, mutants, fuzz
+cargo xtask ci              # Full receipt-backed CI: fmt, clippy, typos, deny, tests, matrix, docs, public surface, BDD, no-blob, fuzz
 cargo xtask pr              # Fast PR-scoped tests based on git diff (emits JSON receipt)
 cargo xtask doctor --format json # Local proof-environment preflight; see docs/handoffs/local-validation.md
-cargo xtask pr --with-mutants # PR-scoped tests plus targeted mutation
 cargo xtask ripr-pr         # Advisory PR oracle-exposure evidence (requires external ripr)
 cargo xtask ripr-pr-summary # Stable PR evidence summary from generated artifacts
-cargo xtask impacted-evidence --base origin/main # Changed-path evidence owners + mutation routing
-cargo xtask mutants-pr --changed # Explicit PR-scoped mutation targets
-cargo xtask mutants-nightly --scope public --dry-run # Nightly/manual mutation scope planning
+cargo xtask impacted-evidence --base origin/main # Changed-path evidence owners + targeted evidence routing
 cargo xtask pr-bundles      # Bundle-ledger workflow for large PR queues: snapshot, ledger, prepare, cleanup
 cargo xtask test            # Run all tests with all features
 cargo xtask fmt --fix       # Fix formatting
 cargo xtask clippy          # Run clippy with -D warnings
 cargo xtask bdd             # Run Cucumber BDD tests
 cargo xtask fuzz            # Fuzz testing (requires cargo-fuzz)
-cargo xtask mutants         # Mutation testing (requires cargo-mutants)
 cargo xtask deny            # License/advisory checks (requires cargo-deny)
 cargo xtask feature-matrix  # Run feature matrix checks (default, no-default, each feature, all-features)
 cargo xtask publish-check   # Run publish dry-runs in dependency order
@@ -231,7 +227,6 @@ Adapter crates (e.g. `uselesskey-jsonwebtoken`) are separate crates, not feature
 - `rustfmt.toml` - Formatting: Unix newlines, crate-level imports
 - `clippy.toml` - MSRV 1.95
 - `deny.toml` - Allowed licenses: MIT, Apache-2.0, BSD-3-Clause, ISC, CC0-1.0
-- `mutants.toml` - Mutation testing exclusions
 
 ## Git Hooks
 

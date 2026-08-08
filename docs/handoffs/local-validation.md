@@ -79,41 +79,8 @@ still owns.
 - cheap focused test paths such as xtask tests, examples smoke, BDD checks, or
   fuzz build when the changed paths justify them.
 
-It does not replace `cargo xtask pr`, hosted CI, targeted mutation, full fuzzing,
+It does not replace `cargo xtask pr`, hosted CI, full fuzzing,
 or release evidence.
-
-## Heavy Evidence Routing
-
-Use the mutation routing receipt when targeted mutation is surprising or slow:
-
-```bash
-cargo xtask mutants-pr --changed --explain
-```
-
-The receipt lives under:
-
-```text
-target/xtask/mutation-routing/latest.json
-target/xtask/mutation-routing/latest.md
-```
-
-It should explain:
-
-- changed files considered;
-- owner crates selected;
-- whether targeted mutation is required;
-- RIPR severe-gap routing;
-- labels that hosted CI may consider;
-- selected mutation command;
-- whether diff-scoped mutation is available;
-- fallback reason when crate-scope mutation is used.
-
-Diff-scoped mutation is allowed only when changed owner paths map cleanly to
-Rust hunks. If mapping, diff generation, or diff-file writing fails,
-`mutants-pr` falls back to crate-scope mutation and records the reason.
-
-`--full-owner` is intentionally crate-scoped. Do not describe it as
-diff-scoped proof.
 
 ## Reporting Language
 
@@ -170,12 +137,6 @@ Contract-pack changes should add:
 
 ```bash
 cargo xtask contract-packs --check
-```
-
-Mutation-routing changes should add:
-
-```bash
-cargo xtask mutants-pr --changed --explain
 ```
 
 Release work remains separate. Use release-evidence commands from

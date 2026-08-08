@@ -16,7 +16,7 @@ It does not answer:
 - whether supply-chain risk is acceptable,
 - whether publish preflight is complete.
 
-Those are separate lanes: xtask receipts, mutation, publish preflight, cargo-deny, audit-surface, economics, and fixture-specific tests.
+The remaining concerns have their own lanes: xtask receipts, publish preflight, cargo-deny, audit-surface, economics, and fixture-specific tests. Mutation adequacy is not one of them — it is neither a repository claim nor a CI lane.
 
 ## Workflow triggers
 

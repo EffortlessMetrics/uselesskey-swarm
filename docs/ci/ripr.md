@@ -1,19 +1,16 @@
-# ripr static mutation-exposure lane
+# ripr static weak-oracle exposure lane
 
-`ripr` is static mutation-exposure analysis. It catches the same class of
-findings mutation testing catches — weak test or oracle exposure — but earlier
-and cheaper because it is static and PR-time.
+`ripr` is static weak-oracle exposure analysis. It flags changed behavior whose
+tests or assertions look weak, cheaply and at PR time.
 
-It does not run mutants, report killed or survived outcomes, prove correctness,
-or replace runtime mutation testing. Mutation testing remains the slower runtime
-backstop.
+It does not execute the code under analysis, prove correctness, or measure
+coverage. It is an advisory signal for where focused tests are missing.
 
 ## Role split
 
 | Tool | Question |
 | --- | --- |
 | `ripr` | Did the changed code expose behavior whose tests or oracles look weak? |
-| `cargo-mutants` | Did concrete mutants survive the selected runtime test suite? |
 | `xtask` | Which diffs should run the lane, where are receipts written, and how are findings summarized? |
 
 ## PR artifacts
@@ -40,6 +37,6 @@ target/ripr/pr/first-useful-action.json
 
 ## Claim boundary
 
-A clean `ripr` receipt means no selected static mutation-exposure findings were
-reported for the analyzed scope. It does not prove behavioral correctness,
-coverage adequacy, or that runtime mutation would kill all relevant mutants.
+A clean `ripr` receipt means no selected static weak-oracle findings were
+reported for the analyzed scope. It does not prove behavioral correctness or
+coverage adequacy.

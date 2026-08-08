@@ -82,14 +82,6 @@ fn build_report(root: &Path) -> DoctorReport {
             CheckStatus::Warn,
         ),
         command_check(
-            "cargo-mutants",
-            "cargo-mutants",
-            "cargo",
-            &["mutants", "--version"],
-            root,
-            CheckStatus::Warn,
-        ),
-        command_check(
             "cargo-llvm-cov",
             "cargo-llvm-cov",
             "cargo",

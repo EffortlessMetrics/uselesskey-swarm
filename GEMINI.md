@@ -27,7 +27,6 @@ The project uses `cargo xtask` for most operations.
 *   **Linting:** `cargo xtask clippy`
 *   **BDD Tests:** `cargo xtask bdd` (Runs Cucumber scenarios)
 *   **Fuzzing:** `cargo xtask fuzz` (Requires `cargo-fuzz`)
-*   **Mutation Testing:** `cargo xtask mutants` (Requires `cargo-mutants`)
 *   **Check Publish:** `cargo xtask publish-check`
 *   **Publish Preflight:** `cargo xtask publish-preflight` (Validate metadata + cargo package)
 *   **Dep Guard:** `cargo xtask dep-guard` (Guard against multiple versions of pinned deps)

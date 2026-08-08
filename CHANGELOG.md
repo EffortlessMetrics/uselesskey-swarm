@@ -14,6 +14,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   that enum non-exhaustive. Downstream matches must include a wildcard arm;
   these webhook fixture APIs are not part of the published `0.9.1` surface.
 
+### Removed
+
+- Removed mutation testing as a repository CI lane. The `cargo xtask mutants`,
+  `mutants-pr`, and `mutants-nightly` commands, the nightly mutation workflow,
+  `.cargo/mutants.toml`, `policy/mutation-survivors.toml`, the `cargo-mutants`
+  install in the routed CI runner image, and the targeted-mutation routing that
+  selected crates for it are all gone. `cargo xtask pr` remains, minus its
+  `--with-mutants` flag and its mutants step; PR evidence now routes on
+  impacted evidence and `ripr` focused-test suggestions. See
+  `docs/adr/USELESSKEY-ADR-0005-mutation-testing-is-not-a-repo-ci-lane.md`.
+
+  The tests written to kill mutants are kept — they assert real behavior and
+  `cargo test` still runs them. No published crate, fixture, or derivation
+  behavior changes.
+
 ### Changed
 
 - `uselesskey-ecdsa` now depends on the released `p256` 0.14, `p384` 0.14, and

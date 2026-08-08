@@ -56,7 +56,7 @@ surface = "ci"
 classification = "config"
 reason = "Declares the self-hosted runner labels actionlint must accept; actionlint reads this filename only."
 covered_by = [
-  "cargo test -p xtask --bin xtask -- mutation_workflow_uses_cx43_container_runner_and_isolation_contract",
+  "cargo test -p xtask --bin xtask -- actionlint_config_declares_self_hosted_runner_labels",
   "cargo xtask check-file-policy",
 ]
 
@@ -182,7 +182,7 @@ kind = "cargo_config"
 owner = "repo-policy"
 surface = "build"
 classification = "config"
-reason = "Cargo build configuration (workspace + mutants tuning)."
+reason = "Cargo build configuration."
 covered_by = ["cargo xtask ci"]
 
 [[allow]]

@@ -18,8 +18,7 @@ policy_impact = ["policy/claim-ledger.toml"]
 ## Problem
 
 PR evidence needs to help reviewers and agents answer what changed, what seams
-look weakly exposed, which focused test would improve evidence, and whether
-targeted mutation should run.
+look weakly exposed, and which focused test would improve evidence.
 
 That evidence must not be confused with public README badges. The README
 `ripr+` badge is repo-scoped. PR `ripr` review guidance is diff-scoped and
@@ -75,9 +74,6 @@ This spec does not post inline PR comments.
 This spec does not use PR-scoped `ripr` artifacts as README badge sources.
 
 This spec does not claim runtime mutation adequacy, coverage, or correctness.
-
-This spec does not require targeted mutation unless labels, release-risk,
-impacted evidence, or severe `ripr` gaps route it.
 
 ## Required Evidence
 
@@ -176,8 +172,7 @@ PR review evidence maps to:
 - `cargo xtask ripr-pr-summary --check` for stable summary contract validation;
 - `scripts/ripr-annotations.py` or equivalent CI logic for non-blocking
   annotations from `comments[]`;
-- `cargo xtask impacted-evidence` for targeted mutation routing;
-- `cargo xtask mutants-pr --changed` when routing requires targeted mutation.
+- `cargo xtask impacted-evidence` for evidence owner-crate routing.
 
 ## Implementation Mapping
 

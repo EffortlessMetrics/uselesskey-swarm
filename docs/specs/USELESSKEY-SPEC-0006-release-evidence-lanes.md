@@ -36,9 +36,9 @@ Evidence is split into four normal lanes plus two release depths.
 | Lane | Trigger | Purpose |
 | --- | --- | --- |
 | PR fast gate | Pull request | Cheap correctness, docs, public-surface, and review evidence. |
-| PR targeted heavy | Label, release-risk, impacted evidence, or severe `ripr` gap | Mutation or deeper checks only where justified. |
+| PR targeted heavy | Label, release-risk, impacted evidence, or severe `ripr` gap | Deeper checks only where justified. |
 | Main receipt | Push to `main` | Full repo receipt and badge refresh eligibility. |
-| Scheduled/release | Nightly, manual, or release | Fuzz, full mutation, supply-chain, publish proof, and shipped-truth evidence. |
+| Scheduled/release | Nightly, manual, or release | Fuzz, supply-chain, publish proof, and shipped-truth evidence. |
 | Patch release | Patch release candidate | State confidence, publish-system smoke, drift checks, and touched-claim proof. |
 | Minor release | Minor release candidate | Full public-claim proof for stable README and release-note claims. |
 
@@ -68,8 +68,7 @@ honestly as queued, complete, or failed.
 
 This spec does not publish crates, create tags, or edit releases.
 
-This spec does not require full mutation or every contract-pack proof for every
-patch PR.
+This spec does not require every contract-pack proof for every patch PR.
 
 This spec does not replace the post-release audit checklist.
 
@@ -175,8 +174,7 @@ future registry state or every downstream feature combination.
 Lane mapping should be tested at the command and receipt level:
 
 - `cargo xtask pr` covers PR fast gate behavior.
-- `cargo xtask impacted-evidence` decides targeted mutation routing.
-- `cargo xtask mutants-pr --changed` covers targeted mutation when routed.
+- `cargo xtask impacted-evidence` maps changed paths to evidence owner crates.
 - `cargo xtask badges --check` covers generated endpoint drift.
 - `cargo xtask scanner-safe-reference --check` covers scanner-safe reference
   evidence.

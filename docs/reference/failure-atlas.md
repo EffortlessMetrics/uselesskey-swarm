@@ -85,5 +85,4 @@ For behavior changes in owner crates, add targeted evidence:
 
 ```bash
 cargo xtask impacted-evidence --base origin/main
-cargo xtask mutants-pr --changed
 ```
