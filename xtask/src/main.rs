@@ -6,7 +6,7 @@ use std::path::{Path, PathBuf};
 use std::process::{Command, Stdio};
 use std::time::Instant;
 
-use anyhow::{Context, Result, bail};
+use anyhow::{Context, Result, anyhow, bail};
 use base64::Engine;
 use base64::engine::general_purpose::{URL_SAFE, URL_SAFE_NO_PAD};
 use clap::{Parser, Subcommand, ValueEnum};
@@ -1055,17 +1055,51 @@ fn compare_files(expected: &Path, actual: &Path) -> Result<()> {
     Ok(())
 }
 
+/// Install command for an external tool that xtask shells out to.
+///
+/// The binary name and the crate that ships it are not always the same
+/// (`typos` comes from `typos-cli`), so a bare spawn failure leaves the
+/// reader guessing at the install command.
+fn install_hint(program: &str) -> Option<&'static str> {
+    match program {
+        "typos" => Some("cargo install typos-cli"),
+        "cargo-deny" => Some("cargo install cargo-deny"),
+        "cargo-fuzz" => Some("cargo install cargo-fuzz"),
+        "cargo-llvm-cov" => Some("cargo install cargo-llvm-cov"),
+        "cargo-mutants" => Some("cargo install cargo-mutants"),
+        "cargo-nextest" => Some("cargo install cargo-nextest"),
+        _ => None,
+    }
+}
+
+/// Turn a spawn failure into an error the reader can act on.
+///
+/// A missing tool is reported by name, with its install command when we know
+/// one, instead of surfacing a bare `No such file or directory`.
+fn spawn_error(program: &str, err: std::io::Error) -> anyhow::Error {
+    if err.kind() == ErrorKind::NotFound {
+        return match install_hint(program) {
+            Some(install) => {
+                anyhow!("`{program}` is not installed or not on PATH. Install with: {install}")
+            }
+            None => anyhow!("`{program}` is not installed or not on PATH"),
+        };
+    }
+    anyhow::Error::new(err).context(format!("failed to spawn `{program}`"))
+}
+
 fn run(cmd: &mut Command) -> Result<()> {
     eprintln!(
         "{} {:?}",
         " RUN ".on_bright_blue().black().bold(),
         cmd.bold()
     );
+    let program = cmd.get_program().to_string_lossy().into_owned();
     let status = cmd
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
-        .context("failed to spawn command")?;
+        .map_err(|err| spawn_error(&program, err))?;
 
     if !status.success() {
         bail!(
@@ -7938,6 +7972,36 @@ mod tests {
 
     static ENV_LOCK: Mutex<()> = Mutex::new(());
     static CWD_LOCK: Mutex<()> = Mutex::new(());
+
+    #[test]
+    fn run_names_a_missing_tool_and_its_install_command() {
+        let err = super::run(&mut Command::new("typos")).expect_err("missing tool should fail");
+        let msg = err.to_string();
+
+        assert!(msg.contains("`typos` is not installed"), "{msg}");
+        assert!(msg.contains("cargo install typos-cli"), "{msg}");
+    }
+
+    #[test]
+    fn run_names_a_missing_tool_without_a_known_install_command() {
+        let err = super::run(&mut Command::new("uselesskey-xtask-absent-tool"))
+            .expect_err("missing tool should fail");
+        let msg = err.to_string();
+
+        assert!(
+            msg.contains("`uselesskey-xtask-absent-tool` is not installed"),
+            "{msg}"
+        );
+    }
+
+    #[test]
+    fn install_hint_uses_the_crate_name_not_the_binary_name() {
+        assert_eq!(
+            super::install_hint("typos"),
+            Some("cargo install typos-cli")
+        );
+        assert_eq!(super::install_hint("cargo"), None);
+    }
 
     struct CwdGuard {
         prev: PathBuf,
