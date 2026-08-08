@@ -1076,8 +1076,18 @@ fn install_hint(program: &str) -> Option<&'static str> {
 ///
 /// A missing tool is reported by name, with its install command when we know
 /// one, instead of surfacing a bare `No such file or directory`.
-fn spawn_error(program: &str, err: std::io::Error) -> anyhow::Error {
+///
+/// A missing working directory raises `NotFound` too, so `cwd` carries the
+/// command's configured directory and takes priority: blaming the program for
+/// a directory that does not exist would send the reader after the wrong fix.
+fn spawn_error(program: &str, cwd: Option<&Path>, err: std::io::Error) -> anyhow::Error {
     if err.kind() == ErrorKind::NotFound {
+        if let Some(dir) = cwd.filter(|dir| !dir.is_dir()) {
+            return anyhow::Error::new(err).context(format!(
+                "failed to spawn `{program}`: working directory {} does not exist",
+                dir.display()
+            ));
+        }
         return match install_hint(program) {
             Some(install) => {
                 anyhow!("`{program}` is not installed or not on PATH. Install with: {install}")
@@ -1095,11 +1105,12 @@ fn run(cmd: &mut Command) -> Result<()> {
         cmd.bold()
     );
     let program = cmd.get_program().to_string_lossy().into_owned();
+    let cwd = cmd.get_current_dir().map(Path::to_path_buf);
     let status = cmd
         .stdout(Stdio::inherit())
         .stderr(Stdio::inherit())
         .status()
-        .map_err(|err| spawn_error(&program, err))?;
+        .map_err(|err| spawn_error(&program, cwd.as_deref(), err))?;
 
     if !status.success() {
         bail!(
@@ -7973,17 +7984,55 @@ mod tests {
     static ENV_LOCK: Mutex<()> = Mutex::new(());
     static CWD_LOCK: Mutex<()> = Mutex::new(());
 
+    fn not_found() -> std::io::Error {
+        std::io::Error::new(ErrorKind::NotFound, "no such file or directory")
+    }
+
+    // `typos` is installed on hosted CI, so this asserts on `spawn_error`
+    // directly rather than letting the host PATH decide the outcome.
     #[test]
-    fn run_names_a_missing_tool_and_its_install_command() {
-        let err = super::run(&mut Command::new("typos")).expect_err("missing tool should fail");
-        let msg = err.to_string();
+    fn spawn_error_names_a_missing_tool_and_its_install_command() {
+        let msg = super::spawn_error("typos", None, not_found()).to_string();
 
         assert!(msg.contains("`typos` is not installed"), "{msg}");
         assert!(msg.contains("cargo install typos-cli"), "{msg}");
     }
 
     #[test]
-    fn run_names_a_missing_tool_without_a_known_install_command() {
+    fn spawn_error_names_a_missing_tool_without_a_known_install_command() {
+        let msg = super::spawn_error("uselesskey-xtask-absent-tool", None, not_found()).to_string();
+
+        assert!(
+            msg.contains("`uselesskey-xtask-absent-tool` is not installed"),
+            "{msg}"
+        );
+    }
+
+    // A missing working directory also raises `NotFound`; blaming the program
+    // would send the reader after an install that would not help.
+    #[test]
+    fn spawn_error_blames_a_missing_working_directory_not_the_program() {
+        let missing = Path::new("/uselesskey-xtask-absent-dir");
+        let err = super::spawn_error("typos", Some(missing), not_found());
+        let msg = format!("{err:#}");
+
+        assert!(msg.contains("working directory"), "{msg}");
+        assert!(msg.contains("/uselesskey-xtask-absent-dir"), "{msg}");
+        assert!(!msg.contains("cargo install typos-cli"), "{msg}");
+    }
+
+    #[test]
+    fn spawn_error_still_names_the_program_when_the_working_directory_exists() {
+        let existing = Path::new(".");
+        let msg = super::spawn_error("typos", Some(existing), not_found()).to_string();
+
+        assert!(msg.contains("cargo install typos-cli"), "{msg}");
+    }
+
+    // Keeps the wiring covered: `run` must route a real spawn failure through
+    // `spawn_error`. The program name cannot exist on any host PATH.
+    #[test]
+    fn run_reports_a_missing_program_through_spawn_error() {
         let err = super::run(&mut Command::new("uselesskey-xtask-absent-tool"))
             .expect_err("missing tool should fail");
         let msg = err.to_string();
