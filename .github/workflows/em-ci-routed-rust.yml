@@ -733,7 +733,6 @@ jobs:
               cargo --version
               cargo deny --version
               cargo fuzz --version
-              cargo mutants --version
               typos --version
               nasm -v
               sccache --version || true
@@ -892,7 +891,6 @@ jobs:
               cargo --version
               cargo deny --version
               cargo fuzz --version
-              cargo mutants --version
               typos --version
               nasm -v
               sccache --version || true
@@ -1278,7 +1276,6 @@ jobs:
               cargo +nightly -vV
               cargo deny --version
               cargo fuzz --version
-              cargo mutants --version
               typos --version
               nasm -v
               test -w /cargo-home
