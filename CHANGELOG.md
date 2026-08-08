@@ -38,6 +38,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- `cargo xtask` now reports a missing external tool by name, with its install
+  command when one is known, instead of failing with a bare `failed to spawn
+  command` / `No such file or directory`. `cargo xtask ci` on a machine without
+  the spell checker previously aborted with an error that named neither `typos`
+  nor the `typos-cli` crate that provides it.
+
 - `uselesskey bundle` without `--out` now writes to the selected profile's
   `target/uselesskey-*` directory instead of `{label}-bundle` in the current
   working directory. The old fallback dropped generated fixture material into
