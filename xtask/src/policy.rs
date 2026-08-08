@@ -1107,6 +1107,28 @@ pub fn check_file_policy() -> Result<()> {
     }
 
     if !unmatched.is_empty() || !unused.is_empty() || !expired.is_empty() {
+        // Counts alone leave the reader grepping a report file to find out
+        // which paths to act on, so name them the way the schema errors above
+        // already do.
+        report_file_policy_offenders("unmatched (add an entry)", &unmatched);
+        report_file_policy_offenders(
+            "unused (retire or remove)",
+            &unused.iter().map(|e| entry_pattern(e)).collect::<Vec<_>>(),
+        );
+        report_file_policy_offenders(
+            "expired (renew or remove)",
+            &expired
+                .iter()
+                .map(|e| {
+                    format!(
+                        "{} (expired {})",
+                        entry_pattern(e),
+                        e.expires.as_deref().unwrap_or("?")
+                    )
+                })
+                .collect::<Vec<_>>(),
+        );
+        eprintln!("  full report: {TARGET_DIR}/file-policy.md");
         bail!(
             "file-policy: {} unmatched, {} unused (retire or remove), {} expired",
             unmatched.len(),
@@ -1115,6 +1137,48 @@ pub fn check_file_policy() -> Result<()> {
         );
     }
     Ok(())
+}
+
+/// Identify a policy entry the way the written report does.
+fn entry_pattern(entry: &FilePolicyAllow) -> String {
+    entry
+        .path
+        .as_deref()
+        .or(entry.glob.as_deref())
+        .unwrap_or("?")
+        .to_string()
+}
+
+/// Cap on offenders listed per category before the summary would be buried.
+const FILE_POLICY_MAX_LISTED: usize = 20;
+
+/// Build the lines naming the paths behind a file-policy failure count.
+///
+/// Long lists are truncated so a large drift does not bury the summary line;
+/// the written report always holds the full set.
+fn file_policy_offender_lines(label: &str, paths: &[String]) -> Vec<String> {
+    if paths.is_empty() {
+        return Vec::new();
+    }
+
+    let mut lines = vec![format!("  {label}:")];
+    lines.extend(
+        paths
+            .iter()
+            .take(FILE_POLICY_MAX_LISTED)
+            .map(|path| format!("    {path}")),
+    );
+    let rest = paths.len().saturating_sub(FILE_POLICY_MAX_LISTED);
+    if rest > 0 {
+        lines.push(format!("    ... and {rest} more"));
+    }
+    lines
+}
+
+fn report_file_policy_offenders(label: &str, paths: &[String]) {
+    for line in file_policy_offender_lines(label, paths) {
+        eprintln!("{line}");
+    }
 }
 
 fn is_default_allowed(path: &str, settings: &FilePolicySettings) -> bool {
@@ -2503,6 +2567,43 @@ mod tests {
             .join("..")
             .canonicalize()
             .context("canonicalize workspace root")
+    }
+
+    #[test]
+    fn file_policy_offender_lines_name_each_path_under_the_cap() {
+        let paths = vec![
+            ".github/actionlint.yaml".to_string(),
+            "a/b.json".to_string(),
+        ];
+
+        let lines = file_policy_offender_lines("unmatched (add an entry)", &paths);
+
+        assert_eq!(
+            lines,
+            vec![
+                "  unmatched (add an entry):".to_string(),
+                "    .github/actionlint.yaml".to_string(),
+                "    a/b.json".to_string(),
+            ]
+        );
+    }
+
+    #[test]
+    fn file_policy_offender_lines_truncate_long_lists() {
+        let paths: Vec<String> = (0..FILE_POLICY_MAX_LISTED + 3)
+            .map(|i| format!("path/{i}.json"))
+            .collect();
+
+        let lines = file_policy_offender_lines("unmatched (add an entry)", &paths);
+
+        // label + capped paths + the "and N more" tail
+        assert_eq!(lines.len(), FILE_POLICY_MAX_LISTED + 2);
+        assert_eq!(lines.last().map(String::as_str), Some("    ... and 3 more"));
+    }
+
+    #[test]
+    fn file_policy_offender_lines_are_empty_when_nothing_is_wrong() {
+        assert!(file_policy_offender_lines("unmatched (add an entry)", &[]).is_empty());
     }
 
     fn workflow_guard_arg(root: &Path, workflow_dir: &Path) -> Result<String> {

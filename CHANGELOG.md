@@ -44,6 +44,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   the spell checker previously aborted with an error that named neither `typos`
   nor the `typos-cli` crate that provides it.
 
+- `cargo xtask check-file-policy` passes again. `.github/actionlint.yaml` was
+  added without a `policy/non-rust-allowlist.toml` entry, so the gate failed on
+  `main` with one unmatched file.
+
+- `cargo xtask check-file-policy` now names the unmatched, unused, and expired
+  paths behind its failure counts instead of reporting counts alone, which had
+  forced readers into `target/file-policy.md` to learn which files to act on.
+
 - `uselesskey bundle` without `--out` now writes to the selected profile's
   `target/uselesskey-*` directory instead of `{label}-bundle` in the current
   working directory. The old fallback dropped generated fixture material into
