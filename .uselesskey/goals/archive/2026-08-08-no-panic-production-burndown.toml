@@ -1,0 +1,335 @@
+created = "2026-08-04"
+end_state = [
+    "The no-panic checker reports no unreceipted new production debt.",
+    "Each repaired production seam has focused regression proof and a bounded claim boundary.",
+    "Historical baseline debt remains visible and is not silently absorbed into a reset.",
+    "Remaining compatibility, release, and provider claims stay outside this lane unless separately specified.",
+]
+id = "no-panic-production-burndown"
+objective = """
+Burn down production-path panic-family debt in bounded, review-forward PRs
+without resetting the baseline or weakening the no-new-debt policy. Each slice
+must preserve the fixture library's deterministic, usable public behavior while
+making failure behavior explicit at the narrowest responsible boundary.
+"""
+owner = "EffortlessMetrics"
+schema_version = "1.0"
+status = "archived"
+title = "No-panic production debt burndown"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p uselesskey-pgp",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "pgp-production-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p uselesskey-pkcs11-mock",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "pkcs11-mock-test-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test --manifest-path examples/external/ecdsa-fixture-validation/Cargo.toml",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "ecdsa-validation-example-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test --manifest-path examples/external/ed25519-fixture-validation/Cargo.toml",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "ed25519-validation-example-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test --manifest-path examples/external/oidc-test-server-validation/Cargo.toml",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "oidc-validation-example-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test --manifest-path examples/external/pgp-fixture-validation/Cargo.toml",
+    "cargo clippy --manifest-path examples/external/pgp-fixture-validation/Cargo.toml --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "pgp-validation-example-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test --manifest-path examples/external/pkcs11-mock-validation/Cargo.toml",
+    "cargo clippy --manifest-path examples/external/pkcs11-mock-validation/Cargo.toml --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "pkcs11-validation-example-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test --manifest-path examples/external/ssh-fixture-validation/Cargo.toml",
+    "cargo clippy --manifest-path examples/external/ssh-fixture-validation/Cargo.toml --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "ssh-validation-example-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test --manifest-path examples/external/webauthn-ceremony-validation/Cargo.toml",
+    "cargo clippy --manifest-path examples/external/webauthn-ceremony-validation/Cargo.toml --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "webauthn-validation-example-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask docs_sync",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "docs-sync-adapter-test-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask external_adoption_examples_readme",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "external-adoption-readme-tests-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask external_adoption_smoke external_adoption_ci_recipes",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "external-adoption-setup-tests-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask external_adoption_markdown_lists_cli_loop_and_boundaries",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "external-adoption-receipt-rendering-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask external_adoption_ci_recipe_profiles_match_actions_matrix",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "external-adoption-actions-matrix-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask external_adoption_workflow_support_doc_paths_exist",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "external-adoption-workflow-support-path-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask pr_changed_files_include_local_untracked_paths",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "local-untracked-pr-planning-test-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask count_bdd_scenarios_counts_scenarios_and_outlines",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "bdd-scenario-count-test-setup-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask external_adoption_smoke_clap_validation",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "external-adoption-cli-validation-setup-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask target_output",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "target-output-lock-tests-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p xtask merge_queue",
+    "cargo clippy -p xtask --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "merge-queue-main-proof-test-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p uselesskey-x509",
+    "cargo clippy -p uselesskey-x509 --all-targets -- -D warnings",
+    "git diff --check",
+]
+id = "stale-x509-san-panic-allowlist"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo test -p materialize-buildrs-example -p materialize-shape-buildrs-example",
+    "cargo clippy -p materialize-buildrs-example -p materialize-shape-buildrs-example --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "materialize-buildrs-example-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"
+
+[[work_item]]
+commands = [
+    "cargo xtask check-no-panic-family",
+    "cargo xtask no-panic baseline",
+    "cargo test -p materialize-buildrs-example -p materialize-shape-buildrs-example",
+    "cargo clippy -p materialize-buildrs-example -p materialize-shape-buildrs-example --all-targets -- -D warnings",
+    "cargo xtask pr",
+    "git diff --check",
+]
+id = "materialize-example-utf8-test-no-panic"
+plan = "plans/no-panic-burndown/implementation-plan.md"
+proposal = "USELESSKEY-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+status = "done"

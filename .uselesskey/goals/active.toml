@@ -2,7 +2,12 @@ schema_version = "1.0"
 
 id = "no-panic-production-burndown"
 title = "No-panic production debt burndown"
-status = "active"
+# Archived 2026-08-08: every work item is `done` and the checker reports
+# `0 new-debt; 0 stale-baseline; 0 expired`. This file is now historical
+# state, not an execution source. See
+# docs/handoffs/2026-08-08-no-panic-production-burndown-closeout.md and pick
+# the next lane explicitly before starting new work.
+status = "archived"
 owner = "EffortlessMetrics"
 created = "2026-08-04"
 
