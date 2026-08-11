@@ -325,9 +325,9 @@ checksum = "72b3254f16251a8381aa12e40e3c4d2f0199f8c6508fbecb9d91f575e0fbb8c6"
 
 [[package]]
 name = "base64"
-version = "0.23.0"
+version = "0.23.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b25655df2c3cdd83c5e5b293b88acd880332b2ddadd7c30ac43144fdc0033da9"
+checksum = "ac07cdecf99051d9a5238b80f35af32cdeba5b336e55d957b318b50137e18da5"
 
 [[package]]
 name = "base64ct"
@@ -4672,7 +4672,7 @@ name = "uselesskey-bdd-steps"
 version = "0.9.1"
 dependencies = [
  "aws-lc-rs",
- "base64 0.23.0",
+ "base64 0.23.1",
  "cucumber",
  "ed25519-dalek",
  "hmac 0.13.0",
@@ -4719,7 +4719,7 @@ version = "0.9.1"
 dependencies = [
  "anyhow",
  "assert_cmd",
- "base64 0.23.0",
+ "base64 0.23.1",
  "clap",
  "insta",
  "predicates",
@@ -4744,7 +4744,7 @@ dependencies = [
 name = "uselesskey-core"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "blake3",
  "dashmap",
  "insta",
@@ -4764,7 +4764,7 @@ dependencies = [
 name = "uselesskey-ecdsa"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "elliptic-curve 0.14.1",
  "insta",
  "p256 0.14.0",
@@ -4783,7 +4783,7 @@ dependencies = [
 name = "uselesskey-ed25519"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "ed25519-dalek",
  "insta",
  "pkcs8 0.11.0",
@@ -4816,7 +4816,7 @@ dependencies = [
 name = "uselesskey-hmac"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "insta",
  "proptest",
  "rand_chacha 0.10.0",
@@ -4831,7 +4831,7 @@ dependencies = [
 name = "uselesskey-integration-tests"
 version = "0.0.0"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "blake3",
  "der-parser",
  "ed25519-dalek",
@@ -4867,7 +4867,7 @@ name = "uselesskey-interop-tests"
 version = "0.0.0"
 dependencies = [
  "aws-lc-rs",
- "base64 0.23.0",
+ "base64 0.23.1",
  "ed25519-dalek",
  "hmac 0.13.0",
  "insta",
@@ -4915,7 +4915,7 @@ dependencies = [
 name = "uselesskey-jwk"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "blake3",
  "insta",
  "proptest",
@@ -4966,7 +4966,7 @@ dependencies = [
 name = "uselesskey-rsa"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "insta",
  "proptest",
  "rand_chacha 0.10.0",
@@ -5069,7 +5069,7 @@ version = "0.9.1"
 name = "uselesskey-token"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "insta",
  "proptest",
  "rand_chacha 0.10.0",
@@ -5106,7 +5106,7 @@ dependencies = [
 name = "uselesskey-webhook"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "hex",
  "hmac 0.13.0",
  "insta",
@@ -5121,7 +5121,7 @@ dependencies = [
 name = "uselesskey-x509"
 version = "0.9.1"
 dependencies = [
- "base64 0.23.0",
+ "base64 0.23.1",
  "insta",
  "proptest",
  "rand_chacha 0.10.0",
@@ -5733,7 +5733,7 @@ name = "xtask"
 version = "0.0.0"
 dependencies = [
  "anyhow",
- "base64 0.23.0",
+ "base64 0.23.1",
  "chrono",
  "clap",
  "indicatif",
