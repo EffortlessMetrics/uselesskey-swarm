@@ -54,13 +54,15 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    upstream `aws-lc-sys` stops before Rust linting. Then close issue #638 after
    verifying the merge.
 6. Freshness-review and squash PR #631 after the runway work is true on main.
-7. Run normal `cargo xtask no-panic baseline` without `--reset` to remove only
+7. Execute issue #643 with normal `cargo xtask no-panic baseline` without
+   `--reset` to remove only
    stale entries whose selectors disappeared in PR #618. Require the checker to
    move from 5 to 0 stale-baseline entries while findings stay 3414,
    allowlisted stays 14, baselined stays 3400, and new debt stays 0. Commit only
    `policy/no-panic-baseline.toml` and require baseline-only diff proof.
-8. Before refreshing or retriggering #620, land a separate Rust-only contract
-   prerequisite in `xtask/src/policy.rs`: replace the expected coverage SHA
+8. Before refreshing or retriggering #620, execute issue #642 as a separate
+   Rust-only contract prerequisite in `xtask/src/policy.rs`: replace the
+   expected coverage SHA
    `1beb33eee6d086258184383af9a538940be190ed` with
    `6c6fd71fe4fb72c3697d269963d0e15df8adedad` and update the adjacent rejected
    mutable tag from `v2.85.6` to `v2.85.10`. Run
@@ -71,8 +73,8 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    serially afterward. Keep #630 after PR #640 because they share the AWS-LC
    collision family.
 9. Qualify major migrations through maintainer issues: #632 for closed PR #621,
-   #622, #624, #634 for closed PR #629, #635 for closed PR #626, and #628
-   after a builder-ready migration issue exists.
+   #622, #624, #634 for closed PR #629, #635 for closed PR #626, and #644 for
+   PR #628.
 10. Close the lane atomically: write the Rails closeout; give every work item a
     final disposition and evidence; set the lane manifest to `status =
     "closed"` with its closed date and closeout path; set the RAILS-LANE-0002
