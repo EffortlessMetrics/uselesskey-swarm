@@ -57,9 +57,9 @@ Advisory` appear exactly once in that job. The separately governed
 `ci/check-bare-self-hosted.sh` workflow-hygiene command remains permitted.
 
 This local checker does not query branch protection, prove that hosted CI ran,
-or change any check's role. Activating the checker inside Source of Truth CI and
-adding its command to the policy row are intentionally deferred to the separate
-workflow-routed follow-up in issue #633.
+or change any check's role. Its CI activation and matching policy command
+ownership form a separate, atomic workflow-routed change tracked by issue #633;
+this checker-implementation change does not perform that activation.
 
 ## Main Full Gate Receipt
 
