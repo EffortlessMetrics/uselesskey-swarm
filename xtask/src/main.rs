@@ -22,6 +22,7 @@ mod bundle_proof;
 mod bundle_schema;
 mod claim_proof;
 mod claim_report;
+mod ci_check_policy;
 mod closeout;
 mod contract_packs;
 mod doc_artifacts;
@@ -242,6 +243,8 @@ enum Cmd {
     },
     /// Validate the source-of-truth document artifact ledger.
     CheckDocArtifacts,
+    /// Validate CI check policy, its human index, and Source of Truth commands.
+    CheckCiCheckPolicy,
     /// Validate support-tier rows against public claims, proof commands, docs, and specs.
     CheckSupportTiers,
     /// Validate canonical release command ownership rows for adoption closure.
@@ -707,6 +710,7 @@ fn main() -> Result<()> {
             spec_check::run(&workspace_root_path(), strict, format.into())
         }
         Cmd::CheckDocArtifacts => doc_artifacts::run(&workspace_root_path()),
+        Cmd::CheckCiCheckPolicy => ci_check_policy::run(&workspace_root_path()),
         Cmd::CheckSupportTiers => support_tiers::run(&workspace_root_path()),
         Cmd::CheckAdoptionCommandLedger => adoption_command_ledger::run(&workspace_root_path()),
         Cmd::CheckMergeQueue {
