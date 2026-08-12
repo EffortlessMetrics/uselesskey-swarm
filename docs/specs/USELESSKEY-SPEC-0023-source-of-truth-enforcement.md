@@ -69,6 +69,7 @@ cargo xtask check-claim-proof-policy
 cargo xtask claim-report --check-public-claims
 cargo xtask check-negative-fixtures
 cargo xtask check-bundle-schemas
+cargo xtask check-ci-check-policy
 ```
 
 Generated report and packet targets are:
@@ -116,6 +117,13 @@ cargo test -p xtask <checker_test_filter>
 cargo xtask <checker-command>
 git diff --check
 ```
+
+`check-ci-check-policy` owns the bounded synchronization contract between
+`policy/ci-checks.toml`, the human CI check-policy index, and the policy-owned
+`cargo xtask` invocations in the Source of Truth advisory job. It compares
+check identity and role definitions, not free-text policy scope against the
+human Boundary column. Workflow activation is a separate change from checker
+implementation so routed Rust and workflow evidence remain reviewable.
 
 When advisory CI is added, it must run without replacing the existing normalized
 `Uselesskey Rust Small Result` gate.
@@ -202,6 +210,9 @@ Checker tests should cover at least:
 - implemented negative fixture entries without docs, tests, owner crate, or
   public surface;
 - bundle schema examples that fail validation.
+- CI policy rows missing from or mismatched with the human check-policy table;
+- duplicate, missing, or unused CI role definitions;
+- missing, duplicate, or policy-unknown Source of Truth xtask commands.
 
 Docs-only validation for this spec is:
 

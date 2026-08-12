@@ -47,6 +47,20 @@ Rails lanes, goal manifests, policy ledgers, and docs should name their light
 metadata reason directly. Unknown or implementation paths must route to Rust
 proof rather than appearing as skipped work.
 
+## Synchronization Enforcement
+
+`cargo xtask check-ci-check-policy` validates this human index against
+`policy/ci-checks.toml`. It requires a one-to-one match for each check's name,
+role, and workflow, ensures every policy role has exactly one definition, and
+checks that the policy-owned `cargo xtask` commands for `Source of Truth
+Advisory` appear exactly once in that job. The separately governed
+`ci/check-bare-self-hosted.sh` workflow-hygiene command remains permitted.
+
+This local checker does not query branch protection, prove that hosted CI ran,
+or change any check's role. Its CI activation and matching policy command
+ownership form a separate, atomic workflow-routed change tracked by issue #633;
+this checker-implementation change does not perform that activation.
+
 ## Main Full Gate Receipt
 
 `Uselesskey Main Full Gate` runs the pinned `uselesskey-ci-rust:1.95` container
