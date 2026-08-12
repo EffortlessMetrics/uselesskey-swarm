@@ -127,7 +127,7 @@ policy_impact = "policy/ci-checks.toml"
 blocks = ["aws-lc-import-cfg"]
 scope = "Activate the merged checker in Source of Truth CI and policy ownership atomically."
 source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/issues/633"]
-blocked_by = ["ci-check-policy-pr-a must be merged on fresh main."]
+blocked_by = ["ci-check-policy-pr-a"]
 proof = [
   "cargo xtask check-ci-check-policy",
   "cargo test -p xtask source_of_truth_workflow_keeps_pr_checks_on_hosted_runner",
