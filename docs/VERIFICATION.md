@@ -173,10 +173,10 @@ target/release-evidence/webhook/webhook-contract-pack-proof.json
 
 Pull requests run advisory `ripr` PR evidence, `ripr` review guidance, impacted
 evidence, fast gates, docs-sync, publish preflight, example smoke checks, and
-targeted mutation when routing rules require it.
+focused owner tests when changed behavior needs stronger assertions.
 
-`ripr` may suggest focused tests or route targeted mutation. It does not edit
-code, generate tests, run mutation, or make merge decisions by default.
+`ripr` may suggest focused tests. It does not edit code, generate or run tests,
+or make merge decisions by default.
 
 The first-screen PR evidence summary is generated from machine-readable
 artifacts and written to:

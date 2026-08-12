@@ -30,7 +30,6 @@ If CI does not run one of these, it is not a gate.
 
 ### Optional hardening
 
-- mutation testing (`cargo mutants`) on a schedule or manual trigger
 - `cargo deny` (licenses, bans, advisories)
 - MSRV enforcement (matches `rust-version`)
 - periodic “minimal versions” check (nightly)
@@ -246,7 +245,7 @@ Indexing lag: if dependency publish fails as “not found,” re-run later.
 - missing metadata (`description/license/readme`) → fix manifest
 - path dependency rejected → use versions + workspace inheritance
 - docs.rs mismatch → set `package.metadata.docs.rs`
-- CI hangs/timeouts → add termination guarantees and reduce mutation parallelism
+- CI hangs/timeouts → add termination guarantees and narrow or reduce parallel work
 
 ## Next checklist
 

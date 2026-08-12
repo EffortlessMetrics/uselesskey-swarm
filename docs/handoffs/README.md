@@ -12,7 +12,7 @@ It defines the read order from `.rails/index.toml` to active lanes, archived
 goal state, plans, specs, claim reports, and validation commands.
 
 Use [local-validation.md](local-validation.md) when reporting local PR evidence
-or deciding what `pr-lite`, hosted CI, targeted mutation, and release evidence
+or deciding what `pr-lite`, hosted CI, advisory `ripr`, and release evidence
 each prove.
 
 ## Recent Handoffs

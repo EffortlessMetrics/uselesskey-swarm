@@ -117,7 +117,7 @@ libraries:
   stress + seed edge cases)
 - `xtask/` — build automation: fmt, clippy, test, nextest, deny,
   feature-matrix, dep-guard, no-blob, publish-check, publish-preflight,
-  pr, ci, bdd, mutants, fuzz, coverage
+  pr, ci, bdd, fuzz, coverage
 
 ## Deterministic derivation
 
