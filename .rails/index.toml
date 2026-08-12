@@ -5,7 +5,7 @@ repo = "uselesskey"
 framework = "rails"
 root = ".rails"
 status = "introduced"
-active_lane = ""
+active_lane = "RAILS-LANE-0002"
 last_closed_lane = "RAILS-LANE-0001"
 migration_status = ".rails/migration-status.md"
 
@@ -98,6 +98,18 @@ id = "RAILS-LANE-0001"
 status = "closed"
 path = ".rails/lanes/RAILS-LANE-0001-framework-footprint/lane.toml"
 title = "Rails framework footprint"
+
+[[proposal]]
+id = "RAILS-PROP-0001"
+status = "accepted"
+path = ".rails/proposals/RAILS-PROP-0001-review-forward-quality-recovery.md"
+title = "Review-forward quality recovery"
+
+[[lane]]
+id = "RAILS-LANE-0002"
+status = "active"
+path = ".rails/lanes/RAILS-LANE-0002-quality-runway/lane.toml"
+title = "Quality runway and maintenance queue"
 
 [external_namespaces]
 codex = ".codex"
