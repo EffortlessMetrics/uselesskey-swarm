@@ -73,8 +73,12 @@ campaign without treating PR checks as main proof or widening any bounded seam.
 9. Qualify major migrations through maintainer issues: #632 for closed PR #621,
    #622, #624, #634 for closed PR #629, #635 for closed PR #626, and #628
    after a builder-ready migration issue exists.
-10. Write a Rails closeout, clear `active_lane`, preserve real follow-ups, and
-    clean lane-created branches and worktrees.
+10. Close the lane atomically: write the Rails closeout; give every work item a
+    final disposition and evidence; set the lane manifest to `status =
+    "closed"` with its closed date and closeout path; set the RAILS-LANE-0002
+    index row to `status = "closed"`; clear `project.active_lane`; set
+    `project.last_closed_lane = "RAILS-LANE-0002"`; preserve real follow-ups;
+    and clean lane-created branches and worktrees.
 
 After every merge, synchronize main, verify the newest main proof, update the
 lane status when appropriate, and remove only artifacts created by that lane.
