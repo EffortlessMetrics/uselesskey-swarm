@@ -60,22 +60,23 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    move from 5 to 0 stale-baseline entries while findings stay 3414,
    allowlisted stays 14, baselined stays 3400, and new debt stays 0. Commit only
    `policy/no-panic-baseline.toml` and require baseline-only diff proof.
-8. Before refreshing or retriggering #620, execute issue #642 as a separate
-   Rust-only contract prerequisite in `xtask/src/policy.rs`: replace the
-   expected coverage SHA
+8. Build and squash issue #642 as a separate Rust-only contract prerequisite
+   in `xtask/src/policy.rs`: replace the expected coverage SHA
    `1beb33eee6d086258184383af9a538940be190ed` with
    `6c6fd71fe4fb72c3697d269963d0e15df8adedad` and update the adjacent rejected
    mutable tag from `v2.85.6` to `v2.85.10`. Run
    `cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch`
-   on that prerequisite. Then refresh/retrigger the workflow-only #620 head and
-   require the same focused test plus exact-head workflow-validation,
+   plus the issue proof without changing workflow files. Close #642 only after
+   its Rust-only squash is verified on main.
+9. After #642 merges, refresh or retrigger the workflow-only PR #620 head and
+   require the focused coverage contract plus exact-head workflow-validation,
    normalized, and Source of Truth proof. Handle #623, #625, #627, and #630
    serially afterward. Keep #630 after PR #640 because they share the AWS-LC
    collision family.
-9. Qualify major migrations through maintainer issues: #632 for closed PR #621,
-   #645 for PR #622, #624, #634 for closed PR #629, #635 for closed PR #626,
-   and #644 for PR #628.
-10. Close the lane atomically: write the Rails closeout; give every work item a
+10. Qualify major migrations through maintainer issues: #632 for closed PR
+    #621, #645 for PR #622, #646 for PR #624, #634 for closed PR #629, #635
+    for closed PR #626, and #644 for PR #628.
+11. Close the lane atomically: write the Rails closeout; give every work item a
     final disposition and evidence; set the lane manifest to `status =
     "closed"` with its closed date and closeout path; set the RAILS-LANE-0002
     index row to `status = "closed"`; clear `project.active_lane`; set
