@@ -342,6 +342,11 @@ fn validate_workflow(policy: &Policy, workflow: &str, errors: &mut Vec<String>) 
                 "{WORKFLOW_PATH}:{}: extra cargo xtask command `{command}` is absent from `{SOURCE_CHECK}` policy",
                 lines[0]
             ));
+        } else if !command.starts_with("cargo xtask ") && contains_cargo_xtask(&command) {
+            errors.push(format!(
+                "{WORKFLOW_PATH}:{}: ambiguous wrapped cargo xtask command `{command}` in governed job",
+                lines[0]
+            ));
         }
     }
 }
@@ -395,6 +400,17 @@ fn code_cell(value: &str) -> String {
 
 fn unquote(value: &str) -> &str {
     value.trim_matches(|ch| ch == '\'' || ch == '"')
+}
+
+fn contains_cargo_xtask(command: &str) -> bool {
+    command
+        .split_whitespace()
+        .collect::<Vec<_>>()
+        .windows(2)
+        .any(|tokens| {
+            unquote(tokens[0]) == "cargo"
+                && tokens[1].trim_matches(|ch| ch == '\'' || ch == '"') == "xtask"
+        })
 }
 
 fn join_lines(lines: &[usize]) -> String {
@@ -552,6 +568,9 @@ jobs:
             (POLICY.to_owned(), WORKFLOW.replace("        run: cargo xtask check-goals\n", ""), "governed command `cargo xtask check-goals` is missing"),
             (POLICY.to_owned(), WORKFLOW.replace("        run: cargo xtask check-goals", "        run: cargo xtask check-goals\n      - name: goals again\n        run: cargo xtask check-goals"), "appears more than once"),
             (POLICY.to_owned(), WORKFLOW.replace("        run: cargo xtask check-goals", "        run: cargo xtask check-goals\n      - name: support\n        run: cargo xtask check-support-tiers"), "extra cargo xtask command"),
+            (POLICY.to_owned(), WORKFLOW.replace("        run: cargo xtask check-goals", "        run: cargo xtask check-goals\n      - name: wrapped support\n        run: env FOO=1 cargo xtask check-support-tiers"), "ambiguous wrapped cargo xtask command"),
+            (POLICY.to_owned(), WORKFLOW.replace("        run: cargo xtask check-goals", "        run: cargo xtask check-goals\n      - name: shell support\n        run: bash -c 'cargo xtask check-support-tiers'"), "ambiguous wrapped cargo xtask command"),
+            (POLICY.to_owned(), WORKFLOW.replace("        run: cargo xtask check-goals", "        run: |\n          cargo xtask check-goals"), "ambiguous multiline run command"),
         ];
         for (policy, workflow, needle) in cases {
             require_error(&errors(&policy, STATUS, &workflow)?, needle)?;
