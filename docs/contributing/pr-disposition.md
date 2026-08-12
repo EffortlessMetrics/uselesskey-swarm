@@ -35,14 +35,14 @@ Close or park a dependency PR instead of patching it when:
 
 For dependency clusters, land behavior keepers first when they touch the same crates. Then merge clean dependency bumps one at a time so any lockfile or backend regression is attributable.
 
-## Mutation-Lane Failures
+## Weak-Oracle Findings
 
-Treat a mutation failure as review feedback, not as noise to waive.
+Treat an advisory `ripr` finding as review feedback, not as noise to waive.
 
-- If a mutant exposes missing behavior coverage, add a focused test for the fixture identity, encoding shape, or negative contract.
-- If a mutant is equivalent but timeout-prone, prefer a clearer implementation shape over a test that only chases the mutation tool.
-- Re-run the exact mutation target that failed before force-pushing the keeper.
-- Do not weaken gold expectations or broad assertions just to reduce mutation count.
+- If a finding exposes missing behavior coverage, add a focused test for the fixture identity, encoding shape, or negative contract.
+- If a finding is not actionable, document the boundary and prefer clearer implementation or assertion structure over a broad suppression.
+- Re-run `cargo xtask ripr-pr` and the focused owner test before updating the keeper.
+- Do not weaken gold expectations or broad assertions merely to clear an advisory finding.
 
 The accepted fix should explain what contract is now proven: stable bytes, byte-budget truncation, sequential handles, exact timestamp arithmetic, provider-specific secret shape, or another concrete fixture property.
 
