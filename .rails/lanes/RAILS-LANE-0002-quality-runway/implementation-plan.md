@@ -48,11 +48,23 @@ campaign without treating PR checks as main proof or widening any bounded seam.
 3. Squash PR #639 as issue #633 PR A. Keep issue #633 open.
 4. Build issue #633 PR B from fresh post-#639 main and atomically add the
    checker to the Source of Truth workflow and policy-owned command list.
-5. Squash PR #640, then close issue #638 after verifying the merge.
+5. Squash PR #640 only after direct changed-target cfg compilation passes and
+   an exact-head NASM-capable hosted runner executes the active property-test
+   modules. Record local no-NASM all-target Cargo proof as not proven because
+   upstream `aws-lc-sys` stops before Rust linting. Then close issue #638 after
+   verifying the merge.
 6. Freshness-review and squash PR #631 after the runway work is true on main.
-7. Remove only stale no-panic baseline entries whose selectors disappeared in
-   PR #618; inspect generated proposal churn before committing ledger changes.
-8. Handle patch dependency PRs serially: #620, #623, #625, #627, then #630.
+7. Run normal `cargo xtask no-panic baseline` without `--reset` to remove only
+   stale entries whose selectors disappeared in PR #618. Require the checker to
+   move from 5 to 0 stale-baseline entries while findings stay 3414,
+   allowlisted stays 14, baselined stays 3400, and new debt stays 0. Commit only
+   `policy/no-panic-baseline.toml` and require baseline-only diff proof.
+8. Before #620 disposition, run the focused coverage workflow contract test on
+   its unmodified head and record the expected stale-pin failure. Synchronize
+   the exact install-action SHA `6c6fd71fe4fb72c3697d269963d0e15df8adedad`
+   with tag `v2.85.10`, keep any Rust contract prerequisite separate from the
+   workflow-only PR, and require exact-head workflow-validation, normalized,
+   and Source of Truth proof. Then handle #623, #625, #627, and #630 serially.
    Keep #630 after PR #640 because they share the AWS-LC collision family.
 9. Qualify major migrations through maintainer issues: #632 for closed PR #621,
    #622, #624, #634 for closed PR #629, #635 for closed PR #626, and #628

@@ -121,14 +121,14 @@ source_links = [
 ]
 blocked_by = ["ci-check-policy-pr-b"]
 proof = [
-  "cargo clippy -p uselesskey-aws-lc-rs --lib --no-default-features -- -D warnings",
-  "cargo clippy -p uselesskey-aws-lc-rs --lib --no-default-features --features rsa -- -D warnings",
-  "cargo clippy -p uselesskey-aws-lc-rs --lib --no-default-features --features ecdsa -- -D warnings",
-  "cargo clippy -p uselesskey-aws-lc-rs --lib --no-default-features --features ed25519 -- -D warnings",
+  "rustc --test crates/uselesskey-aws-lc-rs/tests/prop_tests.rs --crate-name prop_tests_no_features --edition 2024 --emit metadata --out-dir target -D warnings",
+  "rustc --test crates/uselesskey-aws-lc-rs/tests/prop_tests.rs --crate-name prop_tests_all_features_no_nasm --edition 2024 --emit metadata --out-dir target -D warnings --cfg 'feature=\"native\"' --cfg 'feature=\"rsa\"' --cfg 'feature=\"ecdsa\"' --cfg 'feature=\"ed25519\"'",
+  "On an exact-head NASM-capable hosted runner: cargo test -p uselesskey-aws-lc-rs --all-features --test prop_tests",
+  "Require exact-head Uselesskey Rust Small Result success and inspect Source of Truth Advisory.",
   "git diff --check",
 ]
 non_goals = ["Do not install or fake NASM, edit build.rs, or add lint allowances."]
-claim_boundary = "Proves import cfg alignment for exercised shapes; no-NASM all-target Cargo remains limited by upstream aws-lc-sys."
+claim_boundary = "Direct changed-target compilation proves the inactive no-feature and Windows/no-has_nasm cfg shapes; exact-head NASM-capable hosted property execution is required for active modules. Local no-NASM cargo clippy/test --all-targets remains not proven because upstream aws-lc-sys stops before Rust linting."
 rollback = "Revert the import-localization squash without adding an allowance."
 
 [[work_item]]
@@ -154,11 +154,15 @@ scope = "Remove only no-panic baseline rows whose selectors disappeared with ret
 source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/618"]
 blocked_by = ["mutation-doc-source-truth"]
 proof = [
-  "cargo xtask no-panic propose",
+  "Before refresh: cargo xtask check-no-panic-family; expect 3414 findings, 14 allowlisted, 3400 baselined, 0 new-debt, 5 stale-baseline, 0 expired, baseline=1990/1994.",
+  "cargo xtask no-panic baseline",
+  "Never use cargo xtask no-panic baseline --reset for this cleanup.",
+  "After refresh: cargo xtask check-no-panic-family; expect 3414 findings, 14 allowlisted, 3400 baselined, 0 new-debt, 0 stale-baseline, 0 expired, baseline=1990/1990.",
+  "Require git status --short to name only policy/no-panic-baseline.toml before commit.",
+  "git diff --check -- policy/no-panic-baseline.toml",
   "cargo xtask check-no-panic-family",
-  "git diff --check",
 ]
-non_goals = ["Do not commit unrelated generated baseline churn or reset current debt."]
+non_goals = ["Do not use --reset, absorb new debt, edit the allowlist, or commit any file except policy/no-panic-baseline.toml."]
 claim_boundary = "Proves stale selector removal and current checker consistency, not a zero-panic repository."
 rollback = "Restore only a removed row if its exact source selector returns."
 
@@ -169,12 +173,17 @@ scope = "Freshness-review and disposition install-action patch PR #620."
 source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/620"]
 blocked_by = ["stale-no-panic-baseline-after-618"]
 proof = [
+  "On the unmodified PR #620 head, cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch must demonstrate the stale coverage-pin contract failure before disposition.",
+  "Synchronize coverage.yml to taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad and em-ci-routed-rust.yml to the corresponding exact tag v2.85.10; keep the focused coverage contract test exact and green without leaving main red.",
+  "Keep any Rust contract prerequisite separate from the workflow-only dependency PR because mixed workflow and Rust changes route-fail with mixed_workflow_and_rust_requires_split.",
+  "cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch",
   "cargo test -p xtask workflow_hygiene_guard",
   "bash ci/check-bare-self-hosted.sh .github/workflows",
+  "Require exact-head Uselesskey Workflow Validation on GitHub Hosted success, normalized Uselesskey Rust Small Result success, and inspected Source of Truth Advisory success.",
   "git diff --check",
 ]
-non_goals = ["Do not widen workflow permissions, triggers, or runner routing."]
-claim_boundary = "Proves only the reviewed action-pin update and exercised workflow hygiene."
+non_goals = ["Do not merge PR #620 with a stale hard-coded coverage SHA, mix Rust and workflow changes, or widen workflow permissions, triggers, or runner routing."]
+claim_boundary = "Proves the exact v2.85.10 tag/SHA pair, focused coverage contract, workflow routing, and hygiene on the checked head; it does not prove future install-action tags or coverage execution."
 rollback = "Revert PR #620's squash if the action update regresses the workflow."
 
 [[work_item]]
