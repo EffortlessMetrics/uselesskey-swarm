@@ -375,7 +375,10 @@ support_tier_impact = "none"
 policy_impact = "none"
 blocks = ["migration-pem-624"]
 scope = "Qualify p384 v0.14 public-surface and runtime compatibility before dispositioning PR #622."
-source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/622"]
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/645",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/622",
+]
 blocked_by = ["migration-ed25519-dalek-632"]
 proof = ["Create or verify builder-ready focused proof before implementation.", "cargo xtask pr", "git diff --check"]
 non_goals = ["Do not infer public-type compatibility from Dependabot or compile-only proof."]

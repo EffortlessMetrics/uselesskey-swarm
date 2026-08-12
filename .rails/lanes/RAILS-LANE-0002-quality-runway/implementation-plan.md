@@ -73,8 +73,8 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    serially afterward. Keep #630 after PR #640 because they share the AWS-LC
    collision family.
 9. Qualify major migrations through maintainer issues: #632 for closed PR #621,
-   #622, #624, #634 for closed PR #629, #635 for closed PR #626, and #644 for
-   PR #628.
+   #645 for PR #622, #624, #634 for closed PR #629, #635 for closed PR #626,
+   and #644 for PR #628.
 10. Close the lane atomically: write the Rails closeout; give every work item a
     final disposition and evidence; set the lane manifest to `status =
     "closed"` with its closed date and closeout path; set the RAILS-LANE-0002
