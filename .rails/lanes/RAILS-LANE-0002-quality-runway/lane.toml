@@ -173,9 +173,9 @@ scope = "Freshness-review and disposition install-action patch PR #620."
 source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/620"]
 blocked_by = ["stale-no-panic-baseline-after-618"]
 proof = [
-  "On the unmodified PR #620 head, cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch must demonstrate the stale coverage-pin contract failure before disposition.",
-  "Synchronize coverage.yml to taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad and em-ci-routed-rust.yml to the corresponding exact tag v2.85.10; keep the focused coverage contract test exact and green without leaving main red.",
-  "Keep any Rust contract prerequisite separate from the workflow-only dependency PR because mixed workflow and Rust changes route-fail with mixed_workflow_and_rust_requires_split.",
+  "Before refreshing or retriggering PR #620, land a separate Rust-only prerequisite in xtask/src/policy.rs that changes the expected coverage action SHA from 1beb33eee6d086258184383af9a538940be190ed to 6c6fd71fe4fb72c3697d269963d0e15df8adedad and changes the adjacent rejected mutable tag from v2.85.6 to v2.85.10.",
+  "On the Rust-only prerequisite, cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch must pass against the current coverage workflow pin.",
+  "After the prerequisite merges, refresh or retrigger the workflow-only PR #620 head so coverage.yml uses taiki-e/install-action@6c6fd71fe4fb72c3697d269963d0e15df8adedad and em-ci-routed-rust.yml uses taiki-e/install-action@v2.85.10.",
   "cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch",
   "cargo test -p xtask workflow_hygiene_guard",
   "bash ci/check-bare-self-hosted.sh .github/workflows",

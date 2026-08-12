@@ -1,16 +1,16 @@
 # Quality Runway and Maintenance Queue Implementation Plan
 
-ID: RAILS-PLAN-0001  
-Kind: implementation-plan  
-Title: Quality runway and maintenance queue  
-Status: active  
-Owner: EffortlessMetrics  
-Created: 2026-08-12  
-Linked proposal: RAILS-PROP-0001  
-Linked specs: USELESSKEY-SPEC-0005, USELESSKEY-SPEC-0023  
-Linked ADRs: USELESSKEY-ADR-0003  
-Linked lane: RAILS-LANE-0002  
-Support-tier impact: none  
+ID: RAILS-PLAN-0001
+Kind: implementation-plan
+Title: Quality runway and maintenance queue
+Status: active
+Owner: EffortlessMetrics
+Created: 2026-08-12
+Linked proposal: RAILS-PROP-0001
+Linked specs: USELESSKEY-SPEC-0005, USELESSKEY-SPEC-0023
+Linked ADRs: USELESSKEY-ADR-0003
+Linked lane: RAILS-LANE-0002
+Support-tier impact: none
 Policy impact: issue #633 activation slice only
 
 ## Objective
@@ -59,13 +59,17 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    move from 5 to 0 stale-baseline entries while findings stay 3414,
    allowlisted stays 14, baselined stays 3400, and new debt stays 0. Commit only
    `policy/no-panic-baseline.toml` and require baseline-only diff proof.
-8. Before #620 disposition, run the focused coverage workflow contract test on
-   its unmodified head and record the expected stale-pin failure. Synchronize
-   the exact install-action SHA `6c6fd71fe4fb72c3697d269963d0e15df8adedad`
-   with tag `v2.85.10`, keep any Rust contract prerequisite separate from the
-   workflow-only PR, and require exact-head workflow-validation, normalized,
-   and Source of Truth proof. Then handle #623, #625, #627, and #630 serially.
-   Keep #630 after PR #640 because they share the AWS-LC collision family.
+8. Before refreshing or retriggering #620, land a separate Rust-only contract
+   prerequisite in `xtask/src/policy.rs`: replace the expected coverage SHA
+   `1beb33eee6d086258184383af9a538940be190ed` with
+   `6c6fd71fe4fb72c3697d269963d0e15df8adedad` and update the adjacent rejected
+   mutable tag from `v2.85.6` to `v2.85.10`. Run
+   `cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch`
+   on that prerequisite. Then refresh/retrigger the workflow-only #620 head and
+   require the same focused test plus exact-head workflow-validation,
+   normalized, and Source of Truth proof. Handle #623, #625, #627, and #630
+   serially afterward. Keep #630 after PR #640 because they share the AWS-LC
+   collision family.
 9. Qualify major migrations through maintainer issues: #632 for closed PR #621,
    #622, #624, #634 for closed PR #629, #635 for closed PR #626, and #628
    after a builder-ready migration issue exists.

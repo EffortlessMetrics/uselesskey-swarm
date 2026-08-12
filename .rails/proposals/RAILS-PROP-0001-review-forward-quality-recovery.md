@@ -1,16 +1,16 @@
 # RAILS-PROP-0001: Review-Forward Quality Recovery
 
-ID: RAILS-PROP-0001  
-Kind: proposal  
-Title: Review-forward quality recovery  
-Status: accepted  
-Owner: EffortlessMetrics  
-Created: 2026-08-12  
-Target milestone: quality-runway  
-Linked specs: USELESSKEY-SPEC-0005, USELESSKEY-SPEC-0023  
-Linked ADRs: USELESSKEY-ADR-0003  
-Linked lanes: RAILS-LANE-0002  
-Support-tier impact: none  
+ID: RAILS-PROP-0001
+Kind: proposal
+Title: Review-forward quality recovery
+Status: accepted
+Owner: EffortlessMetrics
+Created: 2026-08-12
+Target milestone: quality-runway
+Linked specs: USELESSKEY-SPEC-0005, USELESSKEY-SPEC-0023
+Linked ADRs: USELESSKEY-ADR-0003
+Linked lanes: RAILS-LANE-0002
+Support-tier impact: none
 Policy impact: CI check-policy synchronization only through issue #633
 
 ## Problem
