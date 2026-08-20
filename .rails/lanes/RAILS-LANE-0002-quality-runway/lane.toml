@@ -206,6 +206,7 @@ source_links = [
 ]
 blocked_by = ["mutation-doc-source-truth"]
 proof = [
+  "The 5 stale-baseline entries map to 4 fully removed selector rows plus 1 partially used row whose expected count is reduced; baseline=1990/1994 means 1990 unique hit rows out of 1994 total baseline rows.",
   "Before refresh: cargo xtask check-no-panic-family; expect 3414 findings, 14 allowlisted, 3400 baselined, 0 new-debt, 5 stale-baseline, 0 expired, baseline=1990/1994.",
   "cargo xtask no-panic baseline",
   "Never use cargo xtask no-panic baseline --reset for this cleanup.",

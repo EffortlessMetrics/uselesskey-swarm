@@ -59,21 +59,25 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    stale entries whose selectors disappeared in PR #618. Require the checker to
    move from 5 to 0 stale-baseline entries while findings stay 3414,
    allowlisted stays 14, baselined stays 3400, and new debt stays 0. Commit only
-   `policy/no-panic-baseline.toml` and require baseline-only diff proof.
-8. Build and squash issue #642 as a separate Rust-only contract prerequisite
-   in `xtask/src/policy.rs`: replace the expected coverage SHA
+   `policy/no-panic-baseline.toml` and require baseline-only diff proof. The five
+   stale entries map to four fully removed selector rows plus one partially used
+   row whose expected count is reduced; `baseline=1990/1994` means 1990 unique
+   hit rows out of 1994 total baseline rows.
+8. Build and squash the Rust-only PR for issue #642 as a separate contract
+   prerequisite in `xtask/src/policy.rs`: replace the expected coverage SHA
    `1beb33eee6d086258184383af9a538940be190ed` with
    `288e746965032cfcc232e09af2daf5f23c14d780` and update the adjacent rejected
    mutable tag from `v2.85.6` to `v2.86.1`. Run
    `cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch`
-   plus the issue proof without changing workflow files. Close #642 only after
-   its Rust-only squash is verified on main.
-9. After #642's Rust-only prerequisite merges, refresh or retrigger the
-   workflow-only PR #647 head and
-   require the focused coverage contract plus exact-head workflow-validation,
-   normalized, and Source of Truth proof. Handle #623, #625, #627, and #630
-   serially afterward. Keep #630 after PR #640 because they share the AWS-LC
-   collision family.
+   plus the issue proof without changing workflow files. Close issue #642 only
+   after its Rust-only squash is verified on main.
+9. After #642's Rust-only prerequisite merges, freshness-review and refresh or
+   retrigger the workflow-only PR #647. Require the focused coverage contract
+   plus workflow-validation, normalized, and Source of Truth proof on the exact
+   refreshed head. Squash #647 only after that proof is green, then verify the
+   squash and newest current-main proof before marking the item complete or
+   advancing. Handle #623, #625, #627, and #630 serially afterward. Keep #630
+   after PR #640 because they share the AWS-LC collision family.
 10. Qualify major migrations through maintainer issues: #632 for closed PR
     #621, #645 for PR #622, #646 for PR #624, #634 for closed PR #629, #635
     for closed PR #626, and #644 for PR #628.
