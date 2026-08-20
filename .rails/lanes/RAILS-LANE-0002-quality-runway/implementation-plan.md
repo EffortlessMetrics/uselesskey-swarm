@@ -63,12 +63,13 @@ campaign without treating PR checks as main proof or widening any bounded seam.
 8. Build and squash issue #642 as a separate Rust-only contract prerequisite
    in `xtask/src/policy.rs`: replace the expected coverage SHA
    `1beb33eee6d086258184383af9a538940be190ed` with
-   `6c6fd71fe4fb72c3697d269963d0e15df8adedad` and update the adjacent rejected
-   mutable tag from `v2.85.6` to `v2.85.10`. Run
+   `288e746965032cfcc232e09af2daf5f23c14d780` and update the adjacent rejected
+   mutable tag from `v2.85.6` to `v2.86.1`. Run
    `cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch`
    plus the issue proof without changing workflow files. Close #642 only after
    its Rust-only squash is verified on main.
-9. After #642 merges, refresh or retrigger the workflow-only PR #620 head and
+9. After #642's Rust-only prerequisite merges, refresh or retrigger the
+   workflow-only PR #647 head and
    require the focused coverage contract plus exact-head workflow-validation,
    normalized, and Source of Truth proof. Handle #623, #625, #627, and #630
    serially afterward. Keep #630 after PR #640 because they share the AWS-LC
