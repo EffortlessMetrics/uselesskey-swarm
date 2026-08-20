@@ -267,10 +267,11 @@ source_links = [
 blocked_by = ["coverage-install-action-contract-642"]
 proof = [
   "After issue #642's Rust-only prerequisite merges, refresh or retrigger the workflow-only PR #647 head so coverage.yml uses taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 and em-ci-routed-rust.yml uses taiki-e/install-action@v2.86.1.",
+  "During refreshed PR #647, add cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch to both the route local-reproduction list and the hosted workflow-validation job.",
   "cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch",
   "cargo test -p xtask workflow_hygiene_guard",
   "bash ci/check-bare-self-hosted.sh .github/workflows",
-  "Require exact-head Uselesskey Workflow Validation on GitHub Hosted success, normalized Uselesskey Rust Small Result success, and inspected Source of Truth Advisory success.",
+  "Require the exact-head hosted workflow-validation steps to show the focused coverage contract executed and passed, Uselesskey Workflow Validation on GitHub Hosted success, normalized Uselesskey Rust Small Result success, and inspected Source of Truth Advisory success.",
   "git diff --check",
 ]
 non_goals = ["Do not merge PR #647 with a stale hard-coded coverage SHA, mix Rust and workflow changes, or widen workflow permissions, triggers, or runner routing."]

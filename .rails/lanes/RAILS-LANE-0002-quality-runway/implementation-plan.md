@@ -72,12 +72,15 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    plus the issue proof without changing workflow files. Close issue #642 only
    after its Rust-only squash is verified on main.
 9. After #642's Rust-only prerequisite merges, freshness-review and refresh or
-   retrigger the workflow-only PR #647. Require the focused coverage contract
-   plus workflow-validation, normalized, and Source of Truth proof on the exact
-   refreshed head. Squash #647 only after that proof is green, then verify the
-   squash and newest current-main proof before marking the item complete or
-   advancing. Handle #623, #625, #627, and #630 serially afterward. Keep #630
-   after PR #640 because they share the AWS-LC collision family.
+   retrigger the workflow-only PR #647. Add
+   `cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch`
+   to both the route local-reproduction list and the hosted workflow-validation
+   job. Require that focused contract plus workflow-validation, normalized, and
+   Source of Truth proof on the exact refreshed head. Squash #647 only after
+   that proof is green, then verify the squash and newest current-main proof
+   before marking the item complete or advancing. Handle #623, #625, #627, and
+   #630 serially afterward. Keep #630 after PR #640 because they share the
+   AWS-LC collision family.
 10. Qualify major migrations through maintainer issues: #632 for closed PR
     #621, #645 for PR #622, #646 for PR #624, #634 for closed PR #629, #635
     for closed PR #626, and #644 for PR #628.
