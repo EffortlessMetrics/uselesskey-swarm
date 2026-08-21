@@ -67,10 +67,13 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    prerequisite in `xtask/src/policy.rs`: replace the expected coverage SHA
    `1beb33eee6d086258184383af9a538940be190ed` with
    `288e746965032cfcc232e09af2daf5f23c14d780` and update the adjacent rejected
-   mutable tag from `v2.85.6` to `v2.86.1`. Run
-   `cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch`
-   plus the issue proof without changing workflow files. Close issue #642 only
-   after its Rust-only squash is verified on main.
+   mutable tag from `v2.85.6` to `v2.86.1`. Against current main, the focused
+   coverage contract is expected to fail because the workflow pins remain old;
+   execute and pass that focused test only after workflow-only PR #647 refreshes
+   both workflow pins. For the Rust-only prerequisite, require the independent
+   routed-workflow, hygiene, bare-self-hosted, Clippy, and diff guards without
+   changing workflow files. Close issue #642 only after its Rust-only squash is
+   verified on main.
 9. After #642's Rust-only prerequisite merges, freshness-review and refresh or
    retrigger the workflow-only PR #647. Add
    `cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch`
