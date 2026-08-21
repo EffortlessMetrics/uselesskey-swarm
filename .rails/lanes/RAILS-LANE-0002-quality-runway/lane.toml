@@ -259,7 +259,7 @@ adr = ""
 implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
 support_tier_impact = "none"
 policy_impact = "none"
-blocks = ["dependency-blake3-623"]
+blocks = ["cleanup-install-action-651"]
 scope = "Freshness-review and disposition install-action patch PR #647."
 source_links = [
   "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/642",
@@ -281,6 +281,37 @@ claim_boundary = "Proves the exact v2.86.1 tag/SHA pair, focused coverage contra
 rollback = "Revert PR #647's squash if the action update regresses the workflow."
 
 [[work_item]]
+id = "cleanup-install-action-651"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["dependency-blake3-623"]
+scope = "Reconcile the post-#647 workflow and Rust policy surfaces on one exact install-action identity and close the transitional proof gap."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/651",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/642",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/647",
+]
+blocked_by = ["dependency-install-action-647"]
+proof = [
+  "Start from post-#647 main and verify coverage.yml uses taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780, em-ci-routed-rust.yml rejects v2.86.1, and xtask/src/policy.rs recognizes the same exact pair.",
+  "cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch",
+  "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
+  "cargo test -p xtask workflow_hygiene_guard_accepts_current_workflows",
+  "bash ci/check-bare-self-hosted.sh .github/workflows",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
+  "Require the focused coverage contract to execute and pass in route-local reproduction and hosted workflow validation, followed by exact-head Uselesskey Rust Small Result and Source of Truth Advisory success.",
+  "git diff --check",
+]
+non_goals = ["Do not modify or reopen superseded PR #620, weaken action or runner assertions, change routing/permissions/branch protection, merge unrelated dependencies, or claim coverage upload, CX43/CX53 capacity, main-full, or release readiness."]
+claim_boundary = "Proves that post-#647 workflow and Rust policy surfaces agree on the exact v2.86.1 / 288e746965032cfcc232e09af2daf5f23c14d780 identity and that the focused coverage contract executes through both required validation routes; it does not prove capacity, coverage upload, main-full, branch protection, or future action updates."
+rollback = "Revert only the cleanup commit if it introduces drift; preserve the coherent post-#647 SHA/tag contract and leave the item NOT_PROVEN when hosted proof is unavailable."
+
+[[work_item]]
 id = "dependency-blake3-623"
 status = "queued"
 proposal = "RAILS-PROP-0001"
@@ -292,7 +323,7 @@ policy_impact = "none"
 blocks = ["dependency-base64-625"]
 scope = "Freshness-review and disposition blake3 patch PR #623."
 source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/623"]
-blocked_by = ["dependency-install-action-647"]
+blocked_by = ["cleanup-install-action-651"]
 proof = [
   "cargo test -p uselesskey-core --all-features",
   "cargo xtask deny",

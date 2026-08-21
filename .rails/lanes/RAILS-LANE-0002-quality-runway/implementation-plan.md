@@ -86,13 +86,18 @@ campaign without treating PR checks as main proof or widening any bounded seam.
    Source of Truth proof on the exact refreshed head. Squash #647 only after
    that proof is green, merge #647 as the second pair member, then verify the
    squash and newest current-main proof only after both pair members land before
-   marking the item complete or advancing. Handle #623, #625, #627, and
-   #630 serially afterward. Keep #630 after PR #640 because they share the
-   AWS-LC collision family.
-10. Qualify major migrations through maintainer issues: #632 for closed PR
+   marking the item complete or advancing.
+10. Execute cleanup issue #651 from post-#647 main. Verify the exact SHA/tag pair
+   across both workflow files and `xtask/src/policy.rs`, run the focused contract
+   through route-local and hosted validation, and require fresh exact-head
+   normalized and Source of Truth proof. Do not advance to dependency #623 until
+   this cleanup is green; leave it `NOT_PROVEN` if hosted proof is unavailable.
+11. Handle #623, #625, #627, and #630 serially after #651. Keep #630 after
+   PR #640 because they share the AWS-LC collision family.
+12. Qualify major migrations through maintainer issues: #632 for closed PR
     #621, #645 for PR #622, #646 for PR #624, #634 for closed PR #629, #635
     for closed PR #626, and #644 for PR #628.
-11. Close the lane atomically: write the Rails closeout; give every work item a
+13. Close the lane atomically: write the Rails closeout; give every work item a
     final disposition and evidence; set the lane manifest to `status =
     "closed"` with its closed date and closeout path; set the RAILS-LANE-0002
     index row to `status = "closed"`; clear `project.active_lane`; set
