@@ -1,0 +1,534 @@
+schema_version = "1.0"
+
+id = "RAILS-LANE-0002"
+kind = "lane"
+title = "Quality runway and maintenance queue"
+status = "active"
+owner = "EffortlessMetrics"
+created = "2026-08-12"
+linked_proposal = "RAILS-PROP-0001"
+linked_specs = ["USELESSKEY-SPEC-0005", "USELESSKEY-SPEC-0023"]
+linked_adrs = ["USELESSKEY-ADR-0003"]
+linked_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "CI check-policy activation only through issue #633"
+
+objective = """
+Restore a trustworthy merge runway and serially land the selected security,
+source-truth, lint, no-panic, and dependency maintenance queue with bounded
+proof, accurate live links, and cleanup after every disposition.
+"""
+
+end_state = [
+  "Newest main-full and Source of Truth proof is healthy before ordinary merges.",
+  "Selected reviewed drafts are merged or explicitly disposed in dependency order.",
+  "Issue #633 implementation and activation land as separate atomic PRs.",
+  "Stale no-panic baseline entries from retired mutation tooling are removed without a broad reset.",
+  "Patch and major dependency queues have attributable proof or builder-ready migration issues.",
+  "A Rails closeout records evidence, remaining work, and lane cleanup.",
+]
+
+non_goals = [
+  "No release, publish, tag, signing, deployment, crates.io, or source-sync work.",
+  "No branch-protection change or advisory-check promotion.",
+  "No broad no-panic baseline reset or mutation-tooling restoration.",
+  "No combined behavior and dependency collision-family PR.",
+  "No major dependency adoption directly from an unqualified bot diff.",
+  "No claim that PR checks establish main-full, cryptographic, compatibility, or release proof.",
+]
+
+[[work_item]]
+id = "restore-main-full-proof"
+status = "blocked"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["security-advisory-floor"]
+scope = "Resolve or verify the CX53 main-full capacity incident before ordinary merges resume."
+source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/issues/585"]
+blocked_by = ["Issue #585 remains open and newest main proof must be current."]
+proof = [
+  "cargo xtask check-merge-queue",
+  "Inspect newest Uselesskey Main Full Gate push run and receipt.",
+  "Inspect newest main Source of Truth run.",
+]
+non_goals = ["Do not label a main run or weaken runner disk guards."]
+claim_boundary = "A pass establishes current merge-runway posture, not release readiness or permanent runner capacity."
+rollback = "Keep downstream items blocked if proof remains hold, investigate, or unknown."
+
+[[work_item]]
+id = "security-advisory-floor"
+status = "blocked"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["ci-check-policy-pr-a"]
+scope = "Land the reviewed quinn-proto lockfile repair."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/636",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/637",
+]
+blocked_by = ["restore-main-full-proof"]
+proof = [
+  "cargo audit --ignore RUSTSEC-2023-0071",
+  "cargo xtask deny",
+  "cargo test -p uselesskey-test-server --all-features",
+  "cargo xtask dep-guard",
+  "git diff --check",
+]
+non_goals = ["Do not widen the accepted RSA advisory boundary or edit manifests."]
+claim_boundary = "Proves the selected lockfile clears RUSTSEC-2026-0185 while the accepted RSA advisory remains disclosed."
+rollback = "Revert the lockfile-only squash and reopen issue #636 if the advisory returns."
+
+[[work_item]]
+id = "ci-check-policy-pr-a"
+status = "blocked"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0023"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["ci-check-policy-pr-b"]
+scope = "Land the local CI check-policy synchronization checker without activation."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/633",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/639",
+]
+blocked_by = ["security-advisory-floor"]
+proof = [
+  "cargo test -p xtask ci_check_policy",
+  "cargo xtask check-ci-check-policy",
+  "cargo xtask check-doc-artifacts",
+  "cargo xtask spec-check --strict",
+  "cargo xtask docs-sync --check",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
+  "git diff --check",
+]
+non_goals = ["Do not edit workflow or policy activation files in PR A."]
+claim_boundary = "Proves checked-revision synchronization, not hosted execution or branch protection."
+rollback = "Revert checker code and its SPEC/status documentation together."
+
+[[work_item]]
+id = "ci-check-policy-pr-b"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0023"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "policy/ci-checks.toml"
+blocks = ["aws-lc-import-cfg"]
+scope = "Activate the merged checker in Source of Truth CI and policy ownership atomically."
+source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/issues/633"]
+blocked_by = ["ci-check-policy-pr-a"]
+proof = [
+  "cargo xtask check-ci-check-policy",
+  "cargo test -p xtask source_of_truth_workflow_keeps_pr_checks_on_hosted_runner",
+  "cargo test -p xtask workflow_hygiene_guard",
+  "bash ci/check-bare-self-hosted.sh .github/workflows",
+  "git diff --check",
+]
+non_goals = ["Do not promote Source of Truth Advisory or weaken continue-on-error."]
+claim_boundary = "Proves atomic workflow/policy activation on the checked revision, not live branch protection."
+rollback = "Revert the workflow step and matching policy command together; keep issue #633 open until verified."
+
+[[work_item]]
+id = "aws-lc-import-cfg"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["mutation-doc-source-truth", "dependency-aws-lc-630"]
+scope = "Land the reviewed cfg-local property-test imports."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/638",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/640",
+]
+blocked_by = ["ci-check-policy-pr-b"]
+proof = [
+  "rustc --test crates/uselesskey-aws-lc-rs/tests/prop_tests.rs --crate-name prop_tests_no_features --edition 2024 --emit metadata --out-dir target -D warnings",
+  "rustc --test crates/uselesskey-aws-lc-rs/tests/prop_tests.rs --crate-name prop_tests_all_features_no_nasm --edition 2024 --emit metadata --out-dir target -D warnings --cfg 'feature=\"native\"' --cfg 'feature=\"rsa\"' --cfg 'feature=\"ecdsa\"' --cfg 'feature=\"ed25519\"'",
+  "On an exact-head NASM-capable hosted runner: cargo test -p uselesskey-aws-lc-rs --all-features --test prop_tests",
+  "Require exact-head Uselesskey Rust Small Result success and inspect Source of Truth Advisory.",
+  "git diff --check",
+]
+non_goals = ["Do not install or fake NASM, edit build.rs, or add lint allowances."]
+claim_boundary = "Direct changed-target compilation proves the inactive no-feature and Windows/no-has_nasm cfg shapes; exact-head NASM-capable hosted property execution is required for active modules. Local no-NASM cargo clippy/test --all-targets remains not proven because upstream aws-lc-sys stops before Rust linting."
+rollback = "Revert the import-localization squash without adding an allowance."
+
+[[work_item]]
+id = "mutation-doc-source-truth"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["stale-no-panic-baseline-after-618"]
+scope = "Land the reviewed removal of stale mutation-lane operational guidance."
+source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/631"]
+blocked_by = ["aws-lc-import-cfg"]
+proof = [
+  "cargo xtask docs-sync --check",
+  "cargo xtask typos",
+  "cargo xtask spec-check --strict",
+  "git diff --check",
+]
+non_goals = ["Do not restore mutation tooling or rewrite historical records."]
+claim_boundary = "Proves active documentation matches committed mutation-tooling removal, not historical mutation adequacy."
+rollback = "Revert the docs-only squash if active guidance becomes inaccurate."
+
+[[work_item]]
+id = "stale-no-panic-baseline-after-618"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "policy/no-panic-baseline.toml"
+blocks = ["coverage-install-action-contract-642"]
+scope = "Remove only no-panic baseline rows whose selectors disappeared with retired mutation tooling."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/643",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/618",
+]
+blocked_by = ["mutation-doc-source-truth"]
+proof = [
+  "The 5 stale-baseline entries map to 4 fully removed selector rows plus 1 partially used row whose expected count is reduced; baseline=1990/1994 means 1990 unique hit rows out of 1994 total baseline rows.",
+  "Before refresh: cargo xtask check-no-panic-family; expect 3414 findings, 14 allowlisted, 3400 baselined, 0 new-debt, 5 stale-baseline, 0 expired, baseline=1990/1994.",
+  "cargo xtask no-panic baseline",
+  "Never use cargo xtask no-panic baseline --reset for this cleanup.",
+  "After refresh: cargo xtask check-no-panic-family; expect 3414 findings, 14 allowlisted, 3400 baselined, 0 new-debt, 0 stale-baseline, 0 expired, baseline=1990/1990.",
+  "Require git status --short to name only policy/no-panic-baseline.toml before commit.",
+  "git diff --check -- policy/no-panic-baseline.toml",
+  "cargo xtask check-no-panic-family",
+]
+non_goals = ["Do not use --reset, absorb new debt, edit the allowlist, or commit any file except policy/no-panic-baseline.toml."]
+claim_boundary = "Proves stale selector removal and current checker consistency, not a zero-panic repository."
+rollback = "Restore only a removed row if its exact source selector returns."
+
+[[work_item]]
+id = "coverage-install-action-contract-642"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["dependency-install-action-647"]
+scope = "Repair the Rust-only coverage install-action SHA and rejected mutable-tag contract from issue #642 before refreshing PR #647."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/642",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/647",
+]
+blocked_by = ["stale-no-panic-baseline-after-618"]
+proof = [
+  "Change only xtask/src/policy.rs: expected coverage action SHA 1beb33eee6d086258184383af9a538940be190ed to 288e746965032cfcc232e09af2daf5f23c14d780 and adjacent rejected mutable tag v2.85.6 to v2.86.1.",
+  "The focused coverage contract is expected to fail against current workflow pins (coverage SHA 1beb33eee6d086258184383af9a538940be190ed and rejected tag v2.85.6); execute and pass it only after workflow-only PR #647 refreshes both pins.",
+  "Treat #642 and #647 as one coordinated merge pair: do not merge #642 until #647 is staged for immediate refresh from the #642-containing main; after #642 merges, do not make an ordinary merge or claim current-main proof until refreshed #647 is validated and merged.",
+  "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
+  "cargo test -p xtask workflow_hygiene_guard",
+  "bash ci/check-bare-self-hosted.sh .github/workflows",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
+  "git diff --check",
+  "Close issue #642 only after the Rust-only prerequisite is merged and verified on main.",
+]
+non_goals = ["Do not edit or refresh workflow files, PR #647, runner routing, permissions, triggers, branch protection, or release surfaces in this prerequisite.", "Do not claim green main proof during the coordinated #642/#647 transition; current-main proof begins only after both pair members land."]
+claim_boundary = "Proves the Rust-only policy expectation update and independent routed-workflow, hygiene, bare-self-hosted, Clippy, and diff guards; it does not prove the focused workflow contract until PR #647 refreshes the workflow pins, execute coverage, future tags, runner capacity, or release readiness."
+rollback = "Revert the xtask/src/policy.rs SHA/tag expectation pair together if the workflow pin rolls back; do not weaken or delete the coverage contract."
+
+[[work_item]]
+id = "dependency-install-action-647"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["cleanup-install-action-651"]
+scope = "Freshness-review and disposition install-action patch PR #647."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/642",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/647",
+]
+blocked_by = ["coverage-install-action-contract-642"]
+proof = [
+  "After issue #642's Rust-only prerequisite merges, refresh or retrigger the workflow-only PR #647 head so coverage.yml uses taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780 and em-ci-routed-rust.yml uses taiki-e/install-action@v2.86.1.",
+  "This is the second half of a coordinated #642/#647 merge pair: refresh #647 from the #642-containing main, validate it, and merge it immediately after #642; do not make an ordinary merge or claim current-main proof between the pair members.",
+  "During refreshed PR #647, add cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch to both the route local-reproduction list and the hosted workflow-validation job.",
+  "cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch",
+  "cargo test -p xtask workflow_hygiene_guard",
+  "bash ci/check-bare-self-hosted.sh .github/workflows",
+  "Require the exact-head hosted workflow-validation steps to show the focused coverage contract executed and passed, Uselesskey Workflow Validation on GitHub Hosted success, normalized Uselesskey Rust Small Result success, and inspected Source of Truth Advisory success.",
+  "git diff --check",
+]
+non_goals = ["Do not merge PR #647 with a stale hard-coded coverage SHA, mix Rust and workflow changes, or widen workflow permissions, triggers, or runner routing."]
+claim_boundary = "Proves the exact v2.86.1 tag/SHA pair, focused coverage contract, workflow routing, and hygiene only after the refreshed #647 head is checked; it does not prove future install-action tags or coverage execution."
+rollback = "Revert PR #647's squash if the action update regresses the workflow."
+
+[[work_item]]
+id = "cleanup-install-action-651"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["dependency-blake3-623"]
+scope = "Reconcile the post-#647 workflow and Rust policy surfaces on one exact install-action identity and close the transitional proof gap."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/651",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/642",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/647",
+]
+blocked_by = ["dependency-install-action-647"]
+proof = [
+  "Start from post-#647 main and verify coverage.yml uses taiki-e/install-action@288e746965032cfcc232e09af2daf5f23c14d780, em-ci-routed-rust.yml rejects v2.86.1, and xtask/src/policy.rs recognizes the same exact pair.",
+  "cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch",
+  "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
+  "cargo test -p xtask workflow_hygiene_guard_accepts_current_workflows",
+  "bash ci/check-bare-self-hosted.sh .github/workflows",
+  "cargo clippy -p xtask --all-targets -- -D warnings",
+  "Require the focused coverage contract to execute and pass in route-local reproduction and hosted workflow validation, followed by exact-head Uselesskey Rust Small Result and Source of Truth Advisory success.",
+  "git diff --check",
+]
+non_goals = ["Do not modify or reopen superseded PR #620, weaken action or runner assertions, change routing/permissions/branch protection, merge unrelated dependencies, or claim coverage upload, CX43/CX53 capacity, main-full, or release readiness."]
+claim_boundary = "Proves that post-#647 workflow and Rust policy surfaces agree on the exact v2.86.1 / 288e746965032cfcc232e09af2daf5f23c14d780 identity and that the focused coverage contract executes through both required validation routes; it does not prove capacity, coverage upload, main-full, branch protection, or future action updates."
+rollback = "Revert only the cleanup commit if it introduces drift; preserve the coherent post-#647 SHA/tag contract and leave the item NOT_PROVEN when hosted proof is unavailable."
+
+[[work_item]]
+id = "dependency-blake3-623"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["dependency-base64-625"]
+scope = "Freshness-review and disposition blake3 patch PR #623."
+source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/623"]
+blocked_by = ["cleanup-install-action-651"]
+proof = [
+  "cargo test -p uselesskey-core --all-features",
+  "cargo xtask deny",
+  "cargo xtask dep-guard",
+  "cargo xtask pr",
+  "git diff --check",
+]
+non_goals = ["Do not change derivation behavior or combine another lockfile update."]
+claim_boundary = "Proves the reviewed patch against exercised core behavior, not a derivation-version change."
+rollback = "Revert the attributable dependency squash."
+
+[[work_item]]
+id = "dependency-base64-625"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["dependency-clap-627"]
+scope = "Freshness-review and disposition base64 patch PR #625."
+source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/625"]
+blocked_by = ["dependency-blake3-623"]
+proof = [
+  "cargo xtask deny",
+  "cargo xtask dep-guard",
+  "cargo xtask pr",
+  "git diff --check",
+]
+non_goals = ["Do not change fixture encodings or combine another lockfile update."]
+claim_boundary = "Proves the reviewed patch against routed repository proof, not every downstream encoding consumer."
+rollback = "Revert the attributable dependency squash."
+
+[[work_item]]
+id = "dependency-clap-627"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["dependency-aws-lc-630"]
+scope = "Freshness-review and disposition clap patch PR #627."
+source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/627"]
+blocked_by = ["dependency-base64-625"]
+proof = [
+  "cargo test -p xtask",
+  "cargo xtask deny",
+  "cargo xtask dep-guard",
+  "cargo xtask pr",
+  "git diff --check",
+]
+non_goals = ["Do not redesign CLI surfaces or combine another lockfile update."]
+claim_boundary = "Proves the reviewed patch against exercised repository CLI parsing."
+rollback = "Revert the attributable dependency squash."
+
+[[work_item]]
+id = "dependency-aws-lc-630"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["migration-ed25519-dalek-632"]
+scope = "Freshness-review and disposition aws-lc-rs patch PR #630 after the cfg behavior keeper."
+source_links = ["https://github.com/EffortlessMetrics/uselesskey-swarm/pull/630"]
+blocked_by = ["dependency-clap-627", "aws-lc-import-cfg"]
+proof = [
+  "cargo xtask deny",
+  "cargo xtask dep-guard",
+  "cargo xtask pr",
+  "git diff --check",
+]
+non_goals = ["Do not fold the cfg fix into the dependency branch or claim no-NASM native execution."
+]
+claim_boundary = "Proves the reviewed AWS-LC patch on exercised NASM-capable paths only."
+rollback = "Revert the dependency squash while keeping the cfg behavior keeper."
+
+[[work_item]]
+id = "migration-ed25519-dalek-632"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["migration-p384-622"]
+scope = "Build the maintainer-owned ed25519-dalek v3 public-type migration from issue #632."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/632",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/621",
+]
+blocked_by = ["dependency-aws-lc-630"]
+proof = ["Use issue #632 focused proof commands.", "cargo xtask pr", "git diff --check"]
+non_goals = ["Do not reopen the closed bot PR as the implementation keeper."]
+claim_boundary = "Queue membership proves planning only, not v3 public-type compatibility."
+rollback = "Revert the maintainer migration or defer issue #632 with preserved bot context."
+
+[[work_item]]
+id = "migration-p384-622"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["migration-pem-624"]
+scope = "Qualify p384 v0.14 public-surface and runtime compatibility before dispositioning PR #622."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/645",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/622",
+]
+blocked_by = ["migration-ed25519-dalek-632"]
+proof = ["Create or verify builder-ready focused proof before implementation.", "cargo xtask pr", "git diff --check"]
+non_goals = ["Do not infer public-type compatibility from Dependabot or compile-only proof."]
+claim_boundary = "Queue membership proves planning only, not p384 v0.14 compatibility."
+rollback = "Close or defer PR #622 with evidence if the migration is not review-forward."
+
+[[work_item]]
+id = "migration-pem-624"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["migration-pgp-634"]
+scope = "Qualify pem v4 parsing and encoding compatibility before dispositioning PR #624."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/646",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/624",
+]
+blocked_by = ["migration-p384-622"]
+proof = ["Create or verify builder-ready focused proof before implementation.", "cargo xtask pr", "git diff --check"]
+non_goals = ["Do not accept encoding drift from a compile-only dependency bump."]
+claim_boundary = "Queue membership proves planning only, not pem v4 fixture compatibility."
+rollback = "Close or defer PR #624 with evidence if the migration is not review-forward."
+
+[[work_item]]
+id = "migration-pgp-634"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["migration-jsonwebtoken-635"]
+scope = "Build the maintainer-owned pgp v0.20 native-type and byte-compatibility migration from issue #634."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/634",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/629",
+]
+blocked_by = ["migration-pem-624"]
+proof = ["Use issue #634 focused proof commands.", "cargo xtask pr", "git diff --check"]
+non_goals = ["Do not reopen the closed bot PR or weaken deterministic armor/binary expectations."]
+claim_boundary = "Queue membership proves planning only, not pgp v0.20 compatibility."
+rollback = "Revert the maintainer migration or defer issue #634 with preserved bot context."
+
+[[work_item]]
+id = "migration-jsonwebtoken-635"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = ["migration-p256-628"]
+scope = "Build the maintainer-owned jsonwebtoken v11 provider and downstream-type migration from issue #635."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/635",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/626",
+]
+blocked_by = ["migration-pgp-634"]
+proof = ["Use issue #635 focused proof commands.", "cargo xtask pr", "git diff --check"]
+non_goals = ["Do not reopen the closed bot PR or broaden provider claims without runtime proof."]
+claim_boundary = "Queue membership proves planning only, not jsonwebtoken v11 compatibility."
+rollback = "Revert the maintainer migration or defer issue #635 with preserved bot context."
+
+[[work_item]]
+id = "migration-p256-628"
+status = "queued"
+proposal = "RAILS-PROP-0001"
+spec = "USELESSKEY-SPEC-0005"
+adr = ""
+implementation_plan = ".rails/lanes/RAILS-LANE-0002-quality-runway/implementation-plan.md"
+support_tier_impact = "none"
+policy_impact = "none"
+blocks = []
+scope = "Create a builder-ready p256 v0.14 migration issue before dispositioning PR #628."
+source_links = [
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/issues/644",
+  "https://github.com/EffortlessMetrics/uselesskey-swarm/pull/628",
+]
+blocked_by = ["migration-jsonwebtoken-635"]
+proof = ["Record exact public-type and runtime proof on a maintainer issue before code changes.", "git diff --check"]
+non_goals = ["Do not treat the open Dependabot head as a qualified migration keeper."
+]
+claim_boundary = "Queue membership proves planning only, not p256 v0.14 compatibility."
+rollback = "Close or defer PR #628 with preserved context if qualification rejects the migration."

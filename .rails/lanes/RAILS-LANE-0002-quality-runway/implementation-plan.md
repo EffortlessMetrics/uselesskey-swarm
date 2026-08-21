@@ -1,0 +1,142 @@
+# Quality Runway and Maintenance Queue Implementation Plan
+
+ID: RAILS-PLAN-0001
+Kind: implementation-plan
+Title: Quality runway and maintenance queue
+Status: active
+Owner: EffortlessMetrics
+Created: 2026-08-12
+Linked proposal: RAILS-PROP-0001
+Linked specs: USELESSKEY-SPEC-0005, USELESSKEY-SPEC-0023
+Linked ADRs: USELESSKEY-ADR-0003
+Linked lane: RAILS-LANE-0002
+Support-tier impact: none
+Policy impact: issue #633 activation slice only
+
+## Objective
+
+Turn the current reviewed and queued quality work into a serial, evidence-led
+campaign without treating PR checks as main proof or widening any bounded seam.
+
+## Non-goals
+
+- Do not merge while `cargo xtask check-merge-queue` reports `hold`,
+  `investigate`, or `unknown` for ordinary work.
+- Do not mix workflow activation with Rust checker implementation.
+- Do not reset no-panic baselines or restore retired mutation tooling.
+- Do not adopt major dependencies without a maintainer migration issue and
+  public-type, encoding, determinism, and negative-path review where relevant.
+- Do not publish, tag, sign, release, deploy, or move source-sync authority.
+
+## Artifact map
+
+- Rails lane state: `.rails/lanes/RAILS-LANE-0002-quality-runway/lane.toml`
+- Main-proof incident: issue #585
+- Security repair: issue #636 and PR #637
+- CI policy seam: issue #633 and PR #639, followed by PR B
+- AWS-LC cfg repair: issue #638 and PR #640
+- Mutation-doc reconciliation: PR #631
+- Retired mutation source: merged PR #618
+- Dependency execution and migration links: recorded on the lane work items
+
+## PR-sized sequence
+
+1. Hold ordinary merges until issue #585's newest main-full proof is healthy and
+   `cargo xtask check-merge-queue` reports `pass`.
+2. Squash PR #637 to restore the `quinn-proto` advisory floor; close issue #636
+   only after the merge is verified.
+3. Squash PR #639 as issue #633 PR A. Keep issue #633 open.
+4. Build issue #633 PR B from fresh post-#639 main and atomically add the
+   checker to the Source of Truth workflow and policy-owned command list.
+5. Squash PR #640 only after direct changed-target cfg compilation passes and
+   an exact-head NASM-capable hosted runner executes the active property-test
+   modules. Record local no-NASM all-target Cargo proof as not proven because
+   upstream `aws-lc-sys` stops before Rust linting. Then close issue #638 after
+   verifying the merge.
+6. Freshness-review and squash PR #631 after the runway work is true on main.
+7. Execute issue #643 with normal `cargo xtask no-panic baseline` without
+   `--reset` to remove only
+   stale entries whose selectors disappeared in PR #618. Require the checker to
+   move from 5 to 0 stale-baseline entries while findings stay 3414,
+   allowlisted stays 14, baselined stays 3400, and new debt stays 0. Commit only
+   `policy/no-panic-baseline.toml` and require baseline-only diff proof. The five
+   stale entries map to four fully removed selector rows plus one partially used
+   row whose expected count is reduced; `baseline=1990/1994` means 1990 unique
+   hit rows out of 1994 total baseline rows.
+8. Stage the Rust-only PR for issue #642 as the first half of a coordinated
+   #642/#647 merge pair. Build and squash the Rust-only PR as a separate contract
+   prerequisite in `xtask/src/policy.rs`: replace the expected coverage SHA
+   `1beb33eee6d086258184383af9a538940be190ed` with
+   `288e746965032cfcc232e09af2daf5f23c14d780` and update the adjacent rejected
+   mutable tag from `v2.85.6` to `v2.86.1`. Against current main, the focused
+   coverage contract is expected to fail because the workflow pins remain old;
+   execute and pass that focused test only after workflow-only PR #647 refreshes
+   both workflow pins. For the Rust-only prerequisite, require the independent
+   routed-workflow, hygiene, bare-self-hosted, Clippy, and diff guards without
+   changing workflow files. Close issue #642 only after its Rust-only squash is
+   verified on main. Do not merge #642 until workflow-only #647 is staged for
+   immediate refresh; after #642 merges, do not make an ordinary merge or claim
+   current-main proof during the transition.
+9. Immediately after #642's Rust-only prerequisite merges, freshness-review and
+   refresh or retrigger the workflow-only PR #647 from the #642-containing main.
+   Add
+   `cargo test -p xtask coverage_workflow_uses_cx43_with_fork_guard_and_isolated_scratch`
+   to both the route local-reproduction list and the hosted workflow-validation
+   job. Require that focused contract plus workflow-validation, normalized, and
+   Source of Truth proof on the exact refreshed head. Squash #647 only after
+   that proof is green, merge #647 as the second pair member, then verify the
+   squash and newest current-main proof only after both pair members land before
+   marking the item complete or advancing.
+10. Execute cleanup issue #651 from post-#647 main. Verify the exact SHA/tag pair
+   across both workflow files and `xtask/src/policy.rs`, run the focused contract
+   through route-local and hosted validation, and require fresh exact-head
+   normalized and Source of Truth proof. Do not advance to dependency #623 until
+   this cleanup is green; leave it `NOT_PROVEN` if hosted proof is unavailable.
+11. Handle #623, #625, #627, and #630 serially after #651. Keep #630 after
+   PR #640 because they share the AWS-LC collision family.
+12. Qualify major migrations through maintainer issues: #632 for closed PR
+    #621, #645 for PR #622, #646 for PR #624, #634 for closed PR #629, #635
+    for closed PR #626, and #644 for PR #628.
+13. Close the lane atomically: write the Rails closeout; give every work item a
+    final disposition and evidence; set the lane manifest to `status =
+    "closed"` with its closed date and closeout path; set the RAILS-LANE-0002
+    index row to `status = "closed"`; clear `project.active_lane`; set
+    `project.last_closed_lane = "RAILS-LANE-0002"`; preserve real follow-ups;
+    and clean lane-created branches and worktrees.
+
+After every merge, synchronize main, verify the newest main proof, update the
+lane status when appropriate, and remove only artifacts created by that lane.
+Remote branches are repository-configured to delete after merge; local
+worktrees and branches still require validated cleanup.
+
+## Proof commands
+
+Control-plane establishment:
+
+- `cargo xtask docs-sync --check`
+- `cargo xtask typos`
+- `cargo xtask spec-check --strict`
+- `cargo xtask check-goals`
+- TOML parse of `.rails/index.toml` and the lane manifest
+- `git diff --check`
+
+Queue promotion and merge:
+
+- `cargo xtask check-merge-queue`
+- Work-item commands recorded in `lane.toml`
+- Current `Uselesskey Rust Small Result`
+- Inspected `Source of Truth Advisory`
+
+## Claim boundary
+
+The plan proves that the selected queue has a durable order and that each slice
+has a proportional proof path. It does not prove a queued change before that
+proof runs, convert hosted PR success into main or release proof, or expand any
+linked issue's behavior claim.
+
+## Rollback
+
+Revert or close the control-plane artifacts together if the campaign is
+abandoned. Revert individual implementation PRs through their own rollback
+paths; do not rewrite unrelated history, reopen superseded bot PRs, or weaken
+checks to preserve the sequence.
