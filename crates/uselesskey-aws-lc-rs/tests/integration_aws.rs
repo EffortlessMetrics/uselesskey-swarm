@@ -5,7 +5,11 @@
 
 mod testutil;
 
-#[cfg(all(feature = "native", any(not(windows), has_nasm)))]
+#[cfg(all(
+    feature = "native",
+    any(not(windows), has_nasm),
+    any(feature = "rsa", feature = "ecdsa", feature = "ed25519")
+))]
 use testutil::fx;
 
 // =========================================================================
