@@ -12,18 +12,18 @@
 # Reset:   `cargo xtask no-panic baseline --reset`
 
 schema_version = "1.0"
-generated_at = "2026-08-05"
+generated_at = "2026-08-27"
 generated_by = "cargo xtask no-panic baseline"
 
 [summary]
-total = 3422
+total = 3414
 
 [summary.by_family]
 expect = 2041
 get_unwrap = 1
 panic_macro = 110
 unreachable = 4
-unwrap = 1266
+unwrap = 1258
 
 [[entry]]
 path = "crates/uselesskey-aws-lc-rs/src/lib.rs"
@@ -15375,7 +15375,7 @@ family = "unwrap"
 selector_kind = "method_call"
 selector_callee = "unwrap"
 snippet = ".unwrap();"
-count = 11
+count = 8
 
 [[entry]]
 path = "xtask/src/main.rs"
@@ -15383,14 +15383,6 @@ family = "unwrap"
 selector_kind = "method_call"
 selector_callee = "unwrap"
 snippet = "assert!(parse_lcov_coverage(lcov.to_str().unwrap()).is_none());"
-count = 2
-
-[[entry]]
-path = "xtask/src/main.rs"
-family = "unwrap"
-selector_kind = "method_call"
-selector_callee = "unwrap"
-snippet = "chrono::NaiveDate::from_ymd_opt(2026, 5, 9).unwrap(),"
 count = 2
 
 [[entry]]
@@ -15630,22 +15622,6 @@ path = "xtask/src/main.rs"
 family = "unwrap"
 selector_kind = "method_call"
 selector_callee = "unwrap"
-snippet = "let crates = mutation_nightly_crates(MutationNightlyScope::Adapters, None).unwrap();"
-count = 1
-
-[[entry]]
-path = "xtask/src/main.rs"
-family = "unwrap"
-selector_kind = "method_call"
-selector_callee = "unwrap"
-snippet = "let crates = mutation_nightly_crates(MutationNightlyScope::Public, None).unwrap();"
-count = 1
-
-[[entry]]
-path = "xtask/src/main.rs"
-family = "unwrap"
-selector_kind = "method_call"
-selector_callee = "unwrap"
 snippet = "let dir = Path::new(PUBLISH_STATE_PATH).parent().unwrap();"
 count = 1
 
@@ -15711,14 +15687,6 @@ family = "unwrap"
 selector_kind = "method_call"
 selector_callee = "unwrap"
 snippet = "let w = wait.unwrap();"
-count = 1
-
-[[entry]]
-path = "xtask/src/main.rs"
-family = "unwrap"
-selector_kind = "method_call"
-selector_callee = "unwrap"
-snippet = 'mutation_nightly_crates(MutationNightlyScope::Crate, Some("                ")).unwrap(),'
 count = 1
 
 [[entry]]
