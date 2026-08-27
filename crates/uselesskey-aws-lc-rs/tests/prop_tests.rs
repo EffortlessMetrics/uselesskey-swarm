@@ -6,18 +6,16 @@
 //! - Distinctness: different seeds produce different keys
 //! - All algorithm specs produce valid keys
 
-use proptest::prelude::*;
-use uselesskey_core::{Factory, Seed};
-
 // =========================================================================
 // RSA property-based tests
 // =========================================================================
 
 #[cfg(all(feature = "native", any(not(windows), has_nasm), feature = "rsa"))]
 mod rsa_props {
-    use super::*;
     use aws_lc_rs::signature::{self, KeyPair};
+    use proptest::prelude::*;
     use uselesskey_aws_lc_rs::AwsLcRsRsaKeyPairExt;
+    use uselesskey_core::{Factory, Seed};
     use uselesskey_rsa::{RsaFactoryExt, RsaSpec};
 
     proptest! {
@@ -108,9 +106,10 @@ mod rsa_props {
 
 #[cfg(all(feature = "native", any(not(windows), has_nasm), feature = "ecdsa"))]
 mod ecdsa_props {
-    use super::*;
     use aws_lc_rs::signature::{self, KeyPair};
+    use proptest::prelude::*;
     use uselesskey_aws_lc_rs::AwsLcRsEcdsaKeyPairExt;
+    use uselesskey_core::{Factory, Seed};
     use uselesskey_ecdsa::{EcdsaFactoryExt, EcdsaSpec};
 
     proptest! {
@@ -217,9 +216,10 @@ mod ecdsa_props {
 
 #[cfg(all(feature = "native", any(not(windows), has_nasm), feature = "ed25519"))]
 mod ed25519_props {
-    use super::*;
     use aws_lc_rs::signature::{self, KeyPair};
+    use proptest::prelude::*;
     use uselesskey_aws_lc_rs::AwsLcRsEd25519KeyPairExt;
+    use uselesskey_core::{Factory, Seed};
     use uselesskey_ed25519::{Ed25519FactoryExt, Ed25519Spec};
 
     proptest! {

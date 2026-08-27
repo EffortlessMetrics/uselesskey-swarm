@@ -10,20 +10,40 @@
 
 mod testutil;
 
+#[cfg(all(
+    feature = "native",
+    any(not(windows), has_nasm),
+    any(feature = "rsa", feature = "ecdsa")
+))]
+use aws_lc_rs::rand::SystemRandom;
+#[cfg(all(
+    feature = "native",
+    any(not(windows), has_nasm),
+    any(feature = "rsa", feature = "ecdsa", feature = "ed25519")
+))]
+use aws_lc_rs::signature::{self, KeyPair};
 #[cfg(all(feature = "native", any(not(windows), has_nasm)))]
 use aws_lc_rs::{
     digest,
     hmac::{self, Key as HmacKey},
-    rand::SystemRandom,
-    signature::{self, KeyPair},
 };
-#[cfg(any(not(windows), has_nasm))]
+#[cfg(all(
+    feature = "native",
+    any(not(windows), has_nasm),
+    any(feature = "rsa", feature = "ecdsa", feature = "ed25519")
+))]
 use testutil::fx;
-#[cfg(all(feature = "native", any(not(windows), has_nasm)))]
-use uselesskey_aws_lc_rs::{
-    AwsLcRsEcdsaKeyPairExt, AwsLcRsEd25519KeyPairExt, AwsLcRsRsaKeyPairExt,
-};
-#[cfg(any(not(windows), has_nasm))]
+#[cfg(all(feature = "native", any(not(windows), has_nasm), feature = "ecdsa"))]
+use uselesskey_aws_lc_rs::AwsLcRsEcdsaKeyPairExt;
+#[cfg(all(feature = "native", any(not(windows), has_nasm), feature = "ed25519"))]
+use uselesskey_aws_lc_rs::AwsLcRsEd25519KeyPairExt;
+#[cfg(all(feature = "native", any(not(windows), has_nasm), feature = "rsa"))]
+use uselesskey_aws_lc_rs::AwsLcRsRsaKeyPairExt;
+#[cfg(all(
+    feature = "native",
+    any(not(windows), has_nasm),
+    any(feature = "rsa", feature = "ecdsa", feature = "ed25519")
+))]
 use uselesskey_core::{Factory, Seed};
 
 #[cfg(all(feature = "native", any(not(windows), has_nasm), feature = "rsa"))]

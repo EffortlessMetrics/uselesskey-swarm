@@ -7,7 +7,11 @@
 
 mod testutil;
 
-#[cfg(all(feature = "native", any(not(windows), has_nasm)))]
+#[cfg(all(
+    feature = "native",
+    any(not(windows), has_nasm),
+    any(feature = "rsa", feature = "ecdsa", feature = "ed25519")
+))]
 mod snapshot_tests {
     use crate::testutil::fx;
     use serde::Serialize;
