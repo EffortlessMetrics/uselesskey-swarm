@@ -106,11 +106,21 @@ impl WebhookFixture {
     }
 
     /// Produce a tampered-payload variant for integrity tests.
+    ///
+    /// The signature headers and signature input are preserved from the valid
+    /// fixture while only the delivered payload changes. A verifier using the
+    /// original fixture secret therefore rejects on the body/signature mismatch.
     pub fn near_miss_tampered_payload(&self) -> NearMissWebhookFixture {
         let tampered = format!("{}{}", self.payload, "\n");
-        let mut f = build_near_miss(self.profile, self.secret.clone(), tampered, self.timestamp);
-        f.scenario = NearMissScenario::TamperedPayload;
-        f
+        NearMissWebhookFixture {
+            scenario: NearMissScenario::TamperedPayload,
+            profile: self.profile,
+            secret: self.secret.clone(),
+            payload: tampered,
+            headers: self.headers.clone(),
+            timestamp: self.timestamp,
+            signature_input: self.signature_input.clone(),
+        }
     }
 
     /// Produce a near-miss-signature variant for digest-comparison tests.

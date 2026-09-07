@@ -85,10 +85,16 @@ pub struct NearMissWebhookFixture {
     /// Payload body (intentionally modified for `TamperedPayload`).
     pub payload: String,
     /// HTTP headers to attach to the request.
+    ///
+    /// `TamperedPayload` preserves the valid fixture's signed headers so the
+    /// delivered payload no longer matches the signature.
     pub headers: BTreeMap<String, String>,
     /// Timestamp used in signature generation (may be stale).
     pub timestamp: i64,
-    /// Canonical signature input/base string.
+    /// Signature input/base string represented by the signed headers.
+    ///
+    /// For `TamperedPayload`, this intentionally describes the original signed
+    /// body rather than the modified delivered payload.
     pub signature_input: String,
 }
 
