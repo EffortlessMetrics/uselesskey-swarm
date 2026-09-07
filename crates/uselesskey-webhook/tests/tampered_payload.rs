@@ -157,6 +157,33 @@ fn assert_tampered_payload_case(profile: WebhookProfile) -> TestResult {
         "restoring only the original body must make the preserved signature valid",
     )?;
 
+    let valid_again = fx.webhook(profile, "service", WebhookPayloadSpec::Canonical);
+    ensure(valid_again.secret == valid.secret, "positive secret must stay stable")?;
+    ensure(valid_again.payload == valid.payload, "positive payload must stay stable")?;
+    ensure(valid_again.headers == valid.headers, "positive headers must stay stable")?;
+    ensure(
+        valid_again.timestamp == valid.timestamp,
+        "positive timestamp must stay stable",
+    )?;
+    ensure(
+        valid_again.signature_input == valid.signature_input,
+        "positive signature input must stay stable",
+    )?;
+
+    let tampered_again = valid_again.near_miss_tampered_payload();
+    ensure(
+        tampered_again.payload == tampered.payload,
+        "repeated tampered payload must be deterministic",
+    )?;
+    ensure(
+        tampered_again.headers == tampered.headers,
+        "repeated tampered headers must be deterministic",
+    )?;
+    ensure(
+        tampered_again.signature_input == tampered.signature_input,
+        "repeated tampered signed input must be deterministic",
+    )?;
+
     Ok(())
 }
 
