@@ -44,10 +44,10 @@ fn webhook_bundle_tampered_request_preserves_the_valid_signed_pair() -> TestResu
         valid["headers"]["Stripe-Signature"].as_str(),
         "valid Stripe-Signature",
     )?;
-    ensure(
+    ensure!(
         signature.contains("t=") && signature.contains(",v1="),
-        "valid request must carry the signed Stripe header",
-    )?;
+        "valid request must carry the signed Stripe header"
+    );
     ensure_eq!(
         tampered["headers"]["Stripe-Signature"].as_str(),
         Some(signature)
