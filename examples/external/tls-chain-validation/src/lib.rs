@@ -43,7 +43,7 @@ fn make_connections(
 fn drive_handshake(
     server: &mut rustls::ServerConnection,
     client: &mut rustls::ClientConnection,
-) -> Result<(), rustls::Error> {
+) -> TestResult {
     let mut buf = Vec::new();
     for _ in 0..MAX_HANDSHAKE_ITERATIONS {
         let mut progress = false;
@@ -52,12 +52,14 @@ fn drive_handshake(
         if client.wants_write() {
             client
                 .write_tls(&mut buf)
-                .map_err(|error| rustls::Error::General(format!("client write: {error}")))?;
+                .map_err(|error| format!("client handshake write: {error}"))?;
             if !buf.is_empty() {
                 server
                     .read_tls(&mut &buf[..])
-                    .map_err(|error| rustls::Error::General(format!("server read: {error}")))?;
-                server.process_new_packets()?;
+                    .map_err(|error| format!("server handshake read: {error}"))?;
+                server
+                    .process_new_packets()
+                    .map_err(|error| format!("server handshake packets: {error}"))?;
                 progress = true;
             }
         }
@@ -66,12 +68,14 @@ fn drive_handshake(
         if server.wants_write() {
             server
                 .write_tls(&mut buf)
-                .map_err(|error| rustls::Error::General(format!("server write: {error}")))?;
+                .map_err(|error| format!("server handshake write: {error}"))?;
             if !buf.is_empty() {
                 client
                     .read_tls(&mut &buf[..])
-                    .map_err(|error| rustls::Error::General(format!("client read: {error}")))?;
-                client.process_new_packets()?;
+                    .map_err(|error| format!("client handshake read: {error}"))?;
+                client
+                    .process_new_packets()
+                    .map_err(|error| format!("client handshake packets: {error}"))?;
                 progress = true;
             }
         }
@@ -80,26 +84,10 @@ fn drive_handshake(
             break;
         }
     }
-    if client.is_handshaking() || server.is_handshaking() {
-        return Err(rustls::Error::General(
-            "handshake did not complete within the bounded loop".to_string(),
-        ));
-    }
-    Ok(())
-}
-
-fn read_available(reader: &mut rustls::Reader<'_>) -> TestResult<Vec<u8>> {
-    let mut received = Vec::new();
-    loop {
-        let mut chunk = [0_u8; 4096];
-        match reader.read(&mut chunk) {
-            Ok(0) => break,
-            Ok(count) => received.extend_from_slice(&chunk[..count]),
-            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
-            Err(error) => return Err(format!("plaintext read: {error}")),
-        }
-    }
-    Ok(received)
+    ensure(
+        !client.is_handshaking() && !server.is_handshaking(),
+        "TLS handshake did not complete within the bounded loop",
+    )
 }
 
 fn transfer_client_request(
@@ -125,7 +113,17 @@ fn transfer_client_request(
         .process_new_packets()
         .map_err(|error| format!("server packets: {error}"))?;
 
-    read_available(&mut server.reader())
+    let mut received = Vec::new();
+    loop {
+        let mut chunk = [0_u8; 4096];
+        match server.reader().read(&mut chunk) {
+            Ok(0) => break,
+            Ok(count) => received.extend_from_slice(&chunk[..count]),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
+            Err(error) => return Err(format!("server plaintext read: {error}")),
+        }
+    }
+    Ok(received)
 }
 
 #[test]
@@ -149,8 +147,7 @@ fn tls_chain_fixture_completes_verified_handshake_and_data_transfer() -> TestRes
     )?;
 
     let (mut server, mut client) = make_connections(&chain, &chain, DOMAIN)?;
-    drive_handshake(&mut server, &mut client)
-        .map_err(|error| format!("valid TLS handshake failed: {error}"))?;
+    drive_handshake(&mut server, &mut client)?;
     let received = transfer_client_request(&mut server, &mut client, b"fixture request")?;
     ensure(received == b"fixture request", "server must receive client data")?;
     Ok(())
@@ -163,8 +160,7 @@ fn expired_leaf_is_rejected_by_the_same_trust_configuration() -> TestResult {
     let expired = valid.expired_leaf();
 
     let (mut valid_server, mut valid_client) = make_connections(&valid, &valid, DOMAIN)?;
-    drive_handshake(&mut valid_server, &mut valid_client)
-        .map_err(|error| format!("valid control failed: {error}"))?;
+    drive_handshake(&mut valid_server, &mut valid_client)?;
 
     let (mut expired_server, mut client) = make_connections(&expired, &valid, DOMAIN)?;
     ensure(
@@ -182,8 +178,7 @@ fn unknown_ca_is_rejected_by_the_same_hostname_and_provider() -> TestResult {
 
     let (mut valid_server, mut valid_client) =
         make_connections(&server_chain, &server_chain, DOMAIN)?;
-    drive_handshake(&mut valid_server, &mut valid_client)
-        .map_err(|error| format!("valid control failed: {error}"))?;
+    drive_handshake(&mut valid_server, &mut valid_client)?;
 
     let (mut server, mut wrong_trust_client) =
         make_connections(&server_chain, &trusted_chain, DOMAIN)?;
