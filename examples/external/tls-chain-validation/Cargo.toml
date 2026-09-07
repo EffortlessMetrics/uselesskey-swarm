@@ -5,6 +5,7 @@ edition = "2024"
 publish = false
 
 [dependencies]
+rustls = { version = "0.23", default-features = false, features = ["std", "ring"] }
 uselesskey = { version = "0.9.1", default-features = false, features = ["x509"] }
 uselesskey-rustls = { version = "0.9.1", features = ["tls-config", "rustls-ring"] }
 
