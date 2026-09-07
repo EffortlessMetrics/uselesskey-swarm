@@ -267,8 +267,17 @@ mod tests {
         ));
 
         let tampered = st.near_miss_tampered_payload();
+        assert_eq!(tampered.headers, st.headers);
+        assert_eq!(tampered.signature_input, st.signature_input);
         assert!(!verify_stripe(
-            &tampered.secret,
+            &st.secret,
+            &tampered.payload,
+            &tampered.headers,
+            tampered.timestamp,
+            300
+        ));
+        assert!(verify_stripe(
+            &st.secret,
             &st.payload,
             &tampered.headers,
             tampered.timestamp,
@@ -424,7 +433,7 @@ mod tests {
     }
 
     #[test]
-    fn near_miss_scenarios_are_marked_and_recomputed_for_each_profile() -> Result<(), String> {
+    fn near_miss_scenarios_preserve_expected_provider_context() -> Result<(), String> {
         let fx = Factory::deterministic(Seed::from_env_value("webhook-nearmiss-profiles")?);
         let fixtures = [
             fx.webhook_github("repo", WebhookPayloadSpec::Canonical),
@@ -451,6 +460,9 @@ mod tests {
             assert_eq!(tampered.profile, fixture.profile);
             assert_eq!(tampered.secret, fixture.secret);
             assert_eq!(tampered.payload, format!("{}\n", fixture.payload));
+            assert_eq!(tampered.headers, fixture.headers);
+            assert_eq!(tampered.timestamp, fixture.timestamp);
+            assert_eq!(tampered.signature_input, fixture.signature_input);
 
             match fixture.profile {
                 WebhookProfile::GitHub => {
@@ -460,7 +472,12 @@ mod tests {
                         &wrong_secret.headers
                     ));
                     assert!(!verify_github(
-                        &tampered.secret,
+                        &fixture.secret,
+                        &tampered.payload,
+                        &tampered.headers
+                    ));
+                    assert!(verify_github(
+                        &fixture.secret,
                         &fixture.payload,
                         &tampered.headers
                     ));
@@ -481,7 +498,14 @@ mod tests {
                         300
                     ));
                     assert!(!verify_stripe(
-                        &tampered.secret,
+                        &fixture.secret,
+                        &tampered.payload,
+                        &tampered.headers,
+                        tampered.timestamp,
+                        300
+                    ));
+                    assert!(verify_stripe(
+                        &fixture.secret,
                         &fixture.payload,
                         &tampered.headers,
                         tampered.timestamp,
@@ -504,7 +528,14 @@ mod tests {
                         300
                     ));
                     assert!(!verify_slack(
-                        &tampered.secret,
+                        &fixture.secret,
+                        &tampered.payload,
+                        &tampered.headers,
+                        tampered.timestamp,
+                        300
+                    ));
+                    assert!(verify_slack(
+                        &fixture.secret,
                         &fixture.payload,
                         &tampered.headers,
                         tampered.timestamp,
@@ -634,17 +665,21 @@ mod tests {
     }
 
     #[test]
-    fn tampered_payload_near_miss_works_for_github_and_slack() {
+    fn tampered_payload_near_miss_preserves_original_signature() {
         let fx = Factory::deterministic_from_str("webhook-tampered");
 
         let gh = fx.webhook_github("svc", WebhookPayloadSpec::Canonical);
         let gh_tampered = gh.near_miss_tampered_payload();
         assert_eq!(gh_tampered.scenario, NearMissScenario::TamperedPayload);
         assert_ne!(gh_tampered.payload, gh.payload);
-        // The tampered fixture re-signs its own modified payload, so it
-        // verifies against itself; verifying the *original* payload with the
-        // tampered signature must fail.
+        assert_eq!(gh_tampered.headers, gh.headers);
+        assert_eq!(gh_tampered.signature_input, gh.signature_input);
         assert!(!verify_github(
+            &gh.secret,
+            &gh_tampered.payload,
+            &gh_tampered.headers
+        ));
+        assert!(verify_github(
             &gh.secret,
             &gh.payload,
             &gh_tampered.headers
@@ -654,7 +689,16 @@ mod tests {
         let sl_tampered = sl.near_miss_tampered_payload();
         assert_eq!(sl_tampered.scenario, NearMissScenario::TamperedPayload);
         assert_ne!(sl_tampered.payload, sl.payload);
+        assert_eq!(sl_tampered.headers, sl.headers);
+        assert_eq!(sl_tampered.signature_input, sl.signature_input);
         assert!(!verify_slack(
+            &sl.secret,
+            &sl_tampered.payload,
+            &sl_tampered.headers,
+            sl_tampered.timestamp,
+            300
+        ));
+        assert!(verify_slack(
             &sl.secret,
             &sl.payload,
             &sl_tampered.headers,
