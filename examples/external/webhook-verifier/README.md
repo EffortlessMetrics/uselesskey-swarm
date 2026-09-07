@@ -8,47 +8,34 @@ deterministic HMAC request fixtures plus realistic rejection cases.
 ```toml
 [dev-dependencies]
 uselesskey = { version = "0.9.1", default-features = false, features = ["webhook"] }
+hmac = "0.13.0-rc.6"
+sha2 = "0.11"
+hex = "0.4"
+serde_json = "1"
 ```
 
-```rust
-use uselesskey::{Factory, NearMissScenario, WebhookFactoryExt, WebhookPayloadSpec};
+The example keeps verification outside `uselesskey`: it reconstructs the
+GitHub-, Stripe-, and Slack-style signing inputs with RustCrypto HMAC and uses
+the fixture secret as the verifier's configured test secret.
 
-let fx = Factory::deterministic_from_str("external-webhook-verifier");
-let fixture = fx.webhook_stripe("payment", WebhookPayloadSpec::Canonical);
+## What it exercises
 
-let stale = fixture.near_miss_stale_timestamp(300);
-let wrong_secret = fixture.near_miss_wrong_secret();
-let tampered = fixture.near_miss_tampered_payload();
-```
+For each provider profile:
 
-## What you get
+- the valid fixture's delivered bytes and headers verify;
+- the wrong-secret near miss is checked against the original verifier secret and rejects;
+- the tampered body keeps the original signed headers and rejects;
+- restoring only the original signed body makes those preserved headers verify again;
+- missing and malformed signature headers reject;
+- Stripe and Slack stale timestamps reject under an explicit 300-second test window.
 
-The example proves a clean Rust project can use the facade crate for:
+GitHub's HMAC header does not carry the fixture timestamp, so this example does
+not pretend the HMAC check itself implements replay-window policy for GitHub.
 
-- a Stripe-shaped signed request fixture;
-- a redacted `Debug` representation that does not print the fixture secret;
-- stale timestamp, wrong-secret, and tampered-payload near misses.
+It also proves two byte-ordering points that matter to real webhook consumers:
 
-## Positive path
-
-```text
-Factory::deterministic_from_str("external-webhook-verifier")
-  -> fx.webhook_stripe("payment", WebhookPayloadSpec::Canonical)
-  -> signed request with Stripe-Signature header and canonical payload
-```
-
-## Negative path
-
-```text
-near_miss_stale_timestamp(300)
-  -> webhook_stale_timestamp: verifier rejects freshness window
-
-near_miss_wrong_secret()
-  -> webhook_wrong_secret: verifier rejects signature from another secret
-
-near_miss_tampered_payload()
-  -> webhook_tampered_body: verifier rejects changed body bytes
-```
+- a raw body with whitespace/newline verifies only when the exact delivered bytes are used;
+- malformed JSON can still have a valid HMAC, after which application JSON parsing fails as a separate step.
 
 ## Verify
 
@@ -57,10 +44,11 @@ cargo test
 ```
 
 In repo-local adoption smoke, `cargo xtask external-adoption-smoke --path .`
-copies this project under `target/` and patches the dependency to the current
-checkout.
+copies this project under `target/` and patches the `uselesskey` dependency to
+the current checkout. Registry-version proof is a separate mode; source-path
+success is not publication evidence.
 
-## Audit / receipt
+## Installed bundle path
 
 For generated CLI bundles, use:
 
@@ -75,9 +63,12 @@ The installed audit output is metadata-only. It records paths, counts, profile
 metadata, stable failure classes, and boundaries without copying request bodies,
 fixture secrets, or signature headers into reviewer packets.
 
+Library-only cases and installed-bundle cases are not automatically identical.
+Keep their inventories explicit rather than claiming parity from one path.
+
 ## What this does not prove
 
-- It proves fixture generation and near-miss wiring for test code.
-- It does not prove provider compatibility, production secret management,
-  replay protection completeness, delivery behavior, transport security,
-  release readiness, or downstream verifier correctness.
+This is a small reference verifier for deterministic test fixtures. It does not
+prove every provider SDK, production secret management, complete replay
+defenses, delivery/retry behavior, transport security, release readiness, or
+arbitrary downstream verifier correctness.
