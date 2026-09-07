@@ -17,7 +17,7 @@ fn ensure(condition: bool, message: &str) -> TestResult {
 }
 
 fn verify_hmac(secret: &str, input: &str, digest_hex: &str) -> bool {
-    let Ok(mut mac) = HmacSha256::new_from_slice(secret.as_bytes()) else {
+    let Ok(mut mac) = <HmacSha256 as KeyInit>::new_from_slice(secret.as_bytes()) else {
         return false;
     };
     let Ok(tag) = hex::decode(digest_hex) else {
