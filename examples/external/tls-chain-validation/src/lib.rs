@@ -88,6 +88,20 @@ fn drive_handshake(
     Ok(())
 }
 
+fn read_available(reader: &mut rustls::Reader<'_>) -> TestResult<Vec<u8>> {
+    let mut received = Vec::new();
+    loop {
+        let mut chunk = [0_u8; 4096];
+        match reader.read(&mut chunk) {
+            Ok(0) => break,
+            Ok(count) => received.extend_from_slice(&chunk[..count]),
+            Err(error) if error.kind() == std::io::ErrorKind::WouldBlock => break,
+            Err(error) => return Err(format!("plaintext read: {error}")),
+        }
+    }
+    Ok(received)
+}
+
 fn transfer_client_request(
     server: &mut rustls::ServerConnection,
     client: &mut rustls::ClientConnection,
@@ -111,12 +125,7 @@ fn transfer_client_request(
         .process_new_packets()
         .map_err(|error| format!("server packets: {error}"))?;
 
-    let mut received = Vec::new();
-    server
-        .reader()
-        .read_to_end(&mut received)
-        .map_err(|error| format!("server plaintext read: {error}"))?;
-    Ok(received)
+    read_available(&mut server.reader())
 }
 
 #[test]
