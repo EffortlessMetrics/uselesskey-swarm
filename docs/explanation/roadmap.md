@@ -5,49 +5,71 @@ layer** (not a crypto library). It describes development direction in
 `uselesskey-swarm`; it does not move release, publish, signing, tag, crates.io,
 GitHub Release, or source-sync authority out of `EffortlessMetrics/uselesskey`.
 
-Public install snippets stay on the current published version until a release
-version exists on crates.io. v0.10.0 references in this repo are release-review
-and source-handoff evidence, not a publication claim.
+`v0.10.0` is the current published baseline. The source repository's
+[`v0.10.0` post-release audit](https://github.com/EffortlessMetrics/uselesskey/blob/main/docs/release/post-release-audit-v0.10.0.md)
+records all intended publish crates at `0.10.0`, docs.rs success, and passing
+published-version CLI/facade adoption smoke. Swarm still needs a reviewed
+post-release reconciliation of package metadata and generated copyable snippets;
+do not represent newer swarm-only work as part of the already-published
+`v0.10.0` payload.
 
 ## Now
 
-*Keep the swarm implementation lane green, useful, and release-boundary honest*
+*Restore a truthful post-v0.10 development baseline and close real fixture-user gaps*
 
 - Keep `uselesskey-swarm` as the high-throughput development workspace for
   fixture, CLI, docs, proof, and package-readiness improvements.
-- Land small, reversible PRs that make downstream verifier testing easier:
-  contract-pack docs, stable negative fixture IDs, metadata-only audit receipts,
-  clean-project examples, and package boundary proof.
+- Reconcile the completed `v0.10.0` source release back into current swarm
+  status without overwriting later swarm work or importing release authority.
+- Prioritize concrete fixture/consumer correctness over catalog expansion. The
+  current product program is tracked in
+  [`#655`](https://github.com/EffortlessMetrics/uselesskey-swarm/issues/655),
+  beginning with the webhook tampered-body correction and portable downstream
+  consumer proof for webhook, TLS, and signed JWT workflows.
+- Keep source-path, packaged-candidate, and published-version evidence distinct.
+  A successful checkout smoke is not publication proof, and a metadata receipt
+  is not downstream verifier proof.
 - Keep the committed source-of-truth graph healthy: `.rails/index.toml`,
   `.rails/migration-status.md`, `.uselesskey/goals/`, `policy/*.toml`,
-  `docs/status/*`, plans, handoffs, and release records must agree.
+  `docs/status/*`, plans, handoffs, and release records must agree. Draft
+  Rails PR #641 is the current integration point; this roadmap does not activate
+  a competing lane.
 - Treat `Uselesskey Rust Small Result` and `Source of Truth Advisory` as the
-  current swarm proof surfaces for PR review.
+  current swarm PR proof surfaces while keeping their claim boundaries explicit.
+  Compile-only fallback proof does not substitute for a focused behavioral test.
 - Preserve the source/release boundary: swarm can prepare and validate release
   readiness, but does not publish, tag, sign, push to crates.io, create GitHub
-  releases, or move source-sync authority without an explicit release lane.
+  releases, or move source-sync authority without an explicit source release
+  lane.
 
 ## Next
 
-*Apply the completed v0.10.0 readiness packet at the source boundary*
+*Turn the existing fixture surface into portable, executable consumer proof*
 
-- Use [`docs/release/source-release-handoff.md`](../release/source-release-handoff.md)
-  and [`docs/release/v0.10.0-readiness-record.md`](../release/v0.10.0-readiness-record.md)
-  as the current swarm handoff packet.
-- In the source repo, rerun release-prep gates against the synced release
-  candidate before any version bump, publish, tag, signing, or GitHub Release.
-- Reconcile public install snippets only when the release version is actually
-  published or the release lane explicitly marks them as candidate-only.
-- After release execution, run published-version install smoke and update
-  post-release audit records from the source/public boundary.
-- Start the next product lane from repo truth, not chat history, and prefer
-  user-path improvements over new infrastructure unless the release/user path
-  needs it.
+- Correct the released webhook tampered-payload negative so the delivered body
+  and preserved signature actually mismatch while valid fixture identity remains
+  unchanged.
+- Make advertised external examples literally portable: no unpublished workspace
+  helper may be silently patched into a project claimed as independently
+  copyable.
+- Promote existing owner-crate behavior into small downstream recipes rather
+  than rebuilding protocol stacks: real webhook HMAC verification, rustls
+  handshake/certificate negatives, and signed JWT claim-policy negatives.
+- Extend existing adoption smoke with resolved dependency-origin and executed
+  test-case receipts instead of adding another parallel harness.
+- Compare released and candidate fixture identity/serialized outputs at the
+  touched family boundary before accepting dependency or serializer drift.
+- Define bundle recipe/version and interrupted-rerun behavior only where current
+  evidence shows the installed workflow needs a stronger contract; do not turn
+  every future improvement into a release prerequisite.
+- Select the next source handoff from coherent completed user value. A narrow
+  correctness release can proceed without waiting for every optional dependency
+  major, OIDC rotation experiment, economics study, or adoption follow-up.
 
 ## Completed Swarm Lanes
 
 - v0.10.0 release readiness packet, package dry-run, installed CLI smoke, and
-  facade smoke.
+  facade smoke; the source release subsequently published on June 20, 2026.
 - Source-of-truth control plane, PR body generation, repo contract reporting,
   and closeout generation.
 - Contract-pack and workflow binding for OIDC/JWKS, JWT/token negatives,
@@ -56,6 +78,23 @@ and source-handoff evidence, not a publication claim.
   [`roadmap-followups-0251.md`](roadmap-followups-0251.md).
 
 ## Shipped
+
+### v0.10.0 (2026-06-20)
+
+*External adoption, installed audit, and real workflow closure*
+
+- Published all intended public/facade/adapter/CLI crates at `0.10.0` from
+  source tag `5ea65e1cc6309042731cf4ec91cb39f00a91253a`.
+- Added and exercised clean-project external-adoption paths, installed bundle
+  audit/CI receipts, profile discovery and inspection UX, and downstream policy
+  recipes.
+- Expanded realistic workflow and negative-fixture coverage around OIDC/JWKS,
+  webhook, token, TLS/X.509, and related public fixture families.
+- Passed published-version CLI/facade/CI-recipe smoke and crates.io install smoke
+  from isolated Cargo state after publication.
+- See the source repository
+  [`post-release audit`](https://github.com/EffortlessMetrics/uselesskey/blob/main/docs/release/post-release-audit-v0.10.0.md)
+  for registry, docs.rs, tag, package, and published-smoke receipts.
 
 ### v0.6.0 (2026-04-08)
 
