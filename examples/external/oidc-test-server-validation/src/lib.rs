@@ -1,4 +1,7 @@
 #[cfg(test)]
+use std::fmt::{Debug, Display};
+
+#[cfg(test)]
 use reqwest::StatusCode;
 #[cfg(test)]
 use reqwest::header::{CACHE_CONTROL, ETAG, IF_NONE_MATCH};
@@ -13,8 +16,43 @@ use uselesskey_test_server::{
     CachePolicySpec, IssuerUrlMode, JwksPhase, JwksRotation, JwksSpec, OidcServerSpec,
     OidcTestServer,
 };
+
 #[cfg(test)]
-use uselesskey_test_support::{TestResult, ensure, ensure_eq, require_ok, require_some};
+type TestResult<T = ()> = Result<T, String>;
+
+#[cfg(test)]
+fn ensure(condition: bool, context: &str) -> TestResult {
+    if condition {
+        Ok(())
+    } else {
+        Err(context.to_string())
+    }
+}
+
+#[cfg(test)]
+fn ensure_eq<T>(left: T, right: T, context: &str) -> TestResult
+where
+    T: Debug + PartialEq,
+{
+    if left == right {
+        Ok(())
+    } else {
+        Err(format!("{context}: left={left:?}, right={right:?}"))
+    }
+}
+
+#[cfg(test)]
+fn require_ok<T, E>(result: Result<T, E>, context: &str) -> TestResult<T>
+where
+    E: Display,
+{
+    result.map_err(|error| format!("{context}: {error}"))
+}
+
+#[cfg(test)]
+fn require_some<T>(value: Option<T>, context: &str) -> TestResult<T> {
+    value.ok_or_else(|| context.to_string())
+}
 
 #[cfg(test)]
 #[tokio::test]
@@ -40,14 +78,16 @@ async fn oidc_test_server_serves_discovery_and_jwks() -> TestResult<()> {
     )?;
     let base_url = server.base_url();
     let jwks_url = server.jwks_url();
-    ensure_eq!(
+    ensure_eq(
         discovery.get("issuer").and_then(Value::as_str),
-        Some(base_url)
-    );
-    ensure_eq!(
+        Some(base_url),
+        "discovery issuer",
+    )?;
+    ensure_eq(
         discovery.get("jwks_uri").and_then(Value::as_str),
-        Some(jwks_url.as_str())
-    );
+        Some(jwks_url.as_str()),
+        "discovery jwks_uri",
+    )?;
 
     let jwks: Value = require_ok(
         require_ok(client.get(jwks_url).send().await, "jwks response")?
@@ -57,9 +97,17 @@ async fn oidc_test_server_serves_discovery_and_jwks() -> TestResult<()> {
     )?;
     let keys = require_some(jwks.get("keys").and_then(Value::as_array), "keys array")?;
     let first_key = require_some(keys.first(), "first JWKS key")?;
-    ensure_eq!(keys.len(), 1);
-    ensure_eq!(first_key.get("kty").and_then(Value::as_str), Some("RSA"));
-    ensure_eq!(first_key.get("alg").and_then(Value::as_str), Some("RS256"));
+    ensure_eq(keys.len(), 1, "JWKS key count")?;
+    ensure_eq(
+        first_key.get("kty").and_then(Value::as_str),
+        Some("RSA"),
+        "JWKS kty",
+    )?;
+    ensure_eq(
+        first_key.get("alg").and_then(Value::as_str),
+        Some("RS256"),
+        "JWKS alg",
+    )?;
 
     server.shutdown().await;
     Ok(())
@@ -79,14 +127,25 @@ async fn oidc_test_server_switches_deterministic_jwks_phases() -> TestResult<()>
 
     let client = http_client()?;
     let primary = jwks_kid(&client, server.jwks_url()).await?;
-    ensure_eq!(server.active_phase_name(), "primary");
+    ensure_eq(
+        server.active_phase_name(),
+        "primary",
+        "initial active phase",
+    )?;
 
     require_ok(server.with_phase("rotated"), "switch phase")?;
     let rotated = jwks_kid(&client, server.jwks_url()).await?;
 
-    ensure_eq!(server.active_phase_name(), "rotated");
-    ensure!(primary != rotated);
-    ensure!(server.with_phase("missing").is_err());
+    ensure_eq(
+        server.active_phase_name(),
+        "rotated",
+        "rotated active phase",
+    )?;
+    ensure(primary != rotated, "rotation must change the active kid")?;
+    ensure(
+        server.with_phase("missing").is_err(),
+        "unknown phase must be rejected",
+    )?;
 
     server.shutdown().await;
     Ok(())
@@ -108,16 +167,17 @@ async fn oidc_test_server_exercises_cache_headers_and_route_flags() -> TestResul
     let client = http_client()?;
 
     let first = require_ok(client.get(server.jwks_url()).send().await, "jwks response")?;
-    ensure_eq!(first.status(), StatusCode::OK);
-    ensure_eq!(
+    ensure_eq(first.status(), StatusCode::OK, "first JWKS status")?;
+    ensure_eq(
         first
             .headers()
             .get(CACHE_CONTROL)
-            .and_then(|h| h.to_str().ok()),
-        Some("public, max-age=30")
-    );
+            .and_then(|header| header.to_str().ok()),
+        Some("public, max-age=30"),
+        "cache-control header",
+    )?;
     let etag = require_some(
-        first.headers().get(ETAG).and_then(|h| h.to_str().ok()),
+        first.headers().get(ETAG).and_then(|header| header.to_str().ok()),
         "etag header",
     )?
     .to_owned();
@@ -130,7 +190,11 @@ async fn oidc_test_server_exercises_cache_headers_and_route_flags() -> TestResul
             .await,
         "cached jwks response",
     )?;
-    ensure_eq!(not_modified.status(), StatusCode::NOT_MODIFIED);
+    ensure_eq(
+        not_modified.status(),
+        StatusCode::NOT_MODIFIED,
+        "conditional JWKS status",
+    )?;
 
     server.shutdown().await;
 
@@ -156,7 +220,11 @@ async fn oidc_test_server_exercises_cache_headers_and_route_flags() -> TestResul
         client.get(disabled.discovery_url()).send().await,
         "disabled discovery response",
     )?;
-    ensure_eq!(response.status(), StatusCode::NOT_FOUND);
+    ensure_eq(
+        response.status(),
+        StatusCode::NOT_FOUND,
+        "disabled discovery status",
+    )?;
 
     disabled.shutdown().await;
     Ok(())
