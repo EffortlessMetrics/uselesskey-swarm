@@ -1,7 +1,6 @@
 use std::collections::BTreeMap;
 
 use hmac::{Hmac, KeyInit, Mac};
-use rstest::rstest;
 use sha2::Sha256;
 use uselesskey_core::Factory;
 use uselesskey_webhook::{WebhookFactoryExt, WebhookPayloadSpec, WebhookProfile};
@@ -105,13 +104,7 @@ fn verify_fixture(
     }
 }
 
-#[rstest]
-#[case(WebhookProfile::GitHub)]
-#[case(WebhookProfile::Stripe)]
-#[case(WebhookProfile::Slack)]
-fn tampered_payload_preserves_signed_request_and_fails_on_delivered_body(
-    #[case] profile: WebhookProfile,
-) -> TestResult {
+fn assert_tampered_payload_case(profile: WebhookProfile) -> TestResult {
     let fx = Factory::deterministic_from_str("webhook-tampered-public-regression");
     let valid = fx.webhook(profile, "service", WebhookPayloadSpec::Canonical);
     ensure(
@@ -165,4 +158,19 @@ fn tampered_payload_preserves_signed_request_and_fails_on_delivered_body(
     )?;
 
     Ok(())
+}
+
+#[test]
+fn github_tampered_payload_preserves_signed_request_and_fails_on_delivered_body() -> TestResult {
+    assert_tampered_payload_case(WebhookProfile::GitHub)
+}
+
+#[test]
+fn stripe_tampered_payload_preserves_signed_request_and_fails_on_delivered_body() -> TestResult {
+    assert_tampered_payload_case(WebhookProfile::Stripe)
+}
+
+#[test]
+fn slack_tampered_payload_preserves_signed_request_and_fails_on_delivered_body() -> TestResult {
+    assert_tampered_payload_case(WebhookProfile::Slack)
 }
