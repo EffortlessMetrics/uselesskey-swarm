@@ -1,6 +1,7 @@
 use std::collections::BTreeMap;
 
 use hmac::{Hmac, KeyInit, Mac};
+use rstest::rstest;
 use sha2::Sha256;
 use uselesskey_core::Factory;
 use uselesskey_webhook::{WebhookFactoryExt, WebhookPayloadSpec, WebhookProfile};
@@ -104,66 +105,64 @@ fn verify_fixture(
     }
 }
 
-#[test]
-fn tampered_payload_preserves_signed_request_and_fails_on_delivered_body() -> TestResult {
+#[rstest]
+#[case(WebhookProfile::GitHub)]
+#[case(WebhookProfile::Stripe)]
+#[case(WebhookProfile::Slack)]
+fn tampered_payload_preserves_signed_request_and_fails_on_delivered_body(
+    #[case] profile: WebhookProfile,
+) -> TestResult {
     let fx = Factory::deterministic_from_str("webhook-tampered-public-regression");
+    let valid = fx.webhook(profile, "service", WebhookPayloadSpec::Canonical);
+    ensure(
+        verify_fixture(
+            profile,
+            &valid.secret,
+            &valid.payload,
+            &valid.headers,
+            valid.timestamp,
+        ),
+        "valid fixture must verify",
+    )?;
 
-    for profile in [
-        WebhookProfile::GitHub,
-        WebhookProfile::Stripe,
-        WebhookProfile::Slack,
-    ] {
-        let valid = fx.webhook(profile, "service", WebhookPayloadSpec::Canonical);
-        ensure(
-            verify_fixture(
-                profile,
-                &valid.secret,
-                &valid.payload,
-                &valid.headers,
-                valid.timestamp,
-            ),
-            "valid fixture must verify",
-        )?;
-
-        let tampered = valid.near_miss_tampered_payload();
-        ensure(tampered.secret == valid.secret, "tamper must preserve secret")?;
-        ensure(
-            tampered.timestamp == valid.timestamp,
-            "tamper must preserve timestamp",
-        )?;
-        ensure(
-            tampered.headers == valid.headers,
-            "tamper must preserve signed headers",
-        )?;
-        ensure(
-            tampered.signature_input == valid.signature_input,
-            "tamper must preserve the original signed input",
-        )?;
-        ensure(
-            tampered.payload != valid.payload,
-            "tamper must change only the delivered payload",
-        )?;
-        ensure(
-            !verify_fixture(
-                profile,
-                &valid.secret,
-                &tampered.payload,
-                &tampered.headers,
-                tampered.timestamp,
-            ),
-            "tampered delivered body must fail signature verification",
-        )?;
-        ensure(
-            verify_fixture(
-                profile,
-                &valid.secret,
-                &valid.payload,
-                &tampered.headers,
-                tampered.timestamp,
-            ),
-            "restoring only the original body must make the preserved signature valid",
-        )?;
-    }
+    let tampered = valid.near_miss_tampered_payload();
+    ensure(tampered.secret == valid.secret, "tamper must preserve secret")?;
+    ensure(
+        tampered.timestamp == valid.timestamp,
+        "tamper must preserve timestamp",
+    )?;
+    ensure(
+        tampered.headers == valid.headers,
+        "tamper must preserve signed headers",
+    )?;
+    ensure(
+        tampered.signature_input == valid.signature_input,
+        "tamper must preserve the original signed input",
+    )?;
+    ensure(
+        tampered.payload != valid.payload,
+        "tamper must change only the delivered payload",
+    )?;
+    ensure(
+        !verify_fixture(
+            profile,
+            &valid.secret,
+            &tampered.payload,
+            &tampered.headers,
+            tampered.timestamp,
+        ),
+        "tampered delivered body must fail signature verification",
+    )?;
+    ensure(
+        verify_fixture(
+            profile,
+            &valid.secret,
+            &valid.payload,
+            &tampered.headers,
+            tampered.timestamp,
+        ),
+        "restoring only the original body must make the preserved signature valid",
+    )?;
 
     Ok(())
 }
