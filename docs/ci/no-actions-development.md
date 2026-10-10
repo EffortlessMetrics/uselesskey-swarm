@@ -85,7 +85,7 @@ required_steps = ["spec-check"]
 "feature-matrix" = "No facade, feature, or Cargo surface changes."
 "dep-guard" = "No dependency or Cargo surface changes."
 "bdd" = "No product behavior or BDD scenario changes."
-"fuzz" = "No product source or fuzz target changes."
+"fuzz" = "Fuzz execution is explicit focused proof; this control-only change does not require it."
 "no-blob" = "No product fixture or test data changes."
 "coverage" = "Product coverage is outside this control-only claim."
 "coverage:report" = "No product coverage report is claimed."
@@ -122,11 +122,80 @@ still examine the complete argv, selected tests, repository configuration,
 execution environment, and claim coverage. A command name or exit code alone
 does not establish test adequacy or a nonzero test count.
 
-The wrapper does not change the Rust selector. At this source revision,
-`cargo xtask pr` can select fuzz for crate-source changes, optional coverage
-when its tool is installed, and package preflight for Cargo changes. This
-wrapper adds no full-CI, fuzz, coverage, or publication command. Those existing
-selection and cost policies need their own reviewed changes.
+## Ordinary PR selection
+
+`cargo xtask pr` selects from the requested comparison range and local edits.
+The requested base must resolve: it never substitutes a similarly named local
+branch, the last commit, or an empty change set when that base is unavailable.
+Git paths use NUL-delimited output without trimming whitespace, and both sides
+of a rename remain visible to selection. The invocation wrapper additionally
+requires the reviewed base to be an exact ancestor and the candidate to be clean.
+
+Package owners and transitive consumers come from
+`cargo metadata --locked --no-deps --format-version 1`. Selection includes normal,
+optional, target-specific, development, and build dependency declarations, using
+the actual package names and manifest locations. Newly added or renamed workspace
+consumers therefore do not need an entry in a second hand-maintained table.
+Metadata failure refuses selection. A registry or Git dependency sharing a
+workspace package name without an explicit workspace path also refuses selection:
+declaration-only metadata cannot establish whether a patch resolves it to that
+workspace package. That case needs an explicit path or a qualified resolved graph.
+This is a graph of declared workspace relationships; it does not assert that all
+declared features are simultaneously active or establish external consumer
+compatibility.
+
+Root `Cargo.toml` or `Cargo.lock` changes select every workspace package. Scoped
+package changes select their owner and transitive consumers. BDD, root integration,
+and xtask tests use their dedicated steps and are not repeated as ordinary
+per-package tests. The facade feature matrix, dependency guard, package preflight,
+and no-blob routes remain. Cargo changes still select dependency and package checks.
+
+Known control paths are distinct from documentation-only changes; the wrapper
+requires their focused control proof. Unclassified paths fail ordinary PR and
+PR-lite selection before proof begins. Current non-documentation files under
+`crates/` must have a declared workspace owner; an excluded or newly unlisted
+crate cannot disappear from the tests through the removed-package fallback. That
+fallback requires the changed path to be absent from the candidate. A dangling
+symlink or an inspection error does not establish absence.
+
+Ordinary PR proof always records fuzz execution and coverage as skipped. It does
+not probe for those tools or add work because a tool is installed. The reviewed
+plan must justify those skips and declare any required deeper evidence explicitly.
+The standalone `cargo xtask ci`, `cargo xtask fuzz`, and `cargo xtask coverage`
+commands remain available; the ordinary PR command does not invoke them.
+
+Non-documentation changes under `fuzz/` carry both the `product` and `fuzz`
+classes. A generic product test cannot discharge the fuzz obligation. Add an
+explicit target to the reviewed plan, for example this focused block for a
+change owned by `pem_corrupt`:
+
+```toml
+[[focused]]
+name = "pem-corrupt-smoke"
+kind = "fuzz"
+command = ["cargo", "xtask", "fuzz", "--target", "pem_corrupt", "--", "-runs=1000", "-max_total_time=30", "-timeout=10"]
+```
+
+This block supplements the plan's required steps and justified skips. The
+target's relevance to the change remains part of plan review. The command must
+execute successfully before the final ordinary PR command; an absent fuzz tool,
+failed harness, or changed argv cannot become a successful invocation.
+
+Focused fuzz commands allow one named target and require all three positive
+libFuzzer limits. The maximums are 1,000,000 runs and 300 seconds total; the
+single-input timeout cannot exceed the declared total time. Duplicate limits,
+unbounded defaults, `--all`, and additional override flags are rejected. These
+are libFuzzer settings, not a wall-clock bound on Cargo compilation or process
+startup. Runner-level resource and wall-clock limits remain separate controls.
+
+`cargo xtask pr-lite` can still produce its existing build-only fuzz evidence
+when a fuzz-owned path changes. A skipped or successful build does not discharge
+the explicit fuzz-execution obligation above.
+
+Coverage can likewise be declared as focused product evidence with
+`command = ["cargo", "xtask", "coverage"]`. Its presence in the plan selects
+it; tool installation alone does not. Mutation testing remains retired under
+ADR 0005.
 
 ## Invocation and evidence contract
 

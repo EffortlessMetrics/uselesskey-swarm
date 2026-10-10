@@ -45,6 +45,7 @@ mod target_output;
 mod test_efficiency;
 mod user_path_smoke;
 mod verification_pack;
+mod workspace_graph;
 
 #[derive(Parser)]
 #[command(
@@ -376,7 +377,7 @@ enum Cmd {
         /// List fuzz targets declared in fuzz/Cargo.toml and exit.
         #[arg(long, conflicts_with_all = ["target", "all"])]
         list: bool,
-        /// Extra args passed to `cargo fuzz run`.
+        /// Arguments passed to libFuzzer after `cargo fuzz run --`.
         #[arg(last = true)]
         args: Vec<String>,
     },
@@ -2212,16 +2213,19 @@ fn fuzz(target: Option<&str>, all: bool, list: bool, extra: &[String]) -> Result
     ensure_cargo_fuzz_available()?;
     let host = host_target_triple()?;
     for target in targets {
-        let mut cmd = Command::new("cargo");
-        cmd.args(["+nightly", "fuzz", "run", "--target", &host, &target]);
-
-        for a in extra {
-            cmd.arg(a);
-        }
-
+        let mut cmd = fuzz_run_command(&target, &host, extra);
         run(&mut cmd)?;
     }
     Ok(())
+}
+
+fn fuzz_run_command(target: &str, host: &str, extra: &[String]) -> Command {
+    let mut cmd = Command::new("cargo");
+    cmd.args(["+nightly", "fuzz", "run", "--target", host, target]);
+    if !extra.is_empty() {
+        cmd.arg("--").args(extra);
+    }
+    cmd
 }
 
 fn ensure_cargo_fuzz_available() -> Result<()> {
@@ -2240,7 +2244,8 @@ fn ensure_cargo_fuzz_available() -> Result<()> {
 fn pr() -> Result<()> {
     let base_ref = resolve_base_ref();
     let changed_files = pr_changed_files(&base_ref)?;
-    let plan = plan::build_plan(&changed_files);
+    let workspace = workspace_graph::WorkspaceGraph::load(&workspace_root_path())?;
+    let plan = plan::build_plan(&changed_files, &workspace);
 
     let mut runner = receipt::Runner::new("target/xtask/receipt.json");
     if let Ok(sha) = git_head_sha() {
@@ -2318,7 +2323,8 @@ fn pr_lite(format: PrLiteFormat) -> Result<()> {
     let workspace_root = workspace_root_path();
     let base_ref = resolve_base_ref();
     let changed_paths = pr_lite_changed_files(&base_ref)?;
-    let plan = plan::build_plan(&changed_paths);
+    let workspace = workspace_graph::WorkspaceGraph::load(&workspace_root)?;
+    let plan = plan::build_plan(&changed_paths, &workspace);
     let ripr_json =
         read_optional_ripr_pr_json(&workspace_root.join(RIPR_PR_DIR).join("repo-exposure.json"))?;
     let impacted =
@@ -2326,7 +2332,8 @@ fn pr_lite(format: PrLiteFormat) -> Result<()> {
     let mut receipt = pr_lite_receipt(&base_ref, changed_paths, &impacted);
 
     let result = run_pr_lite_steps(&workspace_root, &plan, &impacted, &mut receipt);
-    receipt.status = if receipt.steps.iter().any(|step| step.status == "failed") {
+    receipt.status = if result.is_err() || receipt.steps.iter().any(|step| step.status == "failed")
+    {
         "failed".to_string()
     } else {
         "pass".to_string()
@@ -2390,6 +2397,7 @@ fn run_pr_lite_steps(
     impacted: &ImpactedEvidenceReport,
     receipt: &mut PrLiteReceipt,
 ) -> Result<()> {
+    require_classified_pr_paths(plan)?;
     pr_lite_run_step(
         receipt,
         "spec-check-strict",
@@ -2575,7 +2583,7 @@ fn run_pr_lite_steps(
         );
     }
 
-    if plan.run_fuzz {
+    if plan.run_fuzz_build {
         if cargo_fuzz_available() {
             pr_lite_run_step(
                 receipt,
@@ -4396,13 +4404,15 @@ fn run_pr_plan(
     plan: &plan::Plan,
     runner: &mut receipt::Runner,
 ) -> Result<()> {
+    require_classified_pr_paths(plan)?;
     runner.step(
         "detect-changes",
         Some(format!(
-            "base_ref={base_ref}, files={}, direct_crates={}, impacted_crates={}",
+            "base_ref={base_ref}, files={}, direct_crates={}, impacted_crates={}, control_paths={}",
             changed_files.len(),
             plan.directly_changed_crates.len(),
-            plan.impacted_crates.len()
+            plan.impacted_crates.len(),
+            plan.control_paths.len()
         )),
         || Ok(()),
     )?;
@@ -4456,7 +4466,7 @@ fn run_pr_plan(
     }
 
     if plan.run_tests {
-        run_impacted_tests(&plan.impacted_crates, runner)?;
+        run_impacted_tests(&plan.impacted_crates, &plan.workspace_packages, runner)?;
     } else {
         runner.skip("tests", Some("no impacted crates".to_string()));
     }
@@ -4488,11 +4498,10 @@ fn run_pr_plan(
         );
     }
 
-    if plan.run_fuzz {
-        runner.step("fuzz", None, fuzz_pr)?;
-    } else {
-        runner.skip("fuzz", Some("no crate source or fuzz changes".to_string()));
-    }
+    runner.skip(
+        "fuzz",
+        Some("fuzz execution requires an explicit focused proof plan".into()),
+    );
 
     if plan.run_no_blob {
         runner.step("no-blob", None, no_blob_gate)?;
@@ -4500,20 +4509,14 @@ fn run_pr_plan(
         runner.skip("no-blob", Some("no test/fixture changes".to_string()));
     }
 
-    if plan.run_coverage {
-        if is_llvm_cov_installed() {
-            run_coverage(runner)?;
-        } else {
-            runner.skip("coverage", Some("cargo-llvm-cov not installed".into()));
-            runner.skip(
-                "coverage:report",
-                Some("cargo-llvm-cov not installed".into()),
-            );
-        }
-    } else {
-        runner.skip("coverage", Some("no crate source changes".into()));
-        runner.skip("coverage:report", Some("no crate source changes".into()));
-    }
+    runner.skip(
+        "coverage",
+        Some("coverage requires an explicit focused proof plan".into()),
+    );
+    runner.skip(
+        "coverage:report",
+        Some("coverage reporting requires an explicit focused proof plan".into()),
+    );
 
     if plan.run_root_tests {
         runner.step("root-tests", None, || {
@@ -4554,6 +4557,20 @@ fn run_pr_plan(
         }
     }
 
+    Ok(())
+}
+
+fn require_classified_pr_paths(plan: &plan::Plan) -> Result<()> {
+    if !plan.unclassified_paths.is_empty() {
+        bail!(
+            "unclassified PR paths need an explicit reviewed route: {}",
+            plan.unclassified_paths
+                .iter()
+                .cloned()
+                .collect::<Vec<_>>()
+                .join(", ")
+        );
+    }
     Ok(())
 }
 
@@ -5231,52 +5248,25 @@ fn yes_no(value: bool) -> &'static str {
 }
 
 fn git_changed_files(base_ref: &str) -> Result<Vec<String>> {
-    let mut attempts = Vec::new();
-
-    for candidate in base_ref_candidates(base_ref) {
-        let revspec = format!("{candidate}...HEAD");
-        let output = Command::new("git")
-            .args(["diff", "--name-only", &revspec])
-            .output()
-            .context("failed to run git diff")?;
-
-        if output.status.success() {
-            return parse_changed_files(&output.stdout);
-        }
-
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        attempts.push(format!(
-            "{revspec} (status {}): {stderr}",
-            output.status.code().unwrap_or(-1)
-        ));
-    }
-
-    if git_commit_exists("HEAD~1")? {
-        let output = Command::new("git")
-            .args(["diff", "--name-only", "HEAD~1..HEAD"])
-            .output()
-            .context("failed to run git diff HEAD~1..HEAD")?;
-        if output.status.success() {
-            eprintln!("xtask pr: base ref '{base_ref}' unavailable, falling back to HEAD~1..HEAD");
-            return parse_changed_files(&output.stdout);
-        }
-
-        let stderr = String::from_utf8_lossy(&output.stderr).trim().to_string();
-        attempts.push(format!(
-            "HEAD~1..HEAD (status {}): {stderr}",
-            output.status.code().unwrap_or(-1)
-        ));
-    } else {
-        eprintln!(
-            "xtask pr: base ref '{base_ref}' and HEAD~1 unavailable, treating repository as unchanged"
+    let resolved = Command::new("git")
+        .args([
+            "rev-parse",
+            "--verify",
+            "--end-of-options",
+            &format!("{base_ref}^{{commit}}"),
+        ])
+        .output()
+        .context("failed to resolve the requested comparison base")?;
+    if !resolved.status.success() {
+        bail!(
+            "comparison base '{base_ref}' is unavailable; fetch it or set XTASK_BASE_REF to the reviewed base: {}",
+            String::from_utf8_lossy(&resolved.stderr).trim()
         );
-        return Ok(Vec::new());
     }
-
-    bail!(
-        "git diff failed for all attempted base refs: {}",
-        attempts.join(" | ")
-    )
+    let base_sha = String::from_utf8(resolved.stdout)
+        .context("resolved comparison base was not valid UTF-8")?;
+    let revspec = format!("{}...HEAD", base_sha.trim());
+    git_name_only(&["diff", "--name-only", "--no-renames", "-z", &revspec, "--"])
 }
 
 fn pr_lite_changed_files(base_ref: &str) -> Result<Vec<String>> {
@@ -5291,12 +5281,26 @@ fn pr_changed_files(base_ref: &str) -> Result<Vec<String>> {
 
 fn git_local_changed_files() -> Result<Vec<String>> {
     let mut paths = Vec::new();
-    paths.extend(git_name_only(&["diff", "--name-only"])?);
-    paths.extend(git_name_only(&["diff", "--cached", "--name-only"])?);
+    paths.extend(git_name_only(&[
+        "diff",
+        "--name-only",
+        "--no-renames",
+        "-z",
+        "--",
+    ])?);
+    paths.extend(git_name_only(&[
+        "diff",
+        "--cached",
+        "--name-only",
+        "--no-renames",
+        "-z",
+        "--",
+    ])?);
     paths.extend(git_name_only(&[
         "ls-files",
         "--others",
         "--exclude-standard",
+        "-z",
     ])?);
     Ok(paths)
 }
@@ -5326,71 +5330,42 @@ fn merge_changed_paths(left: Vec<String>, right: Vec<String>) -> Vec<String> {
         .collect()
 }
 
-fn base_ref_candidates(base_ref: &str) -> Vec<String> {
-    let mut refs = vec![base_ref.to_string()];
-    if let Some(local) = base_ref.strip_prefix("origin/")
-        && !local.is_empty()
-    {
-        refs.push(local.to_string());
-    }
-    refs
-}
-
-fn git_commit_exists(rev: &str) -> Result<bool> {
-    Ok(Command::new("git")
-        .args([
-            "rev-parse",
-            "--verify",
-            "--quiet",
-            &format!("{rev}^{{commit}}"),
-        ])
-        .status()
-        .with_context(|| format!("failed to run git rev-parse --verify for {rev}"))?
-        .success())
-}
-
 fn parse_changed_files(stdout: &[u8]) -> Result<Vec<String>> {
     let stdout =
         String::from_utf8(stdout.to_vec()).context("git diff output was not valid UTF-8")?;
     let files = stdout
-        .lines()
-        .map(|line| line.trim().to_string())
-        .filter(|line| !line.is_empty())
+        .split('\0')
+        .filter(|path| !path.is_empty())
+        .map(ToOwned::to_owned)
         .collect::<Vec<_>>();
     Ok(files)
 }
 
-/// Compute the per-crate test targets for `cargo xtask pr`.
-///
-/// The plan's `impacted_crates` set is derived from the path components
-/// of changed files (`crates/<name>/...`). When a PR deletes a crate, that
-/// path still appears in the diff, so the deleted crate name leaks into
-/// `impacted_crates`. `cargo test -p <deleted-crate> --all-features` then
-/// fails with `error: cannot specify features for packages outside of workspace`.
-///
-/// This filter drops:
-/// - `uselesskey-bdd` (run separately via `bdd` step)
-/// - any crate name whose directory no longer exists under `crates/`
-///   (i.e. deleted in this PR's diff)
+/// Select declared workspace packages, excluding removed packages and the BDD,
+/// root integration, and xtask packages executed by their dedicated steps.
 fn impacted_test_targets(
     crates: &std::collections::BTreeSet<String>,
-    workspace_root: &Path,
+    workspace_packages: &BTreeSet<String>,
 ) -> Vec<String> {
-    let crates_dir = workspace_root.join("crates");
     crates
         .iter()
-        .filter(|name| name.as_str() != "uselesskey-bdd")
-        .filter(|name| crates_dir.join(name.as_str()).join("Cargo.toml").is_file())
+        .filter(|name| {
+            !matches!(
+                name.as_str(),
+                "uselesskey-bdd" | "uselesskey-integration-tests" | "xtask"
+            )
+        })
+        .filter(|name| workspace_packages.contains(name.as_str()))
         .cloned()
         .collect()
 }
 
 fn run_impacted_tests(
-    crates: &std::collections::BTreeSet<String>,
+    crates: &BTreeSet<String>,
+    workspace_packages: &BTreeSet<String>,
     runner: &mut receipt::Runner,
 ) -> Result<()> {
-    let workspace_root = workspace_root_path();
-    let targets = impacted_test_targets(crates, &workspace_root);
+    let targets = impacted_test_targets(crates, workspace_packages);
     if targets.is_empty() {
         runner.skip(
             "tests",
@@ -6929,23 +6904,17 @@ mod tests {
     }
 
     #[test]
-    fn base_ref_candidates_include_local_branch_for_origin_ref() {
+    fn changed_path_parser_preserves_whitespace_and_newlines() -> Result<()> {
         assert_eq!(
-            base_ref_candidates("origin/main"),
-            vec!["origin/main".to_string(), "main".to_string()]
+            parse_changed_files(b" scripts/control.py\0docs/two\nlines.md\0trailing.md \0")?,
+            vec![" scripts/control.py", "docs/two\nlines.md", "trailing.md "]
         );
+        assert!(parse_changed_files(b"docs/\xff.md\0").is_err());
+        Ok(())
     }
 
     #[test]
-    fn base_ref_candidates_keep_non_origin_ref_as_is() {
-        assert_eq!(
-            base_ref_candidates("upstream/trunk"),
-            vec!["upstream/trunk".to_string()]
-        );
-    }
-
-    #[test]
-    fn git_changed_files_uses_local_branch_when_origin_ref_missing() {
+    fn git_changed_files_requires_the_requested_base_without_substitution() {
         let _cwd_lock = CWD_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().expect("tempdir");
         let _cwd = CwdGuard::new(dir.path());
@@ -6967,8 +6936,13 @@ mod tests {
         run_git(["add", "second.txt"]);
         run_git(["commit", "-m", "second"]);
 
-        let mut changed =
-            git_changed_files("origin/main").expect("local main fallback should succeed");
+        let error = git_changed_files("origin/main").expect_err("missing requested base must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("comparison base 'origin/main' is unavailable")
+        );
+        let mut changed = git_changed_files("main").expect("explicit local main should succeed");
         changed.sort();
         assert_eq!(
             changed,
@@ -6977,7 +6951,7 @@ mod tests {
     }
 
     #[test]
-    fn git_changed_files_returns_empty_without_base_ref_or_parent() {
+    fn git_changed_files_rejects_missing_base_even_without_a_parent() {
         let _cwd_lock = CWD_LOCK.lock().unwrap();
         let dir = tempfile::tempdir().expect("tempdir");
         let _cwd = CwdGuard::new(dir.path());
@@ -6989,8 +6963,12 @@ mod tests {
         run_git(["add", "tracked.txt"]);
         run_git(["commit", "-m", "initial"]);
 
-        let changed = git_changed_files("origin/main").expect("missing refs should not fail");
-        assert!(changed.is_empty(), "expected no changes, got {changed:?}");
+        let error = git_changed_files("origin/main").expect_err("missing refs must fail");
+        assert!(
+            error
+                .to_string()
+                .contains("comparison base 'origin/main' is unavailable")
+        );
     }
 
     #[test]
@@ -7012,16 +6990,121 @@ mod tests {
         fs::create_dir_all("xtask/src").context("create local xtask fixture directory")?;
         fs::write("xtask/src/main.rs", "fn main() {}\n").context("write local xtask fixture")?;
 
-        let changed = pr_changed_files("origin/main").context("collect local changed paths")?;
+        let changed = pr_changed_files("main").context("collect local changed paths")?;
         assert!(changed.contains(&"xtask/src/main.rs".to_string()));
 
-        let plan = plan::build_plan(&changed);
+        let workspace = workspace_graph::WorkspaceGraph::load(&workspace_root_path())?;
+        let plan = plan::build_plan(&changed, &workspace);
         assert!(plan.run_fmt, "local xtask changes should trigger fmt");
         assert!(
             plan.run_xtask_tests,
             "local xtask changes should trigger xtask tests"
         );
 
+        Ok(())
+    }
+
+    #[test]
+    fn git_changed_files_retains_both_sides_of_a_rename() -> Result<()> {
+        let _cwd_lock = CWD_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir()?;
+        let _cwd = CwdGuard::new(dir.path());
+        run_git(["init"]);
+        run_git(["config", "user.email", "agent@example.com"]);
+        run_git(["config", "user.name", "Agent"]);
+        fs::create_dir_all("xtask/src")?;
+        fs::write("xtask/src/control.rs", "pub fn check() {}\n")?;
+        run_git(["add", "."]);
+        run_git(["commit", "-m", "base"]);
+        let base = git_head_sha()?;
+        fs::create_dir_all("docs")?;
+        run_git(["mv", "xtask/src/control.rs", "docs/control.md"]);
+        run_git(["commit", "-m", "rename"]);
+        let changed = git_changed_files(&base)?;
+        assert_eq!(changed, vec!["docs/control.md", "xtask/src/control.rs"]);
+        let workspace = workspace_graph::WorkspaceGraph::load(&workspace_root_path())?;
+        let plan = plan::build_plan(&changed, &workspace);
+        assert!(plan.run_xtask_tests);
+        assert!(!plan.docs_only);
+        Ok(())
+    }
+
+    #[test]
+    fn git_changed_files_rejects_unrelated_histories() -> Result<()> {
+        let _cwd_lock = CWD_LOCK.lock().unwrap();
+        let dir = tempfile::tempdir()?;
+        let _cwd = CwdGuard::new(dir.path());
+        run_git(["init"]);
+        run_git(["config", "user.email", "agent@example.com"]);
+        run_git(["config", "user.name", "Agent"]);
+        fs::write("README.md", "Base\n")?;
+        run_git(["add", "."]);
+        run_git(["commit", "-m", "base"]);
+        let base = git_head_sha()?;
+        run_git(["checkout", "--orphan", "unrelated"]);
+        run_git(["commit", "-m", "unrelated root"]);
+        assert!(git_changed_files(&base).is_err());
+        Ok(())
+    }
+
+    #[test]
+    fn unclassified_pr_path_refuses_before_any_obligation_is_recorded() -> Result<()> {
+        let dir = tempfile::tempdir()?;
+        let receipt_path = dir.path().join("receipt.json");
+        let mut runner = receipt::Runner::new(&receipt_path);
+        let paths = vec!["unknown.asset".to_string()];
+        let workspace = workspace_graph::WorkspaceGraph::load(&workspace_root_path())?;
+        let plan = plan::build_plan(&paths, &workspace);
+        let error = run_pr_plan("reviewed-base", &paths, &plan, &mut runner)
+            .expect_err("unclassified candidate must fail");
+        assert!(error.to_string().contains("unclassified PR paths"));
+        runner.write()?;
+        let result: serde_json::Value = serde_json::from_slice(&fs::read(receipt_path)?)?;
+        assert_eq!(result["steps"], serde_json::json!([]));
+        Ok(())
+    }
+
+    #[test]
+    fn focused_fuzz_limits_reach_libfuzzer_after_the_separator() -> Result<()> {
+        let parsed = Cli::try_parse_from([
+            "xtask",
+            "fuzz",
+            "--target",
+            "pem_corrupt",
+            "--",
+            "-runs=1000",
+            "-max_total_time=30",
+            "-timeout=10",
+        ])?;
+        let Cmd::Fuzz {
+            target: Some(target),
+            all: false,
+            list: false,
+            args,
+        } = parsed.cmd
+        else {
+            bail!("bounded fuzz command did not parse as one explicit target");
+        };
+        let command = fuzz_run_command(&target, "x86_64-unknown-linux-gnu", &args);
+        let argv = command
+            .get_args()
+            .map(|arg| arg.to_string_lossy().into_owned())
+            .collect::<Vec<_>>();
+        assert_eq!(
+            argv,
+            [
+                "+nightly",
+                "fuzz",
+                "run",
+                "--target",
+                "x86_64-unknown-linux-gnu",
+                "pem_corrupt",
+                "--",
+                "-runs=1000",
+                "-max_total_time=30",
+                "-timeout=10",
+            ]
+        );
         Ok(())
     }
 
@@ -9345,46 +9428,27 @@ uselesskey = { version = "0.4.0", features = ["rsa"] }
     }
 
     #[test]
-    fn impacted_test_targets_drops_deleted_crates_and_bdd() -> Result<()> {
-        let dir = tempfile::tempdir()?;
-        let root = dir.path();
-        let crates_dir = root.join("crates");
-        for name in &["uselesskey-core", "uselesskey-rsa"] {
-            let crate_dir = crates_dir.join(name);
-            std::fs::create_dir_all(&crate_dir)?;
-            std::fs::write(crate_dir.join("Cargo.toml"), "[package]\nname = \"x\"\n")?;
-        }
-
-        let mut input = std::collections::BTreeSet::new();
-        input.insert("uselesskey-core".to_string()); // exists
-        input.insert("uselesskey-rsa".to_string()); // exists
-        input.insert("uselesskey-core-base62".to_string()); // deleted shim
-        input.insert("uselesskey-core-cache".to_string()); // deleted shim
-        input.insert("uselesskey-bdd".to_string()); // explicitly excluded
-
-        let targets = impacted_test_targets(&input, root);
+    fn impacted_test_targets_drops_deleted_and_separately_routed_packages() {
+        let workspace = BTreeSet::from([
+            "uselesskey-core".to_string(),
+            "uselesskey-rsa".to_string(),
+            "uselesskey-bdd".to_string(),
+            "uselesskey-integration-tests".to_string(),
+            "xtask".to_string(),
+        ]);
+        let mut input = workspace.clone();
+        input.insert("uselesskey-core-base62".to_string());
+        input.insert("uselesskey-core-cache".to_string());
+        let targets = impacted_test_targets(&input, &workspace);
         assert_eq!(targets, vec!["uselesskey-core", "uselesskey-rsa"]);
-        Ok(())
     }
 
     #[test]
-    fn impacted_test_targets_keeps_only_dirs_with_cargo_toml() -> Result<()> {
-        let dir = tempfile::tempdir()?;
-        let root = dir.path();
-        let crates_dir = root.join("crates");
-        // Directory exists but no Cargo.toml (e.g. stale subdir) — should be skipped.
-        std::fs::create_dir_all(crates_dir.join("stale-dir"))?;
-        let good = crates_dir.join("uselesskey-core");
-        std::fs::create_dir_all(&good)?;
-        std::fs::write(good.join("Cargo.toml"), "[package]\nname = \"x\"\n")?;
-
-        let mut input = std::collections::BTreeSet::new();
-        input.insert("uselesskey-core".to_string());
-        input.insert("stale-dir".to_string());
-
-        let targets = impacted_test_targets(&input, root);
-        assert_eq!(targets, vec!["uselesskey-core".to_string()]);
-        Ok(())
+    fn impacted_test_targets_uses_workspace_identity_instead_of_a_directory_convention() {
+        let workspace = BTreeSet::from(["new-consumer-package".to_string()]);
+        let input = BTreeSet::from(["new-consumer-package".to_string(), "stale-dir".to_string()]);
+        let targets = impacted_test_targets(&input, &workspace);
+        assert_eq!(targets, vec!["new-consumer-package".to_string()]);
     }
 
     fn pr_lite_test_impacted_report() -> ImpactedEvidenceReport {

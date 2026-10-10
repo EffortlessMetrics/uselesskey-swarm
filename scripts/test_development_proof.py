@@ -174,6 +174,109 @@ class DevelopmentProofTests(unittest.TestCase):
         self.assertEqual(envelope["outcomes"][0]["name"], "focused:regression")
         self.assertEqual(len(self.calls), 2)
 
+    def fuzz_focus(self):
+        return {
+            "name": "pem-corrupt-smoke", "kind": "fuzz",
+            "command": ["cargo", "xtask", "fuzz", "--target", "pem_corrupt", "--",
+                        "-runs=1000", "-max_total_time=30", "-timeout=10"],
+        }
+
+    def make_fuzz_candidate(self):
+        self.git("reset", "--hard", self.base)
+        source = self.root / "fuzz/fuzz_targets/pem_corrupt.rs"
+        source.parent.mkdir(parents=True)
+        source.write_text("// Changed harness\n", encoding="utf-8")
+        self.commit("fuzz candidate")
+        self.head = self.git("rev-parse", "HEAD")
+        self.set_plan(required=["spec-check"], focused=[self.fuzz_focus()])
+
+    def test_fuzz_owned_paths_keep_their_explicit_obligation(self):
+        for path in (
+            "fuzz/fuzz_targets/pem_corrupt.rs", "fuzz/Cargo.toml", "fuzz/Cargo.lock",
+            "fuzz/corpus/pem_corrupt/input", "fuzz/.cargo/config.toml",
+        ):
+            with self.subTest(path=path):
+                classified = proof.classify_paths([path])
+                self.assertEqual(classified["classes"], ["fuzz", "product"])
+                self.assertEqual(classified["profile"], "product")
+        self.assertEqual(proof.classify_paths(["fuzz/README.md"])["classes"], ["docs"])
+
+    def test_fuzz_changes_cannot_reuse_generic_product_proof(self):
+        self.make_fuzz_candidate()
+        self.set_plan(focused=[{
+            "name": "ordinary-test", "kind": "product", "command": ["cargo", "test", "-p", "demo"],
+        }])
+        with self.assertRaisesRegex(proof.ProofError, "explicit focused fuzz proof"):
+            self.run_proof()
+        self.assertFalse(self.calls)
+
+    def test_bounded_fuzz_focus_runs_before_pr_and_can_supply_harness_proof(self):
+        self.make_fuzz_candidate()
+        def baseline_only(raw):
+            raw["steps"] = raw["steps"][:3]
+            return raw
+        path = self.run_proof(self.writer(baseline_only))
+        envelope, _ = proof.seal(self.root, path)
+        self.assertEqual([call[0] for call in self.calls], [self.fuzz_focus()["command"], proof.PR_COMMAND])
+        self.assertEqual(envelope["classification"]["classes"], ["fuzz", "product"])
+        self.assertEqual([item["name"] for item in envelope["outcomes"]], ["focused:pem-corrupt-smoke", "xtask-pr"])
+
+    def test_fuzz_focus_requires_one_target_and_positive_bounded_limits(self):
+        self.make_fuzz_candidate()
+        valid = self.fuzz_focus()["command"]
+        invalid = [
+            ["cargo", "xtask", "fuzz"],
+            ["cargo", "xtask", "fuzz", "--all", "--", *valid[6:]],
+            valid[:5] + valid[6:],
+            valid[:-1],
+            valid + ["-max_total_time=0"],
+            valid[:4] + ["../pem_corrupt"] + valid[5:],
+            valid[:6] + ["-runs=1000", "-runs=1000", "-timeout=10"],
+            valid[:6] + ["-runs=0", "-max_total_time=30", "-timeout=10"],
+            valid[:6] + ["-runs=-1", "-max_total_time=30", "-timeout=10"],
+            valid[:6] + ["-runs=1000001", "-max_total_time=30", "-timeout=10"],
+            valid[:6] + ["-runs=1000", "-max_total_time=301", "-timeout=10"],
+            valid[:6] + ["-runs=1000", "-max_total_time=30", "-timeout=31"],
+            valid[:6] + ["-runs=1000", "-max_total_time=30", "-jobs=8"],
+            ["cargo", "test", "--manifest-path", "fuzz/Cargo.toml"],
+        ]
+        for command in invalid:
+            with self.subTest(command=command):
+                focused = self.fuzz_focus()
+                focused["command"] = command
+                self.set_plan(required=["spec-check"], focused=[focused])
+                with self.assertRaises(proof.ProofError):
+                    self.run_proof()
+        self.assertFalse(self.calls)
+
+    def test_failed_focused_fuzz_prevents_pr_and_a_successful_seal(self):
+        self.make_fuzz_candidate()
+        with self.assertRaisesRegex(proof.ProofError, "exit code 7"):
+            self.run_proof(self.writer(return_code=7))
+        self.assertEqual(len(self.calls), 1)
+        path = self.root / proof.OUTPUT / "receipt.json"
+        failed = json.loads(path.read_bytes())
+        self.assertEqual(failed["conclusion"], "failure")
+        self.assertEqual(failed["outcomes"][0]["command"], self.fuzz_focus()["command"])
+        with self.assertRaises(proof.ProofError):
+            proof.seal(self.root, path)
+
+    def test_fuzz_focus_cannot_be_removed_from_the_sealed_classification(self):
+        self.make_fuzz_candidate()
+        path, envelope = self.success()
+        envelope["classification"]["classes"] = ["product"]
+        self.update_envelope(path, envelope)
+        with self.assertRaisesRegex(proof.ProofError, "does not match its changed paths"):
+            proof.validate_envelope(path.read_bytes())
+
+    def test_explicit_coverage_remains_a_recorded_focused_command(self):
+        self.set_plan(focused=[{
+            "name": "coverage", "kind": "product", "command": ["cargo", "xtask", "coverage"],
+        }])
+        path = self.run_proof()
+        proof.seal(self.root, path)
+        self.assertEqual([call[0] for call in self.calls], [["cargo", "xtask", "coverage"], proof.PR_COMMAND])
+
     def test_docs_profile_preserves_reviewed_skip_and_focused_execution(self):
         self.make_docs_candidate()
         path = self.run_proof(self.writer(self.docs_receipt))

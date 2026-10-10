@@ -78,6 +78,7 @@ proof_receipt_sha256 = "00000000000000000000000000000000000000000000000000000000
 - [ ] envelope is bound to the exact final head, tree, and existing ancestor base
 - [ ] the complete invocation succeeded, including every required obligation
 - [ ] focused proof and the plan's adequacy have been reviewed
+- [ ] any fuzz-owned change has explicit bounded focused fuzz proof for the relevant target
 - [ ] no failed or unknown proof result remains
 - [ ] every skipped result is preserved and explicitly justified in the accepted plan
 - [ ] immutable envelope bytes match the recorded digest

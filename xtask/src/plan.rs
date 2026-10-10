@@ -1,25 +1,30 @@
-use std::collections::{BTreeSet, HashSet};
+use std::collections::BTreeSet;
+
+use crate::workspace_graph::WorkspaceGraph;
 
 #[derive(Debug, Clone)]
 pub struct Plan {
     pub impacted_crates: BTreeSet<String>,
     pub directly_changed_crates: BTreeSet<String>,
+    pub workspace_packages: BTreeSet<String>,
     pub run_fmt: bool,
     pub run_clippy: bool,
     pub run_tests: bool,
     pub run_feature_matrix: bool,
     pub run_dep_guard: bool,
     pub run_bdd: bool,
-    pub run_fuzz: bool,
+    /// Build-only PR-lite evidence; ordinary PR proof never executes fuzzing.
+    pub run_fuzz_build: bool,
     pub run_no_blob: bool,
-    pub run_coverage: bool,
     pub run_publish_preflight: bool,
     pub run_root_tests: bool,
     pub run_xtask_tests: bool,
+    pub control_paths: BTreeSet<String>,
+    pub unclassified_paths: BTreeSet<String>,
     pub docs_only: bool,
 }
 
-pub fn build_plan(paths: &[String]) -> Plan {
+pub fn build_plan(paths: &[String], workspace: &WorkspaceGraph) -> Plan {
     let mut crate_rust_changed = false;
     let mut xtask_changed = false;
     let mut xtask_cargo_changed = false;
@@ -27,18 +32,44 @@ pub fn build_plan(paths: &[String]) -> Plan {
     let mut root_tests_changed = false;
     let mut examples_changed = false;
     let mut cargo_changed = false;
+    let mut shared_cargo_changed = false;
     let mut bdd_feature_changed = false;
     let mut no_blob_trigger = false;
     let mut tests_cargo_changed = false;
-    let mut changed_crates: HashSet<String> = HashSet::new();
-    let mut source_changed_crates: HashSet<String> = HashSet::new();
+    let mut changed_crates = BTreeSet::new();
+    let mut source_changed_crates = BTreeSet::new();
+    let mut control_paths = BTreeSet::new();
+    let mut unclassified_paths = BTreeSet::new();
+    let mut only_markdown = true;
 
     for path in paths {
         let path = normalize_path(path);
+        let owner = workspace.owner(&path);
+        let removed_crate = if owner.is_none() && workspace.path_is_absent(&path) {
+            crate_from_path(&path)
+        } else {
+            None
+        };
+        let unowned_current_crate = path.starts_with("crates/")
+            && owner.is_none()
+            && removed_crate.is_none()
+            && !path.ends_with(".md");
+        let control = is_control_change(&path);
+        if control {
+            control_paths.insert(path.clone());
+        }
+        only_markdown &= path.ends_with(".md") && !control;
 
-        if is_crate_rust_change(&path) {
+        if is_crate_rust_change(&path)
+            || path.ends_with(".rs")
+                && owner
+                    .is_some_and(|name| name != "xtask" && name != "uselesskey-integration-tests")
+        {
             crate_rust_changed = true;
-            if let Some(crate_name) = crate_from_path(&path) {
+            if let Some(crate_name) = owner
+                .map(ToOwned::to_owned)
+                .or_else(|| removed_crate.clone())
+            {
                 source_changed_crates.insert(crate_name);
             }
         }
@@ -48,7 +79,7 @@ pub fn build_plan(paths: &[String]) -> Plan {
         if path == "xtask/Cargo.toml" {
             xtask_cargo_changed = true;
         }
-        if is_fuzz_change(&path) {
+        if path.starts_with("fuzz/") && !path.ends_with(".md") {
             fuzz_changed = true;
         }
         if is_root_tests_change(&path) {
@@ -61,6 +92,7 @@ pub fn build_plan(paths: &[String]) -> Plan {
         if path.ends_with("Cargo.toml") || path.ends_with("Cargo.lock") {
             cargo_changed = true;
         }
+        shared_cargo_changed |= path == "Cargo.toml" || path == "Cargo.lock";
         if path == "tests/Cargo.toml" {
             tests_cargo_changed = true;
         }
@@ -76,13 +108,37 @@ pub fn build_plan(paths: &[String]) -> Plan {
             no_blob_trigger = true;
         }
 
-        if let Some(crate_name) = crate_from_path(&path) {
+        if let Some(crate_name) = owner
+            .map(ToOwned::to_owned)
+            .or_else(|| removed_crate.clone())
+        {
             changed_crates.insert(crate_name);
+        }
+
+        if unowned_current_crate
+            || !(control
+                || owner.is_some()
+                || path.ends_with(".md")
+                || path.ends_with("Cargo.toml")
+                || path.ends_with("Cargo.lock")
+                || removed_crate.is_some()
+                || path.starts_with("fuzz/")
+                || is_root_tests_change(&path)
+                || is_examples_change(&path)
+                || is_no_blob_trigger(&path)
+                || bdd_feature_path(&path))
+        {
+            unclassified_paths.insert(path);
         }
     }
 
-    let impacted_crates = expand_impacted_crates(&changed_crates);
-    let directly_changed_crates = source_changed_crates.into_iter().collect::<BTreeSet<_>>();
+    let workspace_packages = workspace.packages();
+    let impacted_crates = if shared_cargo_changed {
+        workspace_packages.clone()
+    } else {
+        workspace.expand(&changed_crates)
+    };
+    let directly_changed_crates = source_changed_crates;
 
     // any_rust_changed is the OR of all five classifiers (used for fmt/clippy)
     let any_rust_changed = crate_rust_changed
@@ -93,7 +149,14 @@ pub fn build_plan(paths: &[String]) -> Plan {
 
     let run_fmt = any_rust_changed || cargo_changed;
     let run_clippy = run_fmt;
-    let run_tests = crate_rust_changed || root_tests_changed || !impacted_crates.is_empty();
+    let run_tests = crate_rust_changed
+        || root_tests_changed
+        || impacted_crates.iter().any(|name| {
+            !matches!(
+                name.as_str(),
+                "uselesskey-bdd" | "uselesskey-integration-tests" | "xtask"
+            )
+        });
     let run_feature_matrix = cargo_changed
         || paths.iter().any(|p| {
             let p = normalize_path(p);
@@ -101,13 +164,15 @@ pub fn build_plan(paths: &[String]) -> Plan {
                 || (p.starts_with("crates/uselesskey-bdd/") && p.ends_with(".feature"))
         });
     let run_dep_guard = cargo_changed;
-    let run_bdd = crate_rust_changed || bdd_feature_changed;
-    let run_fuzz = crate_rust_changed || fuzz_changed;
+    let run_bdd =
+        crate_rust_changed || bdd_feature_changed || impacted_crates.contains("uselesskey-bdd");
+    let run_fuzz_build = fuzz_changed;
     let run_no_blob = no_blob_trigger;
-    let run_coverage = crate_rust_changed;
     let run_publish_preflight = cargo_changed;
-    let run_root_tests = root_tests_changed || tests_cargo_changed;
-    let run_xtask_tests = xtask_changed || xtask_cargo_changed;
+    let run_root_tests = root_tests_changed
+        || tests_cargo_changed
+        || impacted_crates.contains("uselesskey-integration-tests");
+    let run_xtask_tests = xtask_changed || xtask_cargo_changed || impacted_crates.contains("xtask");
 
     let run_any = run_fmt
         || run_clippy
@@ -115,9 +180,8 @@ pub fn build_plan(paths: &[String]) -> Plan {
         || run_feature_matrix
         || run_dep_guard
         || run_bdd
-        || run_fuzz
+        || run_fuzz_build
         || run_no_blob
-        || run_coverage
         || run_publish_preflight
         || run_root_tests
         || run_xtask_tests;
@@ -125,19 +189,21 @@ pub fn build_plan(paths: &[String]) -> Plan {
     Plan {
         impacted_crates,
         directly_changed_crates,
+        workspace_packages,
         run_fmt,
         run_clippy,
         run_tests,
         run_feature_matrix,
         run_dep_guard,
         run_bdd,
-        run_fuzz,
+        run_fuzz_build,
         run_no_blob,
-        run_coverage,
         run_publish_preflight,
         run_root_tests,
         run_xtask_tests,
-        docs_only: !run_any,
+        control_paths,
+        unclassified_paths,
+        docs_only: only_markdown && !run_any,
     }
 }
 
@@ -155,8 +221,38 @@ fn is_xtask_change(path: &str) -> bool {
     path.ends_with(".rs") && path.starts_with("xtask/")
 }
 
-fn is_fuzz_change(path: &str) -> bool {
-    path.ends_with(".rs") && path.starts_with("fuzz/")
+fn is_control_change(path: &str) -> bool {
+    [
+        ".github/",
+        ".cargo/",
+        ".githooks/",
+        "policy/",
+        ".rails/",
+        ".uselesskey/",
+    ]
+    .iter()
+    .any(|prefix| path.starts_with(prefix))
+        || matches!(
+            path,
+            ".gitignore"
+                | ".gitattributes"
+                | "rust-toolchain.toml"
+                | "rustfmt.toml"
+                | "clippy.toml"
+                | "deny.toml"
+                | "lefthook.yml"
+                | "codecov.yml"
+        )
+        || path.starts_with("scripts/")
+            && [".py", ".sh", ".ps1", ".toml", ".json"]
+                .iter()
+                .any(|extension| path.ends_with(extension))
+        || is_xtask_change(path)
+        || path.starts_with("docs/schemas/") && path.ends_with(".json")
+}
+
+fn bdd_feature_path(path: &str) -> bool {
+    path.starts_with("features/") || path.ends_with(".feature") && path.contains("features/")
 }
 
 fn is_root_tests_change(path: &str) -> bool {
@@ -182,95 +278,23 @@ fn crate_from_path(path: &str) -> Option<String> {
     parts.next().map(|s| s.to_string())
 }
 
-fn expand_impacted_crates(changed: &HashSet<String>) -> BTreeSet<String> {
-    let mut impacted: BTreeSet<String> = BTreeSet::new();
-    let mut queue: Vec<String> = changed.iter().cloned().collect();
-
-    while let Some(name) = queue.pop() {
-        if impacted.insert(name.clone()) {
-            for &dep in dependents(&name) {
-                if !impacted.contains(dep) {
-                    queue.push(dep.to_string());
-                }
-            }
-        }
-    }
-
-    impacted
-}
-
-fn dependents(crate_name: &str) -> &'static [&'static str] {
-    match crate_name {
-        "uselesskey-core" => &[
-            "uselesskey-rsa",
-            "uselesskey-ecdsa",
-            "uselesskey-ed25519",
-            "uselesskey-hmac",
-            "uselesskey-token",
-            "uselesskey-pgp",
-            "uselesskey-x509",
-            "uselesskey",
-            "uselesskey-bdd",
-        ],
-        "uselesskey-rsa" => &[
-            "uselesskey-x509",
-            "uselesskey",
-            "uselesskey-jsonwebtoken",
-            "uselesskey-rustls",
-            "uselesskey-ring",
-            "uselesskey-rustcrypto",
-            "uselesskey-aws-lc-rs",
-        ],
-        "uselesskey-ecdsa" => &[
-            "uselesskey",
-            "uselesskey-jsonwebtoken",
-            "uselesskey-rustls",
-            "uselesskey-ring",
-            "uselesskey-rustcrypto",
-            "uselesskey-aws-lc-rs",
-        ],
-        "uselesskey-ed25519" => &[
-            "uselesskey",
-            "uselesskey-jsonwebtoken",
-            "uselesskey-rustls",
-            "uselesskey-ring",
-            "uselesskey-rustcrypto",
-            "uselesskey-aws-lc-rs",
-        ],
-        "uselesskey-x509" => &["uselesskey", "uselesskey-rustls", "uselesskey-tonic"],
-        "uselesskey-jwk" => &[
-            "uselesskey-rsa",
-            "uselesskey-ecdsa",
-            "uselesskey-ed25519",
-            "uselesskey-hmac",
-            "uselesskey",
-        ],
-        "uselesskey-hmac" => &[
-            "uselesskey",
-            "uselesskey-jsonwebtoken",
-            "uselesskey-rustcrypto",
-        ],
-        "uselesskey-token" => &["uselesskey"],
-        "uselesskey-pgp" => &["uselesskey"],
-        "uselesskey" => &[],
-        "uselesskey-jsonwebtoken" => &[],
-        "uselesskey-rustls" => &[],
-        "uselesskey-tonic" => &[],
-        "uselesskey-ring" => &[],
-        "uselesskey-rustcrypto" => &[],
-        "uselesskey-aws-lc-rs" => &[],
-        "uselesskey-bdd-steps" => &["uselesskey-bdd"],
-        "uselesskey-bdd" => &["uselesskey-bdd"],
-        "uselesskey-feature-grid" => &["uselesskey-test-grid"],
-        "uselesskey-interop-tests" => &[],
-        "uselesskey-test-grid" => &["uselesskey-bdd"],
-        _ => &[],
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::sync::OnceLock;
+
+    fn build_plan(paths: &[String]) -> Plan {
+        static WORKSPACE: OnceLock<WorkspaceGraph> = OnceLock::new();
+        let workspace = WORKSPACE.get_or_init(|| {
+            WorkspaceGraph::load(
+                std::path::Path::new(env!("CARGO_MANIFEST_DIR"))
+                    .parent()
+                    .unwrap(),
+            )
+            .expect("read the actual locked workspace graph")
+        });
+        super::build_plan(paths, workspace)
+    }
 
     #[test]
     fn docs_only_changes_skip_all() {
@@ -282,9 +306,8 @@ mod tests {
         assert!(!plan.run_tests);
         assert!(!plan.run_feature_matrix);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_fuzz);
+        assert!(!plan.run_fuzz_build);
         assert!(!plan.run_no_blob);
-        assert!(!plan.run_coverage);
         assert!(!plan.run_publish_preflight);
         assert!(plan.impacted_crates.is_empty());
     }
@@ -305,7 +328,7 @@ mod tests {
         assert!(impacted.contains("uselesskey"));
         assert!(impacted.contains("uselesskey-bdd"));
         assert!(plan.run_bdd);
-        assert!(plan.run_fuzz);
+        assert!(!plan.run_fuzz_build);
     }
 
     #[test]
@@ -326,8 +349,7 @@ mod tests {
         assert!(plan.run_clippy);
         assert!(!plan.run_tests);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_fuzz);
-        assert!(!plan.run_coverage);
+        assert!(!plan.run_fuzz_build);
         assert!(!plan.run_root_tests);
         assert!(plan.run_xtask_tests);
         assert!(plan.directly_changed_crates.is_empty());
@@ -348,14 +370,13 @@ mod tests {
     }
 
     #[test]
-    fn fuzz_only_change_runs_fuzz() {
+    fn fuzz_only_change_selects_build_only_evidence() {
         let paths = vec!["fuzz/fuzz_targets/pem_corrupt.rs".to_string()];
         let plan = build_plan(&paths);
         assert!(plan.run_fmt);
         assert!(plan.run_clippy);
-        assert!(plan.run_fuzz);
+        assert!(plan.run_fuzz_build);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_coverage);
     }
 
     #[test]
@@ -367,8 +388,7 @@ mod tests {
         assert!(plan.run_tests);
         assert!(plan.run_root_tests);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_fuzz);
-        assert!(!plan.run_coverage);
+        assert!(!plan.run_fuzz_build);
     }
 
     #[test]
@@ -377,12 +397,11 @@ mod tests {
         let plan = build_plan(&paths);
         assert!(plan.run_root_tests);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_fuzz);
-        assert!(!plan.run_coverage);
+        assert!(!plan.run_fuzz_build);
     }
 
     #[test]
-    fn release_prep_cargo_only_skips_expensive_steps() {
+    fn workspace_cargo_changes_preserve_consumer_and_package_proof() {
         let paths = vec![
             "Cargo.toml".to_string(),
             "crates/uselesskey-core/Cargo.toml".to_string(),
@@ -394,10 +413,11 @@ mod tests {
         assert!(plan.run_tests); // impacted_crates is non-empty
         assert!(plan.run_dep_guard);
         assert!(plan.run_publish_preflight);
-        assert!(!plan.run_bdd);
-        assert!(!plan.run_fuzz);
-        assert!(!plan.run_coverage);
-        assert!(!plan.run_root_tests);
+        assert!(plan.run_bdd);
+        assert!(!plan.run_fuzz_build);
+        assert!(plan.run_root_tests);
+        assert!(plan.run_xtask_tests);
+        assert_eq!(plan.impacted_crates, plan.workspace_packages);
         assert!(plan.directly_changed_crates.is_empty());
     }
 
@@ -424,11 +444,6 @@ mod tests {
     }
 
     #[test]
-    fn dependents_unknown_is_empty() {
-        assert!(dependents("unknown-crate").is_empty());
-    }
-
-    #[test]
     fn bdd_feature_change_runs_bdd() {
         let paths = vec!["crates/uselesskey-bdd/features/rsa.feature".to_string()];
         let plan = build_plan(&paths);
@@ -436,10 +451,10 @@ mod tests {
     }
 
     #[test]
-    fn fuzz_target_change_runs_fuzz() {
+    fn fuzz_target_change_selects_build_only_evidence() {
         let paths = vec!["fuzz/fuzz_targets/pem_corrupt.rs".to_string()];
         let plan = build_plan(&paths);
-        assert!(plan.run_fuzz);
+        assert!(plan.run_fuzz_build);
     }
 
     #[test]
@@ -494,10 +509,12 @@ mod tests {
     }
 
     #[test]
-    fn rust_change_enables_coverage() {
+    fn product_source_does_not_select_fuzz_build() {
         let paths = vec!["crates/uselesskey-core/src/lib.rs".to_string()];
         let plan = build_plan(&paths);
-        assert!(plan.run_coverage);
+        assert!(plan.run_tests);
+        assert!(plan.run_bdd);
+        assert!(!plan.run_fuzz_build);
     }
 
     #[test]
@@ -514,6 +531,8 @@ mod tests {
         assert!(plan.run_feature_matrix);
         assert!(plan.run_fmt);
         assert!(plan.run_clippy);
+        assert_eq!(plan.impacted_crates, plan.workspace_packages);
+        assert!(plan.run_root_tests && plan.run_xtask_tests && plan.run_bdd);
     }
 
     #[test]
@@ -588,9 +607,8 @@ mod tests {
         assert!(!plan.run_feature_matrix);
         assert!(!plan.run_dep_guard);
         assert!(!plan.run_bdd);
-        assert!(!plan.run_fuzz);
+        assert!(!plan.run_fuzz_build);
         assert!(!plan.run_no_blob);
-        assert!(!plan.run_coverage);
         assert!(!plan.run_publish_preflight);
         assert!(!plan.run_root_tests);
         assert!(!plan.run_xtask_tests);
@@ -607,10 +625,9 @@ mod tests {
         assert!(plan.run_clippy, "crate .rs change should trigger clippy");
         assert!(plan.run_fmt, "crate .rs change should trigger fmt");
         assert!(plan.run_bdd, "crate .rs change should trigger bdd");
-        assert!(plan.run_fuzz, "crate .rs change should trigger fuzz");
         assert!(
-            plan.run_coverage,
-            "crate .rs change should trigger coverage"
+            !plan.run_fuzz_build,
+            "crate source does not select fuzz work"
         );
         // feature_matrix only triggers for facade crate, .feature files, or Cargo changes
         assert!(
@@ -652,10 +669,6 @@ mod tests {
             "xtask-only change should not trigger crate tests"
         );
         assert!(!plan.run_bdd, "xtask-only change should not trigger bdd");
-        assert!(
-            !plan.run_coverage,
-            "xtask-only change should not trigger coverage"
-        );
     }
 
     #[test]
@@ -669,12 +682,8 @@ mod tests {
             ".feature file under uselesskey-bdd should trigger feature_matrix"
         );
         assert!(
-            !plan.run_fuzz,
+            !plan.run_fuzz_build,
             "bdd feature-only change should not trigger fuzz"
-        );
-        assert!(
-            !plan.run_coverage,
-            "bdd feature-only change should not trigger coverage"
         );
     }
 
@@ -697,10 +706,6 @@ mod tests {
             plan.run_feature_matrix,
             "Cargo.toml change should trigger feature_matrix"
         );
-        assert!(
-            !plan.run_coverage,
-            "Cargo.toml-only change should not trigger coverage"
-        );
     }
 
     #[test]
@@ -708,14 +713,14 @@ mod tests {
         let paths = vec!["fuzz/fuzz_targets/pem_corrupt.rs".to_string()];
         let plan = build_plan(&paths);
         assert!(!plan.docs_only);
-        assert!(plan.run_fuzz, "fuzz .rs change should trigger fuzz");
+        assert!(
+            plan.run_fuzz_build,
+            "fuzz .rs change selects build-only PR-lite evidence"
+        );
         assert!(plan.run_fmt, "fuzz .rs change should trigger fmt");
         assert!(plan.run_clippy, "fuzz .rs change should trigger clippy");
         assert!(!plan.run_bdd, "fuzz-only change should not trigger bdd");
-        assert!(
-            !plan.run_coverage,
-            "fuzz-only change should not trigger coverage"
-        );
+
         assert!(
             !plan.run_tests,
             "fuzz-only change should not trigger crate tests"
@@ -738,10 +743,6 @@ mod tests {
         assert!(
             !plan.run_bdd,
             "root tests-only change should not trigger bdd"
-        );
-        assert!(
-            !plan.run_coverage,
-            "root tests-only change should not trigger coverage"
         );
     }
 
@@ -794,9 +795,8 @@ mod tests {
         // Crate .rs change flags
         assert!(plan.run_tests);
         assert!(plan.run_bdd);
-        assert!(plan.run_coverage);
         // Fuzz change
-        assert!(plan.run_fuzz);
+        assert!(plan.run_fuzz_build);
         // Xtask change
         assert!(plan.run_xtask_tests);
         // Cargo.toml change
@@ -868,5 +868,193 @@ mod tests {
         // directly_changed_crates should only have the core crate
         assert_eq!(plan.directly_changed_crates.len(), 1);
         assert!(plan.directly_changed_crates.contains("uselesskey-core"));
+    }
+
+    #[test]
+    fn control_paths_are_not_documentation_only() {
+        for path in [
+            ".github/workflows/required.yml",
+            "scripts/seal-development-proof.py",
+            "policy/non-rust-allowlist.toml",
+            "rust-toolchain.toml",
+            ".cargo/config.toml",
+            ".githooks/pre-commit",
+            ".rails/index.toml",
+            "docs/schemas/receipt.json",
+        ] {
+            let plan = build_plan(&[path.to_string()]);
+            assert!(!plan.docs_only, "control path: {path}");
+            assert!(plan.control_paths.contains(path), "control path: {path}");
+            assert!(
+                plan.unclassified_paths.is_empty(),
+                "known control path: {path}"
+            );
+            assert!(!plan.run_fuzz_build);
+        }
+    }
+
+    #[test]
+    fn unknown_paths_do_not_acquire_documentation_proof() {
+        for path in [
+            "unknown.asset",
+            " scripts/test_fake.py",
+            "scripts/control.rb",
+            "src/new.rs",
+        ] {
+            let plan = build_plan(&[path.to_string()]);
+            assert!(!plan.docs_only, "unknown path: {path}");
+            assert!(
+                plan.unclassified_paths.contains(path),
+                "unknown path: {path}"
+            );
+        }
+    }
+
+    #[test]
+    fn current_unowned_crates_refuse_but_removed_packages_keep_conservative_routing()
+    -> anyhow::Result<()> {
+        use std::fs;
+
+        let directory = tempfile::tempdir()?;
+        let root = directory.path();
+        let manifest = root.join("Cargo.toml");
+        fs::write(
+            &manifest,
+            "[workspace]\nresolver = \"2\"\nmembers = [\"crates/original-dir\", \"crates/consumer\", \"crates/removed\"]\nexclude = [\"crates/excluded\"]\n",
+        )?;
+        for (directory, name, dependencies) in [
+            ("original-dir", "new-owner-name", ""),
+            (
+                "consumer",
+                "consumer",
+                "[dependencies]\ninput = { package = \"new-owner-name\", path = \"../original-dir\" }\n",
+            ),
+            ("removed", "removed", ""),
+            ("excluded", "excluded", ""),
+        ] {
+            let package = root.join("crates").join(directory);
+            fs::create_dir_all(package.join("src"))?;
+            fs::write(package.join("src/lib.rs"), "pub fn fixture() {}\n")?;
+            fs::write(
+                package.join("Cargo.toml"),
+                format!(
+                    "[package]\nname = {name:?}\nversion = \"0.1.0\"\nedition = \"2024\"\n{dependencies}"
+                ),
+            )?;
+        }
+
+        let workspace = WorkspaceGraph::load(root)?;
+        for path in ["crates/excluded/src/lib.rs", "crates/excluded/Cargo.toml"] {
+            let plan = super::build_plan(&[path.to_string()], &workspace);
+            assert_eq!(plan.unclassified_paths, BTreeSet::from([path.to_string()]));
+            assert!(!plan.impacted_crates.contains("excluded"));
+            assert!(!plan.docs_only);
+        }
+        #[cfg(unix)]
+        {
+            let dangling = "crates/excluded/src/dangling.rs";
+            std::os::unix::fs::symlink("absent-target", root.join(dangling))?;
+            let plan = super::build_plan(&[dangling.to_string()], &workspace);
+            assert!(plan.unclassified_paths.contains(dangling));
+        }
+
+        let renamed =
+            super::build_plan(&["crates/original-dir/src/lib.rs".to_string()], &workspace);
+        assert!(renamed.unclassified_paths.is_empty());
+        assert_eq!(
+            renamed.directly_changed_crates,
+            BTreeSet::from(["new-owner-name".to_string()])
+        );
+        assert_eq!(
+            renamed.impacted_crates,
+            BTreeSet::from(["new-owner-name".to_string(), "consumer".to_string()])
+        );
+
+        fs::remove_dir_all(root.join("crates/removed"))?;
+        fs::write(
+            &manifest,
+            "[workspace]\nresolver = \"2\"\nmembers = [\"crates/original-dir\", \"crates/consumer\"]\nexclude = [\"crates/excluded\"]\n",
+        )?;
+        let workspace = WorkspaceGraph::load(root)?;
+        let removed = super::build_plan(
+            &[
+                "Cargo.toml".to_string(),
+                "crates/removed/Cargo.toml".to_string(),
+                "crates/removed/src/lib.rs".to_string(),
+            ],
+            &workspace,
+        );
+        assert!(removed.unclassified_paths.is_empty());
+        assert!(removed.directly_changed_crates.contains("removed"));
+        assert_eq!(removed.impacted_crates, workspace.packages());
+        assert!(removed.run_tests && removed.run_publish_preflight && removed.run_dep_guard);
+        assert!(removed.run_feature_matrix);
+        Ok(())
+    }
+
+    #[test]
+    fn docs_do_not_mask_an_unknown_or_control_path() {
+        let plan = build_plan(&["README.md".to_string(), "unknown.asset".to_string()]);
+        assert!(!plan.docs_only);
+        assert_eq!(
+            plan.unclassified_paths,
+            BTreeSet::from(["unknown.asset".to_string()])
+        );
+        let plan = build_plan(&["README.md".to_string(), "scripts/tool.py".to_string()]);
+        assert!(!plan.docs_only);
+        assert_eq!(
+            plan.control_paths,
+            BTreeSet::from(["scripts/tool.py".to_string()])
+        );
+    }
+
+    #[test]
+    fn fuzz_owned_manifests_and_corpus_select_only_the_build_obligation() {
+        for path in [
+            "fuzz/Cargo.toml",
+            "fuzz/Cargo.lock",
+            "fuzz/corpus/pem_corrupt/sample",
+        ] {
+            let plan = build_plan(&[path.to_string()]);
+            assert!(plan.run_fuzz_build, "fuzz path: {path}");
+            assert!(!plan.docs_only);
+            assert!(!plan.run_tests);
+            assert!(!plan.run_bdd);
+        }
+        let plan = build_plan(&["fuzz/README.md".to_string()]);
+        assert!(plan.docs_only);
+        assert!(!plan.run_fuzz_build);
+    }
+
+    #[test]
+    fn reduced_plan_preserves_package_and_consumer_obligations() {
+        let paths = [
+            "crates/uselesskey-rsa/Cargo.toml".to_string(),
+            "crates/uselesskey-rsa/src/lib.rs".to_string(),
+            "crates/uselesskey-rsa/tests/regression.rs".to_string(),
+            "xtask/src/plan.rs".to_string(),
+            "tests/governance.rs".to_string(),
+        ];
+        let plan = build_plan(&paths);
+        assert!(plan.run_fmt && plan.run_clippy && plan.run_tests);
+        assert!(plan.run_feature_matrix && plan.run_dep_guard && plan.run_publish_preflight);
+        assert!(plan.run_bdd && plan.run_root_tests && plan.run_xtask_tests && plan.run_no_blob);
+        assert!(plan.impacted_crates.contains("uselesskey-jsonwebtoken"));
+        assert!(plan.impacted_crates.contains("uselesskey-tonic"));
+        assert!(!plan.run_fuzz_build);
+        let reversed = build_plan(&paths.into_iter().rev().collect::<Vec<_>>());
+        assert_eq!(plan.impacted_crates, reversed.impacted_crates);
+        assert_eq!(plan.control_paths, reversed.control_paths);
+    }
+
+    #[test]
+    fn core_change_reaches_consumers_missing_from_the_old_table() {
+        let plan = build_plan(&["crates/uselesskey-core/src/lib.rs".to_string()]);
+        for name in ["uselesskey-axum", "uselesskey-ssh", "uselesskey-webhook"] {
+            assert!(
+                plan.impacted_crates.contains(name),
+                "declared consumer: {name}"
+            );
+        }
     }
 }
