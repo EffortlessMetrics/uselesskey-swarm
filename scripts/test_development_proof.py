@@ -496,6 +496,20 @@ class DevelopmentProofTests(unittest.TestCase):
         with self.assertRaisesRegex(proof.ProofError, "required successful obligation"):
             proof.seal(self.root, path)
 
+    def test_embedded_raw_nonfinite_numbers_fail_even_with_rebound_digest(self):
+        path, envelope = self.success()
+        for value in (float("nan"), float("inf"), float("-inf")):
+            with self.subTest(value=value):
+                changed = copy.deepcopy(envelope)
+                raw = json.loads(changed["xtask_receipt"]["utf8"])
+                raw["bdd_counts"]["passed"] = value
+                # Deliberately generate Python's nonstandard JSON numeric tokens.
+                data = proof.encode(raw)
+                changed["xtask_receipt"] = {"utf8": data.decode(), "sha256": proof.sha256(data)}
+                self.update_envelope(path, changed)
+                with self.assertRaisesRegex(proof.ProofError, "non-finite JSON"):
+                    proof.seal(self.root, path)
+
     def test_seal_validates_and_hashes_one_read_snapshot(self):
         path, _ = self.success()
         original = path.read_bytes()

@@ -58,6 +58,9 @@ def exact_keys(value: Any, required: set[str], optional: set[str] = frozenset())
         raise ProofError(f"unexpected or missing fields: expected {sorted(required)}")
 
 def json_object(data: bytes) -> dict[str, Any]:
+    def reject_constant(value: str) -> None:
+        raise ProofError(f"non-finite JSON number is not permitted: {value}")
+
     def unique(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
         result: dict[str, Any] = {}
         for key, value in pairs:
@@ -67,7 +70,9 @@ def json_object(data: bytes) -> dict[str, Any]:
         return result
 
     try:
-        result = json.loads(data.decode("utf-8"), object_pairs_hook=unique)
+        result = json.loads(
+            data.decode("utf-8"), object_pairs_hook=unique, parse_constant=reject_constant
+        )
     except (UnicodeError, json.JSONDecodeError) as exc:
         raise ProofError(f"invalid UTF-8 JSON: {exc}") from exc
     if not isinstance(result, dict):
