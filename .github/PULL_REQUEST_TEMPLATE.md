@@ -48,8 +48,31 @@ Check one:
 
 ## Proof
 
+Focused proof for the changed behavior:
+
 ```bash
 ```
+
+Final exact-head development proof:
+
+```bash
+cargo xtask pr
+python3 scripts/seal-development-proof.py
+```
+
+Receipt: `target/xtask/receipt.json`
+
+```toml
+head = "0000000000000000000000000000000000000000"
+proof_head = "0000000000000000000000000000000000000000"
+proof_receipt_sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
+```
+
+- [ ] receipt is bound to the exact final head
+- [ ] no failed or unknown proof result remains
+- [ ] every skipped result is appropriate and explained
+- [ ] substantive review is complete
+- [ ] known blockers are empty
 
 ## Claim boundary
 
