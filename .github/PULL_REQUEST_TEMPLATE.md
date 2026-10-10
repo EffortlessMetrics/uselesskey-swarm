@@ -48,7 +48,11 @@ Check one:
 
 ## Proof
 
-Focused proof for the changed behavior:
+Accepted proof-plan SHA-256 and review reference:
+
+Exact existing ancestor base:
+
+Focused proof commands are part of the plan and invocation envelope:
 
 ```bash
 ```
@@ -56,11 +60,14 @@ Focused proof for the changed behavior:
 Final exact-head development proof:
 
 ```bash
-cargo xtask pr
-python3 scripts/seal-development-proof.py
+python3 -B scripts/seal-development-proof.py --run \
+  --base <full-existing-ancestor-commit> \
+  --plan target/development-proof-plan.toml
 ```
 
-Receipt: `target/xtask/receipt.json`
+Invocation envelope: `target/development-proof/runs/<invocation_id>/receipt.json`
+
+Immutable envelope locator (retain the complete bytes separately from the proven candidate):
 
 ```toml
 head = "0000000000000000000000000000000000000000"
@@ -68,10 +75,13 @@ proof_head = "0000000000000000000000000000000000000000"
 proof_receipt_sha256 = "0000000000000000000000000000000000000000000000000000000000000000"
 ```
 
-- [ ] receipt is bound to the exact final head
+- [ ] envelope is bound to the exact final head, tree, and existing ancestor base
+- [ ] the complete invocation succeeded, including every required obligation
+- [ ] focused proof and the plan's adequacy have been reviewed
 - [ ] no failed or unknown proof result remains
-- [ ] every skipped result is appropriate and explained
-- [ ] substantive review is complete
+- [ ] every skipped result is preserved and explicitly justified in the accepted plan
+- [ ] immutable envelope bytes match the recorded digest
+- [ ] substantive review covers the exact final head
 - [ ] known blockers are empty
 
 ## Claim boundary
