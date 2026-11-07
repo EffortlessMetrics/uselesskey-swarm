@@ -371,7 +371,7 @@ pub fn check_no_panic_family() -> Result<()> {
             baselined_count += 1;
             continue;
         }
-        // Unallowlisted *and* not in the baseline → genuinely new debt.
+        // Unallowlisted *and* not in the baseline â†’ genuinely new debt.
         unallowlisted.push(finding);
         new_findings.push(finding);
     }
@@ -553,7 +553,7 @@ pub fn no_panic_baseline(reset: bool) -> Result<()> {
     };
 
     let mut buf = String::new();
-    buf.push_str("# Effortless Metrics — no-panic baseline snapshot\n");
+    buf.push_str("# Effortless Metrics â€” no-panic baseline snapshot\n");
     buf.push_str("#\n");
     buf.push_str("# This file pins the panic-family findings present at the time of\n");
     buf.push_str("# generation. New findings outside this baseline are blocked when the\n");
@@ -738,7 +738,7 @@ fn render_no_panic_md(
         s.push_str("First 50 shown.\n\n");
         for f in unallowlisted.iter().take(50) {
             s.push_str(&format!(
-                "- `{}:{}:{}` — `{}` ({})\n",
+                "- `{}:{}:{}` â€” `{}` ({})\n",
                 f.path, f.line, f.column, f.family, f.selector_callee
             ));
         }
@@ -2538,7 +2538,7 @@ pub fn policy_report() -> Result<()> {
     for (k, v) in obj {
         let ok = v.get("ok").and_then(|x| x.as_bool()).unwrap_or(false);
         let symbol = if ok { "OK" } else { "FAIL" };
-        md.push_str(&format!("## {k} — {symbol}\n\n"));
+        md.push_str(&format!("## {k} â€” {symbol}\n\n"));
         if !ok && let Some(err) = v.get("error").and_then(|x| x.as_str()) {
             md.push_str(&format!("Error: `{err}`\n\n"));
         }
@@ -2703,7 +2703,7 @@ mod tests {
     }
 
     #[test]
-    fn routed_docs_policy_job_uses_tiny_runner_with_fork_guard() -> Result<()> {
+    fn routed_docs_policy_job_uses_hosted_runner_with_fork_guard() -> Result<()> {
         let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../.github/workflows/em-ci-routed-rust.yml");
         let workflow = fs::read_to_string(&workflow_path)
@@ -2719,8 +2719,7 @@ mod tests {
         for expected in [
             "target == 'docs'",
             "github.event.pull_request.head.repo.full_name == github.repository",
-            "group: em-ci-tiny",
-            "labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]",
+            "runs-on: ubuntu-latest",
             "persist-credentials: false",
         ] {
             assert!(
@@ -2728,6 +2727,10 @@ mod tests {
                 "docs/policy light job missing trust or runner contract: {expected}"
             );
         }
+        anyhow::ensure!(
+            !job.contains("labels: [self-hosted"),
+            "light proof must use hosted capacity"
+        );
         Ok(())
     }
 
@@ -2802,7 +2805,7 @@ mod tests {
     }
 
     #[test]
-    fn routed_workflow_validation_job_uses_tiny_runner_with_fork_guard() -> Result<()> {
+    fn routed_workflow_validation_job_uses_hosted_runner_with_fork_guard() -> Result<()> {
         let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../.github/workflows/em-ci-routed-rust.yml");
         let workflow = fs::read_to_string(&workflow_path)
@@ -2820,8 +2823,7 @@ mod tests {
             "target == 'workflow'",
             "github.event_name != 'pull_request'",
             "github.event.pull_request.head.repo.full_name == github.repository",
-            "group: em-ci-tiny",
-            "labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]",
+            "runs-on: ubuntu-latest",
             "persist-credentials: false",
             "workflow YAML validation requires Python 3 with PyYAML or Ruby YAML",
         ] {
@@ -2830,7 +2832,10 @@ mod tests {
                 "workflow validation job missing runner or trust contract: {expected}"
             );
         }
-        assert!(!job.contains("runs-on: ubuntu-latest"));
+        anyhow::ensure!(
+            !job.contains("labels: [self-hosted"),
+            "light proof must use hosted capacity"
+        );
         Ok(())
     }
 
@@ -3143,7 +3148,7 @@ jobs:
             "\"surface\": \"goal_manifest\"",
             "\"reason\": \"implementation or unknown surface; route to broad Rust proof\"",
             "\"route_reasons\": route_reasons",
-            "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
+            "cargo test -p xtask routed_",
             "\"local_reproduction\": local_reproduction",
             "Upload proof route receipt",
             "name: proof-route",
