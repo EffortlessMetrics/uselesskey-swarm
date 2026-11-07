@@ -970,12 +970,8 @@ jobs:
     if: >-
       needs.route-uselesskey-rust-small.outputs.target == 'workflow' &&
       (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    # This lane compiles xtask and therefore needs the Rust-capable tiny tier.
-    # Fork PRs are routed to the hosted fallback and are also excluded here as
-    # defense in depth for the trusted self-hosted runner.
-    runs-on:
-      group: em-ci-tiny
-      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
+    # Light proof must not wait for private fleet capacity.
+    runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
       - uses: actions/checkout@v7
@@ -986,7 +982,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
 
       - name: Check routed workflow contract
-        run: cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract
+        run: cargo test -p xtask routed_
 
       - name: Check workflow hygiene guard
         run: ci/check-bare-self-hosted.sh
@@ -1031,12 +1027,8 @@ jobs:
     name: Uselesskey Docs/Policy Light on GitHub Hosted
     needs: route-uselesskey-rust-small
     if: needs.route-uselesskey-rust-small.outputs.target == 'docs' && (github.event_name != 'pull_request' || github.event.pull_request.head.repo.full_name == github.repository)
-    # This lane is selected only after the hosted router classifies the change;
-    # keep fork PRs on the hosted fallback and reserve the tiny fleet for trusted
-    # same-repository automation.
-    runs-on:
-      group: em-ci-tiny
-      labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]
+    # Light proof must not wait for private fleet capacity.
+    runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
