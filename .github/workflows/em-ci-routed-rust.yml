@@ -1003,12 +1003,32 @@ jobs:
       - name: Check routed workflow contract
         run: cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract
 
+      - name: Check verified workflow lint contract
+        run: cargo test -p xtask workflow_validation_uses_pinned_offline_jactionlint
+
       - name: Check workflow hygiene guard
         run: ci/check-bare-self-hosted.sh
+
+      - name: Install verified jactionlint
+        id: jactionlint_binary
+        env:
+          JACTIONLINT_VERSION: 2.5.0
+          JACTIONLINT_SHA256: 5ac307b0499bb0eab45ae99c23e8e0790874fbc667c75224410954e0e3c6e0f5
+        run: |
+          set -euo pipefail
+          archive="jactionlint_${JACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          install_dir="$(mktemp -d "$RUNNER_TEMP/jactionlint.XXXXXX")"
+          curl --fail --silent --show-error --location --connect-timeout 15 --max-time 60 \
+            "https://github.com/jdx/jactionlint/releases/download/v${JACTIONLINT_VERSION}/${archive}" \
+            --output "$install_dir/$archive"
+          echo "$JACTIONLINT_SHA256  $install_dir/$archive" | sha256sum --check --status
+          tar --extract --gzip --file "$install_dir/$archive" --directory "$install_dir"
+          printf 'executable=%s\n' "$install_dir/jactionlint" >> "$GITHUB_OUTPUT"
 
       - name: Lint workflow semantics
         uses: jdx/jactionlint@9e87e8f34edfc00b849a27807e26eff9d00b936d # v2.5.0
         with:
+          executable: ${{ steps.jactionlint_binary.outputs.executable }}
           version: '2.5.0'
           profile: correctness
           online: 'false'

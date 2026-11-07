@@ -2746,7 +2746,15 @@ mod tests {
             .ok_or_else(|| anyhow::anyhow!("workflow validation job boundary missing"))?;
 
         for expected in [
+            "name: Install verified jactionlint",
+            "id: jactionlint_binary",
+            "JACTIONLINT_VERSION: 2.5.0",
+            "JACTIONLINT_SHA256: 5ac307b0499bb0eab45ae99c23e8e0790874fbc667c75224410954e0e3c6e0f5",
+            "set -euo pipefail",
+            "archive=\"jactionlint_${JACTIONLINT_VERSION}_linux_amd64.tar.gz\"",
+            "https://github.com/jdx/jactionlint/releases/download/v${JACTIONLINT_VERSION}/${archive}",
             "uses: jdx/jactionlint@9e87e8f34edfc00b849a27807e26eff9d00b936d",
+            "executable: ${{ steps.jactionlint_binary.outputs.executable }}",
             "version: '2.5.0'",
             "profile: correctness",
             "online: 'false'",
@@ -2763,6 +2771,24 @@ mod tests {
                 "workflow validation must not bypass semantic lint: {forbidden}"
             );
         }
+        let verify = job
+            .find(
+                "          echo \"$JACTIONLINT_SHA256  $install_dir/$archive\" | sha256sum --check --status\n",
+            )
+            .expect("archive checksum must be verified");
+        let extract = job
+            .find("tar --extract --gzip --file \"$install_dir/$archive\" --directory \"$install_dir\"")
+            .expect("verified archive must be extracted");
+        let expose = job
+            .find("printf 'executable=%s\\n' \"$install_dir/jactionlint\" >> \"$GITHUB_OUTPUT\"")
+            .expect("only the verified executable may be exposed");
+        let lint = job
+            .find("uses: jdx/jactionlint@")
+            .expect("semantic lint action must remain");
+        assert!(
+            verify < extract && extract < expose && expose < lint,
+            "checksum verification must precede extraction, exposure and execution"
+        );
         Ok(())
     }
 
