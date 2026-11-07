@@ -91,6 +91,22 @@ Path ignores exist but require ongoing maintenance. This crate replaces "securit
 
 ## Build Commands
 
+For workflow/action/config changes, run this static check from the repository
+root before pushing:
+
+```bash
+uvx --from jactionlint==2.5.0 jactionlint --profile correctness --no-online --shellcheck= --pyflakes=
+```
+
+A user-level `uv tool install jactionlint==2.5.0` exposes `jactionlint` directly
+with the same arguments. The existing workflow-validation route runs the pinned
+action, retains its runner/contract checks, and reads `.github/actionlint.yaml`
+for self-hosted labels. Optional ShellCheck/Pyflakes integration is deliberately
+excluded from this initial semantic gate; keep separate script checks. A plain
+YAML parse is not equivalent proof. If the command is unavailable, use the
+pinned `uvx` invocation or report the actual tooling failure instead of claiming
+validation. Do not use `jactionlint run` for this check.
+
 ```bash
 cargo xtask ci              # Full receipt-backed CI: fmt, clippy, typos, deny, tests, matrix, docs, public surface, BDD, no-blob, fuzz
 cargo xtask pr              # Fast PR-scoped tests based on git diff (emits JSON receipt)

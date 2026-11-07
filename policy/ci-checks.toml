@@ -111,12 +111,13 @@ local_reproduction = [
 name = "Uselesskey Workflow Validation on GitHub Hosted"
 workflow = "EM CI Routed Rust"
 role = "conditional-route"
-scope = "Workflow-change route that validates workflow hygiene and YAML parseability."
+scope = "Workflow-change route that validates workflow hygiene and offline jactionlint correctness semantics."
 operator_action = "Use for workflow-shape evidence; run broader proof only when the workflow change changes product or Rust behavior."
 local_reproduction = [
   "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
   "cargo test -p xtask workflow_hygiene_guard",
   "bash ci/check-bare-self-hosted.sh .github/workflows",
+  "uvx --from jactionlint==2.5.0 jactionlint --profile correctness --no-online --shellcheck= --pyflakes=",
 ]
 
 [[check]]
