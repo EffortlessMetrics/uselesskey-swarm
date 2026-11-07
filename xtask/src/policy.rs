@@ -2732,7 +2732,7 @@ mod tests {
     }
 
     #[test]
-    fn workflow_validation_parser_fails_closed_without_yaml_tooling() -> Result<()> {
+    fn workflow_validation_uses_pinned_offline_jactionlint() -> Result<()> {
         let workflow_path = Path::new(env!("CARGO_MANIFEST_DIR"))
             .join("../.github/workflows/em-ci-routed-rust.yml");
         let workflow = fs::read_to_string(&workflow_path)
@@ -2746,20 +2746,49 @@ mod tests {
             .ok_or_else(|| anyhow::anyhow!("workflow validation job boundary missing"))?;
 
         for expected in [
-            "command -v python3",
-            "python3 -c 'import yaml'",
-            "import yaml",
-            "command -v ruby",
-            "require \"yaml\"",
-            "workflow YAML validation requires Python 3 with PyYAML or Ruby YAML",
-            "exit 1",
+            "name: Install verified jactionlint",
+            "id: jactionlint_binary",
+            "JACTIONLINT_VERSION: 2.5.0",
+            "JACTIONLINT_SHA256: 5ac307b0499bb0eab45ae99c23e8e0790874fbc667c75224410954e0e3c6e0f5",
+            "set -euo pipefail",
+            "archive=\"jactionlint_${JACTIONLINT_VERSION}_linux_amd64.tar.gz\"",
+            "https://github.com/jdx/jactionlint/releases/download/v${JACTIONLINT_VERSION}/${archive}",
+            "uses: jdx/jactionlint@9e87e8f34edfc00b849a27807e26eff9d00b936d",
+            "executable: ${{ steps.jactionlint_binary.outputs.executable }}",
+            "version: '2.5.0'",
+            "profile: correctness",
+            "online: 'false'",
+            "args: --shellcheck= --pyflakes=",
         ] {
             assert!(
                 job.contains(expected),
-                "workflow validation job missing parser contract: {expected}"
+                "workflow validation job missing semantic lint contract: {expected}"
             );
         }
-        assert!(!job.contains("non-empty"));
+        for forbidden in ["continue-on-error", "--ignore", "--baseline", "import yaml"] {
+            assert!(
+                !job.contains(forbidden),
+                "workflow validation must not bypass semantic lint: {forbidden}"
+            );
+        }
+        let verify = job
+            .find(
+                "          echo \"$JACTIONLINT_SHA256  $install_dir/$archive\" | sha256sum --check --status\n",
+            )
+            .expect("archive checksum must be verified");
+        let extract = job
+            .find("tar --extract --gzip --file \"$install_dir/$archive\" --directory \"$install_dir\"")
+            .expect("verified archive must be extracted");
+        let expose = job
+            .find("printf 'executable=%s\\n' \"$install_dir/jactionlint\" >> \"$GITHUB_OUTPUT\"")
+            .expect("only the verified executable may be exposed");
+        let lint = job
+            .find("uses: jdx/jactionlint@")
+            .expect("semantic lint action must remain");
+        assert!(
+            verify < extract && extract < expose && expose < lint,
+            "checksum verification must precede extraction, exposure and execution"
+        );
         Ok(())
     }
 
@@ -2823,7 +2852,7 @@ mod tests {
             "group: em-ci-tiny",
             "labels: [self-hosted, linux, x64, em-ci, trusted-pr, rust, rust-tiny]",
             "persist-credentials: false",
-            "workflow YAML validation requires Python 3 with PyYAML or Ruby YAML",
+            "name: Lint workflow semantics",
         ] {
             assert!(
                 job.contains(expected),

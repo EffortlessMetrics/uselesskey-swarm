@@ -177,6 +177,17 @@ jobs:
                       "target": "workflow",
                       "reason": "actionlint runner-label config; workflow validation checks workflow policy",
                 }
+              if path in {
+                  ".github/actionlint.yml", ".github/jactionlint.yaml",
+                  ".github/jactionlint.yml", ".github/dependabot.yml",
+                  ".github/dependabot.yaml", "action.yml", "action.yaml",
+              } or path.endswith(("/action.yml", "/action.yaml")):
+                  return {
+                      "path": path,
+                      "surface": "workflow_policy_config",
+                      "target": "workflow",
+                      "reason": "action metadata or linter/dependabot config; run semantic workflow validation",
+                  }
               if fnmatch.fnmatch(path, ".github/ISSUE_TEMPLATE/*"):
                   return {
                       "path": path,
@@ -293,6 +304,7 @@ jobs:
                   "cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract",
                   "cargo test -p xtask workflow_hygiene_guard",
                   "bash ci/check-bare-self-hosted.sh .github/workflows",
+                  "uvx --from jactionlint==2.5.0 jactionlint --profile correctness --no-online --shellcheck= --pyflakes=",
               ],
               "github": [
                   "cargo check --workspace --locked --all-targets",
@@ -413,6 +425,9 @@ jobs:
                   has_policy_test="true"
                   ;;
                 .github/actionlint.yaml)
+                  has_workflow="true"
+                  ;;
+                .github/actionlint.yml|.github/jactionlint.yaml|.github/jactionlint.yml|.github/dependabot.yml|.github/dependabot.yaml|action.yml|action.yaml|*/action.yml|*/action.yaml)
                   has_workflow="true"
                   ;;
                 README.md|CHANGELOG.md|SECURITY.md|CONTRIBUTING.md|LICENSE|LICENSE-*|NOTICE|AGENTS.md|docs/*|docs/tracking/*|badges/*|policy/*|plans/*|ci/hardware/*|.rails/*|.uselesskey/*|.codex/campaigns/*|.github/CODEOWNERS|.github/dependabot.yml|.github/ISSUE_TEMPLATE/*|.github/pull_request_template.md|.github/PULL_REQUEST_TEMPLATE.md|.github/PULL_REQUEST_TEMPLATE/*)
@@ -988,29 +1003,38 @@ jobs:
       - name: Check routed workflow contract
         run: cargo test -p xtask routed_rust_workflow_uses_org_runner_discovery_and_capacity_contract
 
+      - name: Check verified workflow lint contract
+        run: cargo test -p xtask workflow_validation_uses_pinned_offline_jactionlint
+
       - name: Check workflow hygiene guard
         run: ci/check-bare-self-hosted.sh
 
-      - name: Parse workflow YAML
-        shell: bash
+      - name: Install verified jactionlint
+        id: jactionlint_binary
+        env:
+          JACTIONLINT_VERSION: 2.5.0
+          JACTIONLINT_SHA256: 5ac307b0499bb0eab45ae99c23e8e0790874fbc667c75224410954e0e3c6e0f5
         run: |
           set -euo pipefail
-          if command -v python3 >/dev/null 2>&1 && python3 -c 'import yaml' >/dev/null 2>&1; then
-            python3 - <<'PY'
-          import glob
-          import yaml
+          archive="jactionlint_${JACTIONLINT_VERSION}_linux_amd64.tar.gz"
+          install_dir="$(mktemp -d "$RUNNER_TEMP/jactionlint.XXXXXX")"
+          curl --fail --silent --show-error --location --connect-timeout 15 --max-time 60 \
+            "https://github.com/jdx/jactionlint/releases/download/v${JACTIONLINT_VERSION}/${archive}" \
+            --output "$install_dir/$archive"
+          echo "$JACTIONLINT_SHA256  $install_dir/$archive" | sha256sum --check --status
+          tar --extract --gzip --file "$install_dir/$archive" --directory "$install_dir"
+          printf 'executable=%s\n' "$install_dir/jactionlint" >> "$GITHUB_OUTPUT"
 
-          for path in sorted(glob.glob(".github/workflows/*.yml")):
-              with open(path, encoding="utf-8") as fh:
-                  yaml.safe_load(fh)
-              print(f"parsed {path}")
-          PY
-          elif command -v ruby >/dev/null 2>&1; then
-            ruby -e 'require "yaml"; Dir.glob(".github/workflows/*.yml").sort.each { |path| YAML.load_file(path); puts "parsed #{path}" }'
-          else
-            echo "::error::workflow YAML validation requires Python 3 with PyYAML or Ruby YAML" >&2
-            exit 1
-          fi
+      - name: Lint workflow semantics
+        uses: jdx/jactionlint@9e87e8f34edfc00b849a27807e26eff9d00b936d # v2.5.0
+        with:
+          executable: ${{ steps.jactionlint_binary.outputs.executable }}
+          version: '2.5.0'
+          profile: correctness
+          online: 'false'
+          # Keep semantic proof stable across hosted and self-hosted tool inventories.
+          # Optional shell/Python lint is separate from this initial gate.
+          args: --shellcheck= --pyflakes=
 
   uselesskey-route-failed:
     name: Uselesskey Route Failed
